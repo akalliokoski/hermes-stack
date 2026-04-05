@@ -73,25 +73,22 @@ services:
     networks: [hermes]
 
   # ---------------------------------------------------------------------------
-  # Syncthing – sync profiles / skills / notes → MacBook Pro
-  # Web UI:  http://localhost:8384  (bind to 0.0.0.0 so VPS firewall controls access)
+  # Syncthing – sync hermes data (profiles, skills, notes, …) → MacBook Pro
+  # Runs over Tailscale – no public port exposure needed.
+  # Web UI accessible via: ssh -L 8384:localhost:8384 my-vps
+  # Sync protocol bound to Tailscale interface only (set in Syncthing GUI).
   # ---------------------------------------------------------------------------
   syncthing:
     image: syncthing/syncthing:latest
     restart: unless-stopped
     hostname: hermes-vps
-    ports:
-      - "8384:8384"         # Web UI
-      - "22000:22000/tcp"   # Sync protocol TCP
-      - "22000:22000/udp"   # Sync protocol QUIC
-      - "21027:21027/udp"   # Local discovery
+    network_mode: host        # allows Syncthing to see the Tailscale interface
     volumes:
       - syncthing_config:/var/syncthing
       - ./profiles:/sync/profiles      # agent profile configs
       - ./sync:/sync/shared            # general shared folder (skills, notes, …)
     environment:
       PCAP: ""              # suppress unnecessary capabilities warning
-    networks: [hermes]
 
 networks:
   hermes:
