@@ -63,8 +63,13 @@ services:
     ports:
       - "127.0.0.1:8888:8888"   # REST API
       - "127.0.0.1:9999:9999"   # Control Plane UI
+    environment:
+      HINDSIGHT_API_LLM_API_KEY: ${HINDSIGHT_LLM_API_KEY}
+      HINDSIGHT_API_LLM_PROVIDER: ${HINDSIGHT_LLM_PROVIDER:-anthropic}
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_LLM_MODEL:-claude-sonnet-4-6}
+      HINDSIGHT_DB_PASSWORD: ${HINDSIGHT_DB_PASSWORD}
     volumes:
-      - hindsight_data:/data
+      - hindsight_data:/home/hindsight/.pg0
     networks: [hermes]
 
   # ---------------------------------------------------------------------------
