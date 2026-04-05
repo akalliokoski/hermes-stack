@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # deploy.sh – run from MacBook to deploy the stack to VPS over Tailscale
+#
+# One-time bootstrap (first deploy only):
+#   scp .env "${VPS_HOST}:${VPS_DIR}/.env"
+#   ssh "${VPS_HOST}" "bash -s" < scripts/vps-setup.sh
+#
 set -euo pipefail
 
 # Load VPS_HOST / VPS_DIR from local .env if present
@@ -24,6 +29,7 @@ ssh "${VPS_HOST}" "
   set -e
   cd ${VPS_DIR}
   docker compose pull --quiet
+  docker compose build hermes-agent
   docker compose up -d --remove-orphans
   docker compose ps
 "
