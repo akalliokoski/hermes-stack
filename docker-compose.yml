@@ -1,5 +1,22 @@
 services:
   # ---------------------------------------------------------------------------
+  # Hermes – main agent process
+  # ---------------------------------------------------------------------------
+  hermes-agent:
+    build: .
+    image: hermes-agent:local
+    container_name: hermes_agent
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HERMES_PROFILE: ${HERMES_PROFILE:-default}
+    volumes:
+      - ./profiles:/app/profiles:ro   # profile configs (read-only)
+      - ./sync:/app/sync              # shared data (skills, notes, memory exports)
+    depends_on: [hindsight, firecrawl-api]
+    networks: [hermes]
+
+  # ---------------------------------------------------------------------------
   # Firecrawl – web crawling & scraping
   # ---------------------------------------------------------------------------
   playwright:

@@ -1,0 +1,4 @@
+# Hermes agent dependencies – extend as needed
+httpx>=0.27
+anthropic>=0.30
+pyyaml>=6.0
