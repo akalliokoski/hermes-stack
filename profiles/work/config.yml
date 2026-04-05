@@ -1,0 +1,8 @@
+name: work
+
+hindsight:
+  bank_id: hermes-work
+  api_url: http://localhost:8888
+
+firecrawl:
+  api_url: http://localhost:3002

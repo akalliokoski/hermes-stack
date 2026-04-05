@@ -1,0 +1,99 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Firecrawl – web crawling & scraping
+  # ---------------------------------------------------------------------------
+  playwright:
+    image: ghcr.io/firecrawl/playwright-service:latest
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+    networks: [hermes]
+
+  firecrawl-api:
+    image: ghcr.io/firecrawl/firecrawl:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3002:3002"
+    environment: &firecrawl-env
+      PORT: 3002
+      HOST: 0.0.0.0
+      REDIS_URL: redis://redis:6379
+      REDIS_RATE_LIMIT_URL: redis://redis:6379
+      PLAYWRIGHT_MICROSERVICE_URL: http://playwright:3000
+      USE_DB_AUTHENTICATION: "false"
+      BULL_AUTH_KEY: ${BULL_AUTH_KEY}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on: [redis, db, playwright]
+    networks: [hermes]
+
+  firecrawl-worker:
+    image: ghcr.io/firecrawl/firecrawl:latest
+    restart: unless-stopped
+    command: node dist/src/services/queue-worker.js
+    environment: *firecrawl-env
+    depends_on: [redis, db, playwright]
+    networks: [hermes]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks: [hermes]
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [hermes]
+
+  # ---------------------------------------------------------------------------
+  # Hindsight – agent memory (memory banks, one per profile)
+  # API:  http://localhost:8888
+  # UI:   http://localhost:9999
+  # ---------------------------------------------------------------------------
+  hindsight:
+    image: ghcr.io/vectorize-io/hindsight:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8888:8888"   # REST API
+      - "127.0.0.1:9999:9999"   # Control Plane UI
+    volumes:
+      - hindsight_data:/data
+    networks: [hermes]
+
+  # ---------------------------------------------------------------------------
+  # Syncthing – sync profiles / skills / notes → MacBook Pro
+  # Web UI:  http://localhost:8384  (bind to 0.0.0.0 so VPS firewall controls access)
+  # ---------------------------------------------------------------------------
+  syncthing:
+    image: syncthing/syncthing:latest
+    restart: unless-stopped
+    hostname: hermes-vps
+    ports:
+      - "8384:8384"         # Web UI
+      - "22000:22000/tcp"   # Sync protocol TCP
+      - "22000:22000/udp"   # Sync protocol QUIC
+      - "21027:21027/udp"   # Local discovery
+    volumes:
+      - syncthing_config:/var/syncthing
+      - ./profiles:/sync/profiles      # agent profile configs
+      - ./sync:/sync/shared            # general shared folder (skills, notes, …)
+    environment:
+      PCAP: ""              # suppress unnecessary capabilities warning
+    networks: [hermes]
+
+networks:
+  hermes:
+    driver: bridge
+
+volumes:
+  redis_data:
+  postgres_data:
+  hindsight_data:
+  syncthing_config:

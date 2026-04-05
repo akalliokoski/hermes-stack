@@ -1,0 +1,17 @@
+# Secrets
+.env
+
+# Agent submodule placeholder – remove once submodule is configured
+agent/.gitkeep
+
+# Syncthing index / temp files
+.stfolder
+.stignore
+*.tmp
+
+# Shared sync folder (managed by Syncthing, not git)
+sync/
+
+# OS
+.DS_Store
+Thumbs.db
