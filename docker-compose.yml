@@ -7,6 +7,7 @@ services:
     image: hermes-agent:local
     container_name: hermes_agent
     restart: unless-stopped
+    command: python -m hermes gateway run
     env_file: .env
     environment:
       HERMES_PROFILE: ${HERMES_PROFILE:-default}
@@ -15,6 +16,13 @@ services:
       - ./sync:/app/sync              # shared data (skills, notes, memory exports)
     depends_on: [hindsight, firecrawl-api]
     networks: [hermes]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+          cpus: "2"
 
   # ---------------------------------------------------------------------------
   # Firecrawl – web crawling & scraping
