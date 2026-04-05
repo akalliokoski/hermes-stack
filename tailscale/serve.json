@@ -1,0 +1,19 @@
+{
+  "TCP": {
+    "443": {
+      "HTTPS": true
+    }
+  },
+  "Web": {
+    "hermes-vps.REPLACE-WITH-YOUR-TAILNET.ts.net:443": {
+      "Handlers": {
+        "/memory/": {
+          "Proxy": "http://127.0.0.1:8888"
+        },
+        "/memory-ui/": {
+          "Proxy": "http://127.0.0.1:9999"
+        }
+      }
+    }
+  }
+}
