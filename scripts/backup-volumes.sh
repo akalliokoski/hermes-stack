@@ -16,6 +16,7 @@ COMPOSE_PROJECT="${COMPOSE_PROJECT:-hermes}"
 RETAIN_DAYS="${RETAIN_DAYS:-30}"
 
 VOLUMES=(
+  "${COMPOSE_PROJECT}_hermes_data"
   "${COMPOSE_PROJECT}_postgres_data"
   "${COMPOSE_PROJECT}_hindsight_data"
   "${COMPOSE_PROJECT}_redis_data"
