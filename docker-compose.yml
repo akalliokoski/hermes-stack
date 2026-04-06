@@ -12,7 +12,6 @@ services:
     environment:
       HERMES_PROFILE: ${HERMES_PROFILE:-default}
     volumes:
-      - ./profiles:/app/profiles:ro   # profile configs (read-only)
       - ./sync:/app/sync              # shared data (skills, notes, memory exports)
       - hermes_data:/root/.hermes     # agent state: soul, skills, sessions, memory
     depends_on: [hindsight, firecrawl-api]
@@ -99,7 +98,7 @@ services:
     networks: [hermes]
 
   # ---------------------------------------------------------------------------
-  # Syncthing – sync hermes data (profiles, skills, notes, …) → MacBook Pro
+  # Syncthing – sync hermes data (skills, notes, …) → MacBook Pro
   # Runs over Tailscale – no public port exposure needed.
   # Web UI accessible via: ssh -L 8384:localhost:8384 my-vps
   # Sync protocol bound to Tailscale interface only (set in Syncthing GUI).
@@ -111,7 +110,6 @@ services:
     network_mode: host        # allows Syncthing to see the Tailscale interface
     volumes:
       - syncthing_config:/var/syncthing
-      - ./profiles:/sync/profiles      # agent profile configs
       - ./sync:/sync/shared            # general shared folder (skills, notes, …)
       - hermes_data:/sync/hermes-data  # agent state: soul, skills, sessions, memory
     environment:
