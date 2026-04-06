@@ -16,11 +16,13 @@
 #   make backup         back up all Docker volumes now
 #   make clean          remove stopped containers and dangling images
 
-.PHONY: up down restart deploy status logs logs-all shell hermes chat backup clean
+.PHONY: up down restart deploy status logs logs-all shell hermes chat backup clean \
+        local-up local-down local-restart local-chat local-logs local-status local-build
 
-COMPOSE   = docker compose
-CONTAINER = hermes_agent
-ARGS      ?=
+COMPOSE         = docker compose
+LOCAL_COMPOSE   = docker compose -f docker-compose.local.yml
+CONTAINER       = hermes_agent
+ARGS            ?=
 
 # ── Stack lifecycle ────────────────────────────────────────────────────────────
 
@@ -66,3 +68,31 @@ backup:
 clean:
 	docker container prune -f
 	docker image prune -f
+
+# ── Local dev (no syncthing / tailscale) ──────────────────────────────────────
+# Workflow:
+#   make local-up      start all services (builds image if needed)
+#   make local-chat    open interactive hermes chat (requires local-up)
+#   make local-down    stop and remove containers
+
+local-build:
+	$(LOCAL_COMPOSE) build hermes-agent
+
+local-up:
+	@mkdir -p sync
+	$(LOCAL_COMPOSE) up -d --build --remove-orphans
+
+local-down:
+	$(LOCAL_COMPOSE) down
+
+local-restart:
+	$(LOCAL_COMPOSE) restart hermes-agent
+
+local-status:
+	$(LOCAL_COMPOSE) ps
+
+local-logs:
+	$(LOCAL_COMPOSE) logs -f hermes-agent
+
+local-chat:
+	docker exec -it $(CONTAINER) hermes $(ARGS)
