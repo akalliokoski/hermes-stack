@@ -1,5 +1,6 @@
 # Secrets
 .env
+profiles/*.env    # per-profile credentials (copy from profiles/example.env)
 
 # Agent submodule placeholder – remove once submodule is configured
 agent/.gitkeep

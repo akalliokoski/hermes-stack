@@ -5,6 +5,14 @@ services:
     volumes:
       - ./config.yaml:/opt/data/config.yaml:ro  # use repo config instead of entrypoint default
 
+  # Per-profile config overrides: mount a profile-specific config.yaml if the
+  # profile needs different model/settings from the shared root config.yaml.
+  # Named profiles look for config at /opt/data/profiles/<name>/config.yaml.
+  #
+  # hermes-coder:
+  #   volumes:
+  #     - ./profiles/coder/config.yaml:/opt/data/profiles/coder/config.yaml:ro
+
   litestream:
     volumes:
       - ./litestream.local.yml:/etc/litestream.yml:ro  # lighter retention for local dev

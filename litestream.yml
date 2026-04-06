@@ -8,6 +8,7 @@
 # Snapshots: make snapshots
 
 dbs:
+  # Default profile state.db
   - path: /opt/data/state.db
     replicas:
       - type: file
@@ -15,3 +16,13 @@ dbs:
         retention: 72h
         snapshot-interval: 6h
         sync-interval: 10s
+
+  # Add one entry per named profile (mirrored in litestream.local.yml):
+  #
+  # - path: /opt/data/profiles/coder/state.db
+  #   replicas:
+  #     - type: file
+  #       path: /opt/backups/litestream
+  #       retention: 72h
+  #       snapshot-interval: 6h
+  #       sync-interval: 10s

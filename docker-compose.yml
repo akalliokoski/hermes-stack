@@ -1,32 +1,62 @@
+# ---------------------------------------------------------------------------
+# Shared base for all Hermes agent containers.
+# Each profile service merges this anchor and adds its own HERMES_PROFILE +
+# env_file entries. All profiles share the same hermes_data volume — safe
+# because each profile writes to its own subdirectory (/opt/data/profiles/<name>/).
+#
+# To add a new profile:
+#   1. Run:  docker compose run --rm hermes-agent hermes profile create <name> --clone
+#   2. Copy profiles/example.env → profiles/<name>.env and fill in bot tokens etc.
+#   3. Add a service block below (copy the commented example).
+#   4. Add the profile's state.db to litestream.yml (see comment there).
+#   5. Run:  docker compose up -d hermes-<name>
+# ---------------------------------------------------------------------------
+x-hermes-base: &hermes-base
+  build: .
+  image: hermes-agent:local
+  restart: unless-stopped
+  command: gateway run
+  volumes:
+    - ./sync:/opt/sync              # shared data (skills, notes, memory exports)
+    - hermes_data:/opt/data         # all profiles live here, isolated by subdirectory
+  depends_on: [hindsight, firecrawl-api, litestream]
+  networks: [hermes]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  labels:
+    - docker-volume-backup.exec-label=hermes-backup-hook
+    - "docker-volume-backup.archive-pre=/bin/sh -c \"python3 -c 'import sqlite3; sqlite3.connect(\\\"/opt/data/state.db\\\").execute(\\\"PRAGMA wal_checkpoint(PASSIVE)\\\")'\" "
+  deploy:
+    resources:
+      limits:
+        memory: 4g
+        cpus: "2"
+
 services:
   # ---------------------------------------------------------------------------
-  # Hermes – main agent process
+  # Hermes – default profile
   # ---------------------------------------------------------------------------
   hermes-agent:
-    build: .
-    image: hermes-agent:local
+    <<: *hermes-base
     container_name: hermes_agent
-    restart: unless-stopped
-    command: gateway run
     env_file: .env
     environment:
       HERMES_PROFILE: ${HERMES_PROFILE:-default}
       FIRECRAWL_API_URL: http://firecrawl-api:3002
-    volumes:
-      - ./sync:/opt/sync              # shared data (skills, notes, memory exports)
-      - hermes_data:/opt/data         # agent state: soul, skills, sessions, memory
-    depends_on: [hindsight, firecrawl-api, litestream]
-    networks: [hermes]
-    cap_drop: [ALL]
-    security_opt: [no-new-privileges:true]
-    labels:
-      - docker-volume-backup.exec-label=hermes-backup-hook
-      - "docker-volume-backup.archive-pre=/bin/sh -c \"python3 -c 'import sqlite3; sqlite3.connect(\\\"/opt/data/state.db\\\").execute(\\\"PRAGMA wal_checkpoint(PASSIVE)\\\")'\" "
-    deploy:
-      resources:
-        limits:
-          memory: 4g
-          cpus: "2"
+
+  # ---------------------------------------------------------------------------
+  # Additional profiles — uncomment and customise to add more agents.
+  # Each profile runs its own gateway process with isolated state & credentials.
+  #
+  # hermes-coder:
+  #   <<: *hermes-base
+  #   env_file:
+  #     - .env                      # shared API keys (openrouter, etc.)
+  #     - profiles/coder.env        # profile-specific tokens (see profiles/example.env)
+  #   environment:
+  #     HERMES_PROFILE: coder
+  #     FIRECRAWL_API_URL: http://firecrawl-api:3002
+  # ---------------------------------------------------------------------------
 
   # ---------------------------------------------------------------------------
   # Firecrawl – web crawling & scraping

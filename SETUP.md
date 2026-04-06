@@ -28,7 +28,7 @@ VPS only:
 
 | File | Purpose |
 |---|---|
-| `docker-compose.yml` | Base — all services, used everywhere |
+| `docker-compose.yml` | Base — all services + profile base anchor, used everywhere |
 | `docker-compose.override.yml` | Local dev overrides (auto-applied) |
 | `docker-compose.vps.yml` | VPS additions: Syncthing, Tailscale, host backup path |
 
@@ -187,18 +187,66 @@ TS_AUTHKEY=tskey-auth-...
 
 ---
 
+## Multiple Profiles
+
+Multiple named profiles can run simultaneously, each with its own gateway process, credentials, memory, and personality. All profiles share the same `hermes_data` volume — isolation is by subdirectory.
+
+### Adding a new profile
+
+```bash
+# 1. Create the profile (clones config + SOUL.md from default, fresh memory)
+docker compose run --rm hermes-agent hermes profile create <name> --clone
+
+# 2. Set up per-profile credentials
+cp profiles/example.env profiles/<name>.env
+# Edit profiles/<name>.env — add the bot tokens for this profile (Telegram, Discord, etc.)
+
+# 3. Add a service in docker-compose.yml (uncomment / copy the commented block)
+#    Set HERMES_PROFILE: <name> and add profiles/<name>.env to env_file
+
+# 4. Register the profile's state.db with Litestream (continuous backup)
+#    Uncomment / copy the commented block in litestream.yml and litestream.local.yml
+
+# 5. Start
+docker compose up -d hermes-<name>
+```
+
+### Credential files
+
+| File | Purpose |
+|---|---|
+| `.env` | Shared: LLM API key, Postgres, Firecrawl, VPS config |
+| `profiles/<name>.env` | Per-profile: bot tokens (Telegram, Discord, etc.) |
+| `profiles/example.env` | Template — committed, no real secrets |
+
+`profiles/*.env` files are git-ignored. The `default` profile reads bot tokens directly from `.env`.
+
+### Per-profile config
+
+By default all profiles share `config.yaml` (same model, memory limits, toolsets). To give a profile its own settings, bind-mount a separate file in `docker-compose.override.yml`:
+
+```yaml
+hermes-coder:
+  volumes:
+    - ./profiles/coder/config.yaml:/opt/data/profiles/coder/config.yaml:ro
+```
+
+Personality (`SOUL.md`) is always per-profile and lives inside the `hermes_data` volume.
+
+---
+
 ## Agent State & Persistence
 
 All mutable agent state lives in the `hermes_data` Docker volume, mounted at `/opt/data` inside the container.
 
 ```
 /opt/data/
-├── state.db              SQLite: full conversation history, session metadata, FTS index
+├── state.db              SQLite: default profile — history, sessions, FTS index
 ├── state.db-wal          SQLite WAL (managed by Litestream — do not copy raw)
 ├── memories/
-│   ├── MEMORY.md         Agent's curated factual memory (2200 char limit)
-│   └── USER.md           User profile / preferences (1375 char limit)
-├── SOUL.md               Agent persona / personality
+│   ├── MEMORY.md         Default profile memory (2200 char limit)
+│   └── USER.md           Default profile user model (1375 char limit)
+├── SOUL.md               Default profile persona
 ├── config.yaml           ← bind-mounted from repo root (read-only)
 ├── sessions/
 │   └── sessions.json     Session key → ID index
@@ -206,7 +254,14 @@ All mutable agent state lives in the `hermes_data` Docker volume, mounted at `/o
 ├── platforms/            Platform auth state (WhatsApp, Signal)
 ├── .env                  API keys (managed separately)
 ├── logs/                 Rotating log files
-└── cron/                 Scheduled task outputs
+├── cron/                 Scheduled task outputs
+└── profiles/
+    └── <name>/           Named profile — same layout as above
+        ├── state.db
+        ├── memories/
+        ├── SOUL.md
+        ├── sessions/
+        └── ...
 ```
 
 `./sync/` is a separate bind-mount for shared files (exported notes, skills) not tied to agent state.
@@ -219,7 +274,7 @@ The hermes stack runs two complementary backup mechanisms:
 
 ### Litestream (continuous SQLite replication)
 
-`state.db` is a live SQLite database in WAL mode — it cannot be safely copied while running. Litestream streams WAL pages to `hermes_backups/litestream/` every 10–30 seconds and writes full snapshots every 6–12 hours.
+`state.db` is a live SQLite database in WAL mode — it cannot be safely copied while running. Litestream streams WAL pages to `hermes_backups/litestream/` every 10–30 seconds and writes full snapshots every 6–12 hours. Each named profile has its own `state.db` at `/opt/data/profiles/<name>/state.db` — add a corresponding entry to `litestream.yml` (and `litestream.local.yml`) when creating a new profile.
 
 ```bash
 make snapshots          # list available restore points (tarballs + Litestream)
