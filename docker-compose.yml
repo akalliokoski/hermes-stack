@@ -14,6 +14,7 @@ services:
     volumes:
       - ./profiles:/app/profiles:ro   # profile configs (read-only)
       - ./sync:/app/sync              # shared data (skills, notes, memory exports)
+      - hermes_data:/root/.hermes     # agent state: soul, skills, sessions, memory
     depends_on: [hindsight, firecrawl-api]
     networks: [hermes]
     cap_drop: [ALL]
@@ -112,6 +113,7 @@ services:
       - syncthing_config:/var/syncthing
       - ./profiles:/sync/profiles      # agent profile configs
       - ./sync:/sync/shared            # general shared folder (skills, notes, …)
+      - hermes_data:/sync/hermes-data  # agent state: soul, skills, sessions, memory
     environment:
       PCAP: ""              # suppress unnecessary capabilities warning
 
@@ -148,5 +150,6 @@ volumes:
   redis_data:
   postgres_data:
   hindsight_data:
+  hermes_data:       # ~/.hermes inside the agent container (soul, skills, sessions)
   syncthing_config:
   tailscale_state:
