@@ -1,8 +1,0 @@
-name: default
-
-hindsight:
-  bank_id: hermes-default
-  api_url: http://hindsight:8888
-
-firecrawl:
-  api_url: http://firecrawl-api:3002

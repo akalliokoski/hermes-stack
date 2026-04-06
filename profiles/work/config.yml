@@ -1,8 +1,0 @@
-name: work
-
-hindsight:
-  bank_id: hermes-work
-  api_url: http://hindsight:8888
-
-firecrawl:
-  api_url: http://firecrawl-api:3002
