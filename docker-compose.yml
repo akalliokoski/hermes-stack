@@ -95,6 +95,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-hermes}:${POSTGRES_PASSWORD:-hermes}@db:5432/${POSTGRES_DB:-hermes}
       NUQ_DATABASE_URL: postgresql://${POSTGRES_USER:-hermes}:${POSTGRES_PASSWORD:-hermes}@db:5432/${POSTGRES_DB:-hermes}
       NUQ_RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      PROXY_SERVER: ${FIRECRAWL_PROXY_SERVER:-}
+      PROXY_USERNAME: ${FIRECRAWL_PROXY_USERNAME:-}
+      PROXY_PASSWORD: ${FIRECRAWL_PROXY_PASSWORD:-}
     depends_on: [redis, db, playwright, rabbitmq, nuq-migrate]
     networks: [hermes]
 

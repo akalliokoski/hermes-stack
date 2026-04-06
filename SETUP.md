@@ -174,6 +174,12 @@ POSTGRES_DB=hermes
 # Firecrawl
 BULL_AUTH_KEY=local
 
+# Firecrawl proxy — residential proxies to prevent VPS static IP from being blocked
+# Recommended: Decodo (https://decodo.com) or IPRoyal (https://iproyal.com)
+# FIRECRAWL_PROXY_SERVER=http://gate.decodo.com:7000
+# FIRECRAWL_PROXY_USERNAME=your-username-rotate
+# FIRECRAWL_PROXY_PASSWORD=your-password
+
 # Hindsight vector memory
 HINDSIGHT_LLM_API_KEY=...
 HINDSIGHT_LLM_PROVIDER=openrouter
