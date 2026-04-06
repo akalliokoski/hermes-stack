@@ -20,8 +20,8 @@ hermes-agent        Main agent process — gateway + all tools
 └── rabbitmq        RabbitMQ 3    (firecrawl job queue)
 
 VPS only:
-├── syncthing       Sync hermes_data → MacBook over Tailscale
-└── tailscale       Private network / Hindsight UI access
+└── syncthing       Sync hermes_data → MacBook over Tailscale
+    (Tailscale runs on the VPS host — not in Docker — and serves Hindsight via `tailscale serve`)
 ```
 
 **Docker Compose files:**
@@ -144,7 +144,16 @@ After first start, open `http://localhost:8384`, add the MacBook as a remote dev
 
 > Syncthing ignores `state.db*` files — those are handled by Litestream instead.
 
-**Tailscale** exposes the Hindsight memory UI on your tailnet. After `make up`, approve the VPS node at `https://login.tailscale.com/admin/machines`. The Hindsight UI will be available at `https://hermes-vps.<tailnet>.ts.net/memory-ui/`.
+**Tailscale** exposes the Hindsight memory UI on your tailnet via the host Tailscale daemon (not a Docker container — running Tailscale in Docker conflicts with the host Tailscale TUN device). After first deploy, run once on the VPS:
+
+```bash
+tailscale serve --bg --https=443 --set-path /memory/ http://127.0.0.1:8888
+tailscale serve --bg --https=443 --set-path /memory-ui/ http://127.0.0.1:9999
+```
+
+The serve config persists in Tailscale state and survives reboots. Hindsight will then be available at:
+- `https://<vps-hostname>.<tailnet>.ts.net/memory/` — REST API
+- `https://<vps-hostname>.<tailnet>.ts.net/memory-ui/` — Control Plane UI
 
 ---
 

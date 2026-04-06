@@ -26,6 +26,7 @@
 #   make restore ARGS="volume <tarball>"         full volume restore
 #
 #   make clean                        remove stopped containers and dangling images
+#   make vps-clean-old                remove legacy /opt/clawctl data from VPS (first deploy only)
 #
 # Local dev (docker-compose.override.yml applied automatically):
 #   make local-up                     start local stack (no syncthing/tailscale)
@@ -35,7 +36,7 @@
 #   make local-backup-now             trigger immediate backup
 #   make local-snapshots              list available restore points
 
-.PHONY: up down restart deploy status logs logs-all shell hermes chat backup clean \
+.PHONY: up down restart deploy status logs logs-all shell hermes chat backup clean vps-clean-old \
         local-up local-down local-restart local-chat local-logs local-status local-build \
         backup-now local-backup-now snapshots local-snapshots restore
 
@@ -97,6 +98,11 @@ restore:
 clean:
 	docker container prune -f
 	docker image prune -f
+
+# Remove legacy OpenClaw/clawctl data from the VPS (one-time, before first deploy)
+vps-clean-old:
+	@VPS_HOST=$$(grep -E '^VPS_HOST=' .env | cut -d= -f2); \
+	  ssh "$${VPS_HOST:?Set VPS_HOST in .env}" 'rm -rf /opt/clawctl && echo "✓ Old clawctl data removed"'
 
 # ── Local dev ─────────────────────────────────────────────────────────────────
 # docker-compose.override.yml is merged automatically – no extra -f needed.

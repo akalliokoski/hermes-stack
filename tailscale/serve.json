@@ -5,7 +5,7 @@
     }
   },
   "Web": {
-    "hermes-vps.REPLACE-WITH-YOUR-TAILNET.ts.net:443": {
+    "openclaw-vps.taild96651.ts.net:443": {
       "Handlers": {
         "/memory/": {
           "Proxy": "http://127.0.0.1:8888"
