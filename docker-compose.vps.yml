@@ -17,6 +17,7 @@ services:
       - syncthing_config:/var/syncthing
       - ./sync:/sync/shared            # general shared folder (skills, notes, …)
       - hermes_data:/sync/hermes-data  # agent state: soul, skills, sessions, memory
+      - ./docker/stignore:/sync/hermes-data/.stignore:ro  # exclude state.db* (Litestream owns those)
     environment:
       PCAP: ""              # suppress unnecessary capabilities warning
 
@@ -48,3 +49,9 @@ services:
 volumes:
   syncthing_config:
   tailscale_state:
+  hermes_backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/hermes-backups   # host path — survives docker compose down -v

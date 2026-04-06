@@ -15,10 +15,13 @@ services:
     volumes:
       - ./sync:/opt/sync              # shared data (skills, notes, memory exports)
       - hermes_data:/opt/data         # agent state: soul, skills, sessions, memory
-    depends_on: [hindsight, firecrawl-api]
+    depends_on: [hindsight, firecrawl-api, litestream]
     networks: [hermes]
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
+    labels:
+      - docker-volume-backup.exec-label=hermes-backup-hook
+      - "docker-volume-backup.archive-pre=/bin/sh -c \"python3 -c 'import sqlite3; sqlite3.connect(\\\"/opt/data/state.db\\\").execute(\\\"PRAGMA wal_checkpoint(PASSIVE)\\\")'\" "
     deploy:
       resources:
         limits:
@@ -101,6 +104,40 @@ services:
   # API:  http://localhost:8888
   # UI:   http://localhost:9999
   # ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Litestream – continuous SQLite replication for state.db (WAL-safe)
+  # Replicates to hermes_backups volume (→ /opt/hermes-backups on VPS, ./backups locally)
+  # ---------------------------------------------------------------------------
+  litestream:
+    image: litestream/litestream:latest
+    restart: unless-stopped
+    command: replicate
+    volumes:
+      - ./litestream.yml:/etc/litestream.yml:ro
+      - hermes_data:/opt/data
+      - hermes_backups:/opt/backups
+    networks: [hermes]
+
+  # ---------------------------------------------------------------------------
+  # Backup – daily snapshots of the full hermes_data volume
+  # Handles retention, pre-backup WAL checkpoint, and versioned tarballs.
+  # Trigger manually: make backup-now
+  # ---------------------------------------------------------------------------
+  backup:
+    image: offen/docker-volume-backup:v2
+    restart: unless-stopped
+    environment:
+      BACKUP_CRON_EXPRESSION: "0 3 * * *"
+      BACKUP_FILENAME_FORMAT: "hermes_data_%Y-%m-%dT%H-%M-%S.tar.gz"
+      BACKUP_RETENTION_DAYS: "30"
+      EXEC_LABEL: hermes-backup-hook
+      EXEC_FORWARD_OUTPUT: "true"
+    volumes:
+      - hermes_data:/backup/hermes_data:ro
+      - hermes_backups:/archive
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [hermes]
+
   hindsight:
     image: ghcr.io/vectorize-io/hindsight:latest
     restart: unless-stopped
@@ -126,3 +163,4 @@ volumes:
   postgres_data:
   hindsight_data:
   hermes_data:
+  hermes_backups:    # backup destination — overridden to host bind-mount in vps/override files

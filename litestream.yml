@@ -1,0 +1,17 @@
+# Litestream – continuous SQLite replication for state.db
+# Used on VPS (and as the default config).
+# For local dev, docker-compose.override.yml swaps this with litestream.local.yml.
+#
+# Replica target: hermes_backups volume → /opt/hermes-backups/litestream/ on VPS
+#
+# Restore:  make restore ARGS="db [timestamp|latest]"
+# Snapshots: make snapshots
+
+dbs:
+  - path: /opt/data/state.db
+    replicas:
+      - type: file
+        path: /opt/backups/litestream
+        retention: 72h
+        snapshot-interval: 6h
+        sync-interval: 10s

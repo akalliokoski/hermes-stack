@@ -28,10 +28,11 @@ echo "→ Restarting stack"
 ssh "${VPS_HOST}" "
   set -e
   cd ${VPS_DIR}
+  mkdir -p /opt/hermes-backups
   docker compose pull --quiet
   docker compose build hermes-agent
-  docker compose up -d --remove-orphans
-  docker compose ps
+  docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
+  docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
 "
 
 echo "✓ Done"

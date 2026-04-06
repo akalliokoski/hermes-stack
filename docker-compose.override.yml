@@ -4,3 +4,22 @@ services:
   hermes-agent:
     volumes:
       - ./config.yaml:/opt/data/config.yaml:ro  # use repo config instead of entrypoint default
+
+  litestream:
+    volumes:
+      - ./litestream.local.yml:/etc/litestream.yml:ro  # lighter retention for local dev
+      - hermes_data:/opt/data
+      - hermes_backups:/opt/backups
+
+  backup:
+    environment:
+      BACKUP_CRON_EXPRESSION: "0 3 * * 0"   # weekly (not daily) for local dev
+      BACKUP_RETENTION_DAYS: "14"
+
+volumes:
+  hermes_backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${PWD}/backups

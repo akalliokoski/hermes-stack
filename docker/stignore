@@ -1,0 +1,5 @@
+# Syncthing ignore rules for hermes-data folder
+# SQLite WAL files are managed by Litestream — Syncthing must not touch them.
+state.db
+state.db-wal
+state.db-shm

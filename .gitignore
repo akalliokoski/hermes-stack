@@ -12,6 +12,12 @@ agent/.gitkeep
 # Shared sync folder (managed by Syncthing, not git)
 sync/
 
+# Local dev backups (managed by litestream + docker-volume-backup)
+backups/
+
+# Local dev litestream config override
+litestream.local.yml
+
 # OS
 .DS_Store
 Thumbs.db

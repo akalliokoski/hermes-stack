@@ -16,7 +16,11 @@ COMPOSE_PROJECT="${COMPOSE_PROJECT:-hermes}"
 RETAIN_DAYS="${RETAIN_DAYS:-30}"
 
 VOLUMES=(
-  "${COMPOSE_PROJECT}_hermes_data"
+  # hermes_data is intentionally excluded — it is backed up by:
+  #   - Litestream sidecar: continuous SQLite WAL replication to hermes_backups volume
+  #   - docker-volume-backup container: daily tarballs (with WAL checkpoint pre-hook)
+  # Raw tar of a live WAL-mode SQLite DB can produce a corrupt backup.
+  # Trigger an immediate backup via: make backup-now
   "${COMPOSE_PROJECT}_postgres_data"
   "${COMPOSE_PROJECT}_hindsight_data"
   "${COMPOSE_PROJECT}_redis_data"
