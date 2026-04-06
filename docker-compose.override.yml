@@ -1,0 +1,6 @@
+# Local development overrides – applied automatically by Docker Compose.
+# Do not deploy this file to the VPS.
+services:
+  hermes-agent:
+    volumes:
+      - ./config.yaml:/opt/data/config.yaml:ro  # use repo config instead of entrypoint default
