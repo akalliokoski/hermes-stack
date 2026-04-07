@@ -1,0 +1,20 @@
+name: Validate
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Validate compose files (VPS overlay)
+        run: docker compose -f docker-compose.yml -f docker-compose.vps.yml config -q
+
+      - name: Validate compose files (local override)
+        run: docker compose config -q

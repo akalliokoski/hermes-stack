@@ -157,6 +157,57 @@ The serve config persists in Tailscale state and survives reboots. Hindsight wil
 
 ---
 
+## CI/CD (GitHub Actions)
+
+Two workflows live in `.github/workflows/`:
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `deploy.yml` | Push to `main`, `workflow_dispatch` | Joins tailnet → rsync → `docker compose up` → Telegram notification |
+| `validate.yml` | PRs, non-`main` pushes | Validates compose files — no secrets needed |
+
+### One-time setup
+
+**1. Generate a deploy SSH key**
+
+```bash
+ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/hermes_deploy -N ""
+# Install the public key on the VPS
+ssh <vps-host> "echo '$(cat ~/.ssh/hermes_deploy.pub)' >> ~/.ssh/authorized_keys"
+```
+
+**2. Create a Tailscale OAuth client**
+
+In the [Tailscale admin console](https://login.tailscale.com/admin/settings/oauth):
+- Create an OAuth client with **Devices: Write** scope
+- Note the client ID and secret
+
+In your Tailscale ACL policy, add `tag:ci` to `tagOwners` so the ephemeral CI device can be tagged:
+
+```json
+"tagOwners": {
+  "tag:ci": ["autogroup:admin"]
+}
+```
+
+**3. Add GitHub Secrets**
+
+Go to the repo → Settings → Secrets and variables → Actions:
+
+| Secret | Value |
+|---|---|
+| `TAILSCALE_OAUTH_CLIENT_ID` | From step 2 |
+| `TAILSCALE_OAUTH_CLIENT_SECRET` | From step 2 |
+| `VPS_SSH_PRIVATE_KEY` | Contents of `~/.ssh/hermes_deploy` (private key) |
+| `VPS_SSH_USER` | SSH user on VPS (e.g. `root`) |
+| `VPS_HOST` | Same as `VPS_HOST` in your `.env` |
+| `TELEGRAM_BOT_TOKEN` | Same as `TELEGRAM_BOT_TOKEN` in your `.env` |
+| `TELEGRAM_HOME_CHANNEL` | Same as `TELEGRAM_HOME_CHANNEL` in your `.env` |
+
+`VPS_DIR` is hardcoded to `/opt/hermes` in the workflow — change it there if needed.
+
+---
+
 ## LLM-Wiki & Obsidian
 
 Hermes ships a bundled `llm-wiki` skill (Karpathy's LLM Wiki pattern) that builds
