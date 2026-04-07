@@ -5,6 +5,14 @@
 #   (or just: make up)
 services:
   # ---------------------------------------------------------------------------
+  # Hermes – mount repo config.yaml into the data volume so VPS picks up the
+  # same model/provider settings as local dev.
+  # ---------------------------------------------------------------------------
+  hermes-agent:
+    volumes:
+      - ./config.yaml:/opt/data/config.yaml:ro
+
+  # ---------------------------------------------------------------------------
   # Syncthing – sync hermes data (skills, notes, …) → MacBook Pro
   # Runs over Tailscale – no public port exposure needed.
   # Web UI accessible via: ssh -L 8384:localhost:8384 my-vps
