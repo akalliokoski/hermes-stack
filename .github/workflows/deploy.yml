@@ -1,0 +1,74 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-client-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Sync files
+        run: |
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='.env' \
+            --exclude='sync/' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            . ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }}:/opt/hermes/
+
+      - name: Deploy stack
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} \
+            "set -e
+             cd /opt/hermes
+             mkdir -p /opt/hermes-backups
+             docker compose pull --quiet --ignore-buildable
+             docker compose build hermes-agent
+             docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
+             docker compose -f docker-compose.yml -f docker-compose.vps.yml ps"
+
+      - name: Notify success
+        if: success()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_HOME_CHANNEL }}" \
+            -d parse_mode="Markdown" \
+            --data-urlencode text="✅ *hermes deployed* \`${{ github.sha }}\`
+          👤 ${{ github.actor }}
+          📝 ${{ github.event.head_commit.message }}"
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_HOME_CHANNEL }}" \
+            -d parse_mode="Markdown" \
+            --data-urlencode text="❌ *hermes deploy FAILED* \`${{ github.sha }}\`
+          👤 ${{ github.actor }}
+          🔗 ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
