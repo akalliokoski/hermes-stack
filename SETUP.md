@@ -157,6 +157,49 @@ The serve config persists in Tailscale state and survives reboots. Hindsight wil
 
 ---
 
+## LLM-Wiki & Obsidian
+
+Hermes ships a bundled `llm-wiki` skill (Karpathy's LLM Wiki pattern) that builds
+and maintains a persistent, interlinked markdown knowledge base. The wiki lives at
+`/opt/data/wiki/` inside the `hermes_data` volume and is synced to your MacBook
+via Syncthing — open it as an Obsidian vault with no extra setup.
+
+### Wiki layout
+
+```
+/opt/data/wiki/
+├── raw/        Immutable source documents (articles, URLs, notes)
+├── wiki/       Agent-maintained pages with [[wikilinks]]
+├── SCHEMA.md   Domain conventions, tag taxonomy
+├── index.md    Page inventory and navigation
+└── log.md      Activity log (rotated at 500 entries)
+```
+
+### Usage
+
+```
+# In Hermes chat:
+wiki init                           # set up structure, write SCHEMA.md
+wiki ingest https://example.com     # fetch URL, compile into wiki pages
+wiki ingest                         # paste raw text (agent prompts for topic)
+wiki query "what is X?"             # search wiki and synthesize answer
+wiki lint                           # check for broken links, orphan pages
+```
+
+### Opening in Obsidian (MacBook)
+
+1. Ensure Syncthing is syncing the `hermes-data` folder (see VPS-specific services above).
+2. In Obsidian → **Open folder as vault** → navigate to your Syncthing sync path → select the `wiki/` subfolder.
+3. Obsidian renders all `[[wikilinks]]` as clickable links and shows the graph view.
+
+> Tip: Enable **Staggered File Versioning** (30 days, 1h interval) in Syncthing on the `hermes-data` folder to get human-readable history of all wiki edits.
+
+### Config reference
+
+The wiki path is set in `config.yaml` under `skills.config.wiki.path` (default: `/opt/data/wiki`). Change it if you want the wiki stored elsewhere in the volume.
+
+---
+
 ## Environment Variables (`.env`)
 
 Required:
