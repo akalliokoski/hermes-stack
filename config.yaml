@@ -220,6 +220,9 @@ prefill_messages_file: ''
 skills:
   external_dirs: []
   creation_nudge_interval: 15
+  config:
+    wiki:
+      path: /opt/data/wiki   # inside hermes_data volume → synced to MacBook via Syncthing
 honcho: {}
 timezone: ''
 discord:
