@@ -2,6 +2,14 @@
 
 This document describes the agent architecture, components, and conventions for the Hermes project.
 
+## Working with the `hermes-agent` submodule
+
+`hermes-agent/` is a Git submodule pointing to an upstream repository. **Do not modify files inside `hermes-agent/`** — changes will be lost on the next `git submodule update` and cannot be upstreamed via this repo. To update the agent, bump the submodule pointer to a newer upstream commit.
+
+If a bug in `hermes-agent` needs a workaround at the infrastructure level (Docker Compose, environment variables, startup scripts), apply it in the repo-level files instead.
+
+---
+
 ## Philosophy
 
 **Simple, not clever. Beautiful, not baroque.**

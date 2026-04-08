@@ -23,7 +23,7 @@ services:
   # ---------------------------------------------------------------------------
   syncthing-init:
     image: busybox
-    command: chown -R 1000:1000 /sync/hermes-data /sync/shared
+    command: sh -c "mkdir -p /sync/hermes-data/workspace && chown -R 1000:1000 /sync/hermes-data /sync/shared"
     volumes:
       - hermes_data:/sync/hermes-data
       - ./sync:/sync/shared
