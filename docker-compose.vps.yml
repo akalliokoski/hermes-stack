@@ -9,6 +9,7 @@ services:
   # same model/provider settings as local dev.
   # ---------------------------------------------------------------------------
   hermes-agent:
+    user: "1000:1000"
     volumes:
       - ./config.yaml:/opt/data/config.yaml:ro
 
