@@ -10,6 +10,8 @@ services:
   # ---------------------------------------------------------------------------
   hermes-agent:
     user: "1000:1000"
+    environment:
+      HOME: /opt/data
     volumes:
       - ./config.yaml:/opt/data/config.yaml:ro
 
