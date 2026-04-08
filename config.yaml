@@ -222,7 +222,7 @@ skills:
   creation_nudge_interval: 15
   config:
     wiki:
-      path: /opt/data/wiki   # inside hermes_data volume → synced to MacBook via Syncthing
+      path: /opt/sync/wiki   # inside ./sync bind-mount → synced to MacBook via Syncthing
 honcho: {}
 timezone: ''
 discord:
