@@ -14,6 +14,9 @@ services:
       HOME: /opt/data
     volumes:
       - ./config.yaml:/opt/data/config.yaml:ro
+    depends_on:
+      syncthing-init:
+        condition: service_completed_successfully
 
   # ---------------------------------------------------------------------------
   # Syncthing – sync hermes data (skills, notes, …) → MacBook Pro
@@ -23,7 +26,12 @@ services:
   # ---------------------------------------------------------------------------
   syncthing-init:
     image: busybox
-    command: sh -c "mkdir -p /sync/hermes-data/workspace && chown -R 1000:1000 /sync/hermes-data /sync/shared"
+    command: >
+      sh -c "
+        mkdir -p /sync/hermes-data/hermes-workspace &&
+        mkdir -p /sync/shared/obsidian-vault &&
+        chown -R 1000:1000 /sync/hermes-data /sync/shared
+      "
     volumes:
       - hermes_data:/sync/hermes-data
       - ./sync:/sync/shared
