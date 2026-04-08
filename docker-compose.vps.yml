@@ -22,6 +22,7 @@ services:
     image: syncthing/syncthing:latest
     restart: unless-stopped
     hostname: hermes-vps
+    user: "0"                 # run as root so it can access hermes_data volume
     network_mode: host        # allows Syncthing to see the Tailscale interface
     volumes:
       - syncthing_config:/var/syncthing
