@@ -18,12 +18,22 @@ services:
   # Web UI accessible via: ssh -L 8384:localhost:8384 my-vps
   # Sync protocol bound to Tailscale interface only (set in Syncthing GUI).
   # ---------------------------------------------------------------------------
+  syncthing-init:
+    image: busybox
+    command: chown -R 1000:1000 /sync/hermes-data /sync/shared
+    volumes:
+      - hermes_data:/sync/hermes-data
+      - ./sync:/sync/shared
+    restart: "no"
+
   syncthing:
     image: syncthing/syncthing:latest
     restart: unless-stopped
     hostname: hermes-vps
-    user: "0"                 # run as root so it can access hermes_data volume
     network_mode: host        # allows Syncthing to see the Tailscale interface
+    depends_on:
+      syncthing-init:
+        condition: service_completed_successfully
     volumes:
       - syncthing_config:/var/syncthing
       - ./sync:/sync/shared            # general shared folder (skills, notes, …)
