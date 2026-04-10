@@ -13,6 +13,7 @@ agent:
   tool_use_enforcement: auto
   verbose: false
   reasoning_effort: medium
+  save_trajectories: true
   personalities:
     helpful: You are a helpful, friendly AI assistant.
     concise: You are a concise assistant. Keep responses brief and to the point.
@@ -56,7 +57,7 @@ agent:
 terminal:
   backend: local
   modal_mode: auto
-  cwd: ~/hermes-workspace
+  cwd: /opt/data/hermes-workspace
   timeout: 180
   env_passthrough: []
   docker_image: nikolaik/python-nodejs:python3.11-nodejs20
