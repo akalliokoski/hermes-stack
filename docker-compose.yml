@@ -43,6 +43,10 @@ services:
     environment:
       HERMES_PROFILE: ${HERMES_PROFILE:-default}
       FIRECRAWL_API_URL: http://firecrawl-api:3002
+      HOME: /opt/data
+      HERMES_HOME: /opt/data
+      TERMINAL_CWD: /opt/data/hermes-workspace
+      MESSAGING_CWD: /opt/data/hermes-workspace
 
   # ---------------------------------------------------------------------------
   # Additional profiles — uncomment and customise to add more agents.
