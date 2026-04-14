@@ -57,7 +57,7 @@ agent:
 terminal:
   backend: local
   modal_mode: auto
-  cwd: /opt/hermes
+  cwd: /opt/data/workspace
   timeout: 180
   env_passthrough: []
   docker_image: nikolaik/python-nodejs:python3.11-nodejs20
