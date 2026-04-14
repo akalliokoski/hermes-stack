@@ -28,7 +28,7 @@ services:
     image: busybox
     command: >
       sh -c "
-        mkdir -p /sync/hermes-data/hermes-workspace &&
+        mkdir -p /sync/hermes-data/workspace &&
         mkdir -p /sync/shared/wiki &&
         mkdir -p /sync/shared/obsidian-vault &&
         chown -R 1000:1000 /sync/hermes-data /sync/shared
