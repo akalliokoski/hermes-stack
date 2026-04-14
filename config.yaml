@@ -1,8 +1,8 @@
 model:
-  default: google/gemma-4-26b-a4b-it
-  provider: openrouter
-  base_url: https://openrouter.ai/api/v1
-  api_mode: chat_completions
+  default: gpt-5.4
+  provider: openai-codex
+  base_url: https://chatgpt.com/backend-api/codex
+  api_mode: codex_responses
 fallback_providers: []
 credential_pool_strategies:
   openrouter: fill_first
@@ -312,6 +312,9 @@ web:
 # fallback_model:
 #   provider: openrouter
 #   model: anthropic/claude-sonnet-4
+fallback_model:
+  provider: openrouter
+  model: google/gemma-4-26b-a4b-it
 #
 # ── Smart Model Routing ────────────────────────────────────────────────
 # Optional cheap-vs-strong routing for simple turns.
