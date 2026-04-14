@@ -12,7 +12,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,6 +51,7 @@ jobs:
              docker compose pull --quiet --ignore-buildable
              docker compose build hermes-agent
              docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
+             docker compose -f docker-compose.yml -f docker-compose.vps.yml restart hermes-agent
              docker compose -f docker-compose.yml -f docker-compose.vps.yml ps"
 
       - name: Notify success
@@ -64,7 +65,7 @@ jobs:
           📝 ${{ github.event.head_commit.message }}"
 
       - name: Notify failure
-        if: failure()
+        if: failure() || cancelled()
         run: |
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -d chat_id="${{ secrets.TELEGRAM_HOME_CHANNEL }}" \
