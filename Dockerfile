@@ -46,6 +46,8 @@ RUN uv sync --frozen --all-extras
 USER root
 RUN chmod +x /opt/hermes/docker/entrypoint.sh
 
+COPY --chmod=0755 docker/workspace-entrypoint.sh /opt/hermes/docker/workspace-entrypoint.sh
+
 ENV HERMES_HOME=/opt/data
 VOLUME [ "/opt/data" ]
-ENTRYPOINT [ "/opt/hermes/docker/entrypoint.sh" ]
+ENTRYPOINT [ "/opt/hermes/docker/workspace-entrypoint.sh" ]
