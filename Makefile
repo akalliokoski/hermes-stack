@@ -16,6 +16,7 @@
 #   make shell                        bash shell on the VPS as the hermes user
 #   make hermes ARGS="skills"         run a hermes subcommand
 #   make update-agent                 `hermes update` on the VPS (pulls new release)
+#   make add-profile PROFILE=<name>   create a new profile with its own workspace
 #
 # Backup & restore (VPS):
 #   make backup-now                   trigger immediate .hermes tarball
@@ -29,7 +30,7 @@
 #   make local-update-agent           `hermes update` locally
 
 .PHONY: up down deploy status logs logs-all restart chat shell hermes \
-        update-agent backup-now snapshots restore clean \
+        update-agent backup-now snapshots restore clean add-profile \
         local-up local-down local-chat local-status local-logs \
         local-backup-now local-snapshots local-update-agent
 
@@ -92,6 +93,31 @@ restore:
 clean:
 	docker container prune -f
 	docker image prune -f
+
+# ── Profile management ────────────────────────────────────────────────────────
+# Create a new hermes profile with its own isolated workspace.
+# Usage:  make add-profile PROFILE=myprofile TELEGRAM_BOT_TOKEN=123:ABC...
+#
+# What it does:
+#   1. Creates /home/hermes/work/<profile> on the VPS
+#   2. Creates the hermes profile (copies default config)
+#   3. Updates the profile's docker_volumes to use its own workspace
+#   4. Writes TELEGRAM_BOT_TOKEN to the profile's .env
+#   5. Installs + starts the gateway systemd unit for the profile
+PROFILE ?=
+TELEGRAM_BOT_TOKEN ?=
+
+add-profile:
+	@[ -n "$(PROFILE)" ] || { echo "ERROR: PROFILE is required. Usage: make add-profile PROFILE=<name> TELEGRAM_BOT_TOKEN=<token>"; exit 1; }
+	@[ -n "$(TELEGRAM_BOT_TOKEN)" ] || { echo "ERROR: TELEGRAM_BOT_TOKEN is required. Usage: make add-profile PROFILE=<name> TELEGRAM_BOT_TOKEN=<token>"; exit 1; }
+	@echo "→ Creating profile '$(PROFILE)' on $(VPS_HOST)"
+	ssh $(VPS_HOST) 'sudo install -d -o hermes -g hermes -m 755 /home/hermes/work/$(PROFILE)'
+	ssh $(VPS_HOST) 'sudo -iu hermes hermes profile create $(PROFILE)'
+	ssh $(VPS_HOST) 'sudo -iu hermes sed -i "s|/home/hermes/work/default:/workspace|/home/hermes/work/$(PROFILE):/workspace|g" /home/hermes/.hermes/profiles/$(PROFILE)/config.yaml'
+	ssh $(VPS_HOST) 'sudo -iu hermes bash -c "echo TELEGRAM_BOT_TOKEN=$(TELEGRAM_BOT_TOKEN) > /home/hermes/.hermes/profiles/$(PROFILE)/.env && chmod 600 /home/hermes/.hermes/profiles/$(PROFILE)/.env"'
+	ssh $(VPS_HOST) 'sudo -iu hermes hermes -p $(PROFILE) gateway install --system --run-as-user hermes'
+	ssh $(VPS_HOST) 'sudo hermes -p $(PROFILE) gateway start --system'
+	@echo "✓ Profile '$(PROFILE)' ready — gateway running as hermes-gateway-$(PROFILE).service"
 
 # ── Local dev ─────────────────────────────────────────────────────────────────
 # docker-compose.override.yml is merged automatically – no extra -f needed.

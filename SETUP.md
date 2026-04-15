@@ -103,14 +103,14 @@ terminal:
   backend: docker                             # sandbox each command
   docker_image: nikolaik/python-nodejs:python3.11-nodejs20
   docker_volumes:
-    - /home/hermes/work:/workspace            # only writable path inside the sandbox
+    - /home/hermes/work/default:/workspace    # only writable path inside the sandbox
   cwd: /workspace
 
 approvals:
   mode: manual                                # dangerous commands require chat approval
 ```
 
-On the MacBook, change `/home/hermes/work` to a local path (e.g. `$HOME/hermes-work`).
+Each profile gets its own subdirectory under `/home/hermes/work/` mounted as `/workspace` inside its container. On the MacBook, change `/home/hermes/work/default` to a local path (e.g. `$HOME/hermes-work/default`).
 
 ---
 
@@ -149,6 +149,50 @@ make update-agent    # bumps hermes to latest (runs `hermes update` on VPS)
 ```
 
 Hermes no longer lives as a git submodule — new releases are pulled by `hermes update`, not by rebuilding a container.
+
+### `hermes` wrapper script (VPS root sessions)
+
+The `hermes` binary is installed under the `hermes` user. Running it as root (e.g. for system gateway installs) is verbose without a wrapper. Install once on the VPS:
+
+```bash
+cat > /usr/local/bin/hermes << 'EOF'
+#!/bin/bash
+HERMES_BIN=$(sudo -iu hermes which hermes)
+export HERMES_HOME=/home/hermes/.hermes
+if [[ "$*" == *"--system"* ]]; then
+    exec "$HERMES_BIN" "$@"
+else
+    exec sudo -iu hermes "$HERMES_BIN" "$@"
+fi
+EOF
+chmod +x /usr/local/bin/hermes
+```
+
+- Commands **without** `--system` run as the `hermes` user (correct `HERMES_HOME`).
+- Commands **with** `--system` run as root (required for writing to `/etc/systemd/system/`).
+- `HERMES_HOME` is always set to `/home/hermes/.hermes` so root doesn't fall back to `/root/.hermes`.
+
+### Adding a new profile + gateway
+
+```bash
+# From MacBook — one command does everything:
+make add-profile PROFILE=<name> TELEGRAM_BOT_TOKEN=<token>
+```
+
+This creates `/home/hermes/work/<name>` on the VPS, initialises the profile (copying default config), updates its `docker_volumes` to use the profile-specific workspace, writes `TELEGRAM_BOT_TOKEN` to the profile's `.env`, and installs + starts the gateway systemd unit.
+
+To do it manually on the VPS:
+```bash
+# On the VPS as root (wrapper handles user/root switching):
+sudo install -d -o hermes -g hermes -m 755 /home/hermes/work/<name>
+hermes profile create <name>
+sed -i "s|work/default:/workspace|work/<name>:/workspace|g" \
+  /home/hermes/.hermes/profiles/<name>/config.yaml
+echo "TELEGRAM_BOT_TOKEN=<token>" > /home/hermes/.hermes/profiles/<name>/.env
+chmod 600 /home/hermes/.hermes/profiles/<name>/.env
+hermes -p <name> gateway install --system --run-as-user hermes
+hermes -p <name> gateway start --system
+```
 
 ### VPS-specific services
 
@@ -217,7 +261,7 @@ Everything lives under `/home/hermes/.hermes` (VPS) / `~/.hermes` (MacBook):
 └── platforms/                platform auth (WhatsApp/Signal), not synced
 ```
 
-The `/home/hermes/work` directory is the only path bind-mounted into the Docker sandbox as `/workspace` — all agent-run commands see only that. Nothing outside `work/` is reachable from a sandboxed shell.
+Each profile has its own subdirectory under `/home/hermes/work/` bind-mounted into the Docker sandbox as `/workspace` — all agent-run commands see only that profile's folder. Nothing outside `work/<profile>/` is reachable from a sandboxed shell. New profiles are added with `make add-profile PROFILE=<name>`.
 
 ---
 
@@ -282,6 +326,7 @@ make restore ARGS="file memories/MEMORY.md hermes_data_2026-04-05T03-00-00.tar.g
 | `make snapshots` | List restore points |
 | `make restore ARGS="..."` | See Backup & Restore |
 | `make clean` | Prune stopped containers + dangling images |
+| `make add-profile PROFILE=<name> TELEGRAM_BOT_TOKEN=<token>` | Create a new profile with its own workspace and Telegram bot |
 
 ### Local dev
 
