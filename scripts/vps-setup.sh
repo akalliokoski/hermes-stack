@@ -1,9 +1,26 @@
 #!/usr/bin/env bash
-# scripts/vps-setup.sh – one-time setup on a fresh or re-purposed VPS
-# Run: ssh <vps-host> 'bash -s' < scripts/vps-setup.sh
+# scripts/vps-setup.sh – one-time setup on a fresh VPS.
+#
+# Installs Docker, creates the `hermes` system user, installs hermes-agent via
+# its official install.sh, lays down config + .env, and enables the
+# hermes-gateway systemd unit.
+#
+# Usage:  scp -r scripts .env config.yaml <vps>:/tmp/hermes-bootstrap/
+#         ssh <vps> 'sudo bash /tmp/hermes-bootstrap/scripts/vps-setup.sh'
+#
+# Or from MacBook in one shot:
+#         ssh <vps> 'bash -s' < scripts/vps-setup.sh
+#         (then scp config.yaml and .env separately — see below)
 set -euo pipefail
 
 VPS_DIR="${VPS_DIR:-/opt/hermes}"
+HERMES_HOME="/home/hermes"
+HERMES_DATA="${HERMES_HOME}/.hermes"
+
+if [[ $EUID -ne 0 ]]; then
+  echo "ERROR: run as root (sudo)." >&2
+  exit 1
+fi
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 if ! command -v docker &>/dev/null; then
@@ -14,18 +31,66 @@ else
   echo "✓ Docker already installed ($(docker --version))"
 fi
 
-# ── Backup directory (host bind-mount – survives docker compose down -v) ──────
+# ── Hermes system user ────────────────────────────────────────────────────────
+if ! id hermes &>/dev/null; then
+  echo "→ Creating hermes user"
+  useradd --system --create-home --shell /bin/bash --home-dir "${HERMES_HOME}" hermes
+fi
+usermod -aG docker hermes
+echo "✓ hermes user in docker group"
+
+install -d -o hermes -g hermes -m 700 "${HERMES_DATA}"
+install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/work"
+
+# ── Install hermes-agent for the hermes user ──────────────────────────────────
+if ! sudo -iu hermes bash -c 'command -v hermes &>/dev/null'; then
+  echo "→ Installing hermes-agent via upstream install.sh"
+  sudo -iu hermes bash -c 'curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash'
+else
+  echo "✓ hermes already installed ($(sudo -iu hermes hermes --version 2>/dev/null || echo unknown))"
+fi
+
+# ── Drop in config.yaml + .env if they were staged alongside this script ──────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(dirname "${SCRIPT_DIR}")"
+
+for f in config.yaml .env; do
+  src=""
+  for candidate in "${REPO_DIR}/${f}" "${VPS_DIR}/${f}"; do
+    [[ -f "${candidate}" ]] && { src="${candidate}"; break; }
+  done
+  if [[ -n "${src}" ]]; then
+    install -o hermes -g hermes -m 600 "${src}" "${HERMES_DATA}/${f}"
+    echo "✓ Installed ${f} → ${HERMES_DATA}/${f}"
+  else
+    echo "  (no ${f} found at ${REPO_DIR} or ${VPS_DIR} — copy it manually)"
+  fi
+done
+
+# ── Backup directory (host bind-mount) ────────────────────────────────────────
 mkdir -p /opt/hermes-backups
 echo "✓ Backup directory: /opt/hermes-backups"
 
-# ── App directory ─────────────────────────────────────────────────────────────
+# ── App directory (docker compose files) ──────────────────────────────────────
 mkdir -p "${VPS_DIR}"
 echo "✓ App directory: ${VPS_DIR}"
 
-if [[ ! -f "${VPS_DIR}/.env" ]]; then
-  echo ""
-  echo "  Next step: copy your .env to ${VPS_DIR}/.env"
-  echo "    scp .env <vps-host>:${VPS_DIR}/.env"
+# ── systemd unit ──────────────────────────────────────────────────────────────
+if [[ -f "${SCRIPT_DIR}/hermes-gateway.service" ]]; then
+  install -m 644 "${SCRIPT_DIR}/hermes-gateway.service" /etc/systemd/system/hermes-gateway.service
+  systemctl daemon-reload
+  systemctl enable hermes-gateway
+  echo "✓ hermes-gateway.service installed & enabled"
+  echo "  Start with: systemctl start hermes-gateway"
+else
+  echo "  (hermes-gateway.service not staged next to this script — install manually)"
 fi
 
+echo ""
 echo "✓ VPS setup complete"
+echo ""
+echo "Next steps:"
+echo "  1. Ensure ${HERMES_DATA}/.env and ${HERMES_DATA}/config.yaml are populated."
+echo "  2. cd ${VPS_DIR} && docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d"
+echo "  3. systemctl start hermes-gateway"
+echo "  4. journalctl -u hermes-gateway -f"

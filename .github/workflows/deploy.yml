@@ -15,8 +15,6 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v3
@@ -36,7 +34,7 @@ jobs:
           rsync -az --delete \
             --exclude='.git' \
             --exclude='.env' \
-            --exclude='sync/' \
+            --exclude='backups/' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             . ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }}:/opt/hermes/
 
@@ -48,10 +46,11 @@ jobs:
             "set -e
              cd /opt/hermes
              mkdir -p /opt/hermes-backups
+             sudo install -o hermes -g hermes -m 600 config.yaml /home/hermes/.hermes/config.yaml
              docker compose pull --quiet --ignore-buildable
-             docker compose build hermes-agent
              docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
-             docker compose -f docker-compose.yml -f docker-compose.vps.yml restart hermes-agent
+             sudo systemctl restart hermes-gateway
+             systemctl is-active hermes-gateway
              docker compose -f docker-compose.yml -f docker-compose.vps.yml ps"
 
       - name: Notify success

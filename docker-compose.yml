@@ -1,67 +1,16 @@
-# ---------------------------------------------------------------------------
-# Shared base for all Hermes agent containers.
-# Each profile service merges this anchor and adds its own HERMES_PROFILE +
-# env_file entries. All profiles share the same hermes_data volume — safe
-# because each profile writes to its own subdirectory (/opt/data/profiles/<name>/).
+# Hermes support stack.
 #
-# To add a new profile:
-#   1. Run:  docker compose run --rm hermes-agent hermes profile create <name> --clone
-#   2. Copy profiles/example.env → profiles/<name>.env and fill in bot tokens etc.
-#   3. Add a service block below (copy the commented example).
-#   4. Add the profile's state.db to litestream.yml (see comment there).
-#   5. Run:  docker compose up -d hermes-<name>
-# ---------------------------------------------------------------------------
-x-hermes-base: &hermes-base
-  build: .
-  image: hermes-agent:local
-  restart: unless-stopped
-  command: gateway run
-  volumes:
-    - ./sync:/opt/sync              # shared data (skills, notes, memory exports)
-    - hermes_data:/opt/data         # all profiles live here, isolated by subdirectory
-  depends_on: [hindsight, firecrawl-api, litestream]
-  networks: [hermes]
-  cap_drop: [ALL]
-  security_opt: [no-new-privileges:true]
-  labels:
-    - docker-volume-backup.exec-label=hermes-backup-hook
-    - "docker-volume-backup.archive-pre=/bin/sh -c \"python3 -c 'import sqlite3; sqlite3.connect(\\\"/opt/data/state.db\\\").execute(\\\"PRAGMA wal_checkpoint(PASSIVE)\\\")'\" "
-  deploy:
-    resources:
-      limits:
-        memory: 4g
-        cpus: "2"
+# hermes-agent itself runs natively on the host (via install.sh + systemd) and
+# uses its Docker terminal backend to sandbox each shell command. This compose
+# file only manages the auxiliary services hermes talks to: firecrawl (web
+# scraping), hindsight (vector memory), litestream (SQLite WAL replication),
+# and the daily backup job. On VPS, docker-compose.vps.yml additionally starts
+# syncthing. See SETUP.md for the full topology.
+#
+# Hermes state lives at /home/hermes/.hermes on VPS (or ~/.hermes locally) and
+# is bind-mounted into the litestream/backup/syncthing containers.
 
 services:
-  # ---------------------------------------------------------------------------
-  # Hermes – default profile
-  # ---------------------------------------------------------------------------
-  hermes-agent:
-    <<: *hermes-base
-    container_name: hermes_agent
-    env_file: .env
-    environment:
-      HERMES_PROFILE: ${HERMES_PROFILE:-default}
-      FIRECRAWL_API_URL: http://firecrawl-api:3002
-      HOME: /opt/data
-      HERMES_HOME: /opt/data
-      TERMINAL_CWD: /opt/data/hermes-workspace
-      MESSAGING_CWD: /opt/data/hermes-workspace
-
-  # ---------------------------------------------------------------------------
-  # Additional profiles — uncomment and customise to add more agents.
-  # Each profile runs its own gateway process with isolated state & credentials.
-  #
-  # hermes-coder:
-  #   <<: *hermes-base
-  #   env_file:
-  #     - .env                      # shared API keys (openrouter, etc.)
-  #     - profiles/coder.env        # profile-specific tokens (see profiles/example.env)
-  #   environment:
-  #     HERMES_PROFILE: coder
-  #     FIRECRAWL_API_URL: http://firecrawl-api:3002
-  # ---------------------------------------------------------------------------
-
   # ---------------------------------------------------------------------------
   # Firecrawl – web crawling & scraping
   # ---------------------------------------------------------------------------
@@ -137,50 +86,16 @@ services:
     networks: [hermes]
 
   # ---------------------------------------------------------------------------
-  # Hindsight – agent memory (memory banks, one per profile)
-  # API:  http://localhost:8888
-  # UI:   http://localhost:9999
+  # Hindsight – agent memory (vector memory bank)
+  # API:  http://127.0.0.1:8888
+  # UI:   http://127.0.0.1:9999
   # ---------------------------------------------------------------------------
-  # ---------------------------------------------------------------------------
-  # Litestream – continuous SQLite replication for state.db (WAL-safe)
-  # Replicates to hermes_backups volume (→ /opt/hermes-backups on VPS, ./backups locally)
-  # ---------------------------------------------------------------------------
-  litestream:
-    image: litestream/litestream:latest
-    restart: unless-stopped
-    command: replicate
-    volumes:
-      - ./litestream.yml:/etc/litestream.yml:ro
-      - hermes_data:/opt/data
-      - hermes_backups:/opt/backups
-    networks: [hermes]
-
-  # ---------------------------------------------------------------------------
-  # Backup – daily snapshots of the full hermes_data volume
-  # Handles retention, pre-backup WAL checkpoint, and versioned tarballs.
-  # Trigger manually: make backup-now
-  # ---------------------------------------------------------------------------
-  backup:
-    image: offen/docker-volume-backup:v2
-    restart: unless-stopped
-    environment:
-      BACKUP_CRON_EXPRESSION: "0 3 * * *"
-      BACKUP_FILENAME_FORMAT: "hermes_data_%Y-%m-%dT%H-%M-%S.tar.gz"
-      BACKUP_RETENTION_DAYS: "30"
-      EXEC_LABEL: hermes-backup-hook
-      EXEC_FORWARD_OUTPUT: "true"
-    volumes:
-      - hermes_data:/backup/hermes_data:ro
-      - hermes_backups:/archive
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks: [hermes]
-
   hindsight:
     image: ghcr.io/vectorize-io/hindsight:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8888:8888"   # REST API
-      - "127.0.0.1:9999:9999"   # Control Plane UI
+      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:9999:9999"
     environment:
       HINDSIGHT_API_LLM_API_KEY: ${HINDSIGHT_LLM_API_KEY}
       HINDSIGHT_API_LLM_PROVIDER: ${HINDSIGHT_LLM_PROVIDER:-openai}
@@ -191,6 +106,40 @@ services:
       - hindsight_data:/home/hindsight/.pg0
     networks: [hermes]
 
+  # ---------------------------------------------------------------------------
+  # Litestream – continuous SQLite replication for state.db
+  # Source: /home/hermes/.hermes (host) → /opt/data (container)
+  # Replica: hermes_backups volume → /opt/hermes-backups/litestream/ on VPS
+  # ---------------------------------------------------------------------------
+  litestream:
+    image: litestream/litestream:latest
+    restart: unless-stopped
+    command: replicate
+    volumes:
+      - ./litestream.yml:/etc/litestream.yml:ro
+      - ${HERMES_DATA_DIR:-/home/hermes/.hermes}:/opt/data
+      - hermes_backups:/opt/backups
+    networks: [hermes]
+
+  # ---------------------------------------------------------------------------
+  # Backup – daily snapshots of /home/hermes/.hermes
+  # Pre-archive step checkpoints state.db WAL so the tarball is consistent.
+  # Trigger manually: make backup-now
+  # ---------------------------------------------------------------------------
+  backup:
+    image: offen/docker-volume-backup:v2
+    restart: unless-stopped
+    environment:
+      BACKUP_CRON_EXPRESSION: "0 3 * * *"
+      BACKUP_FILENAME_FORMAT: "hermes_data_%Y-%m-%dT%H-%M-%S.tar.gz"
+      BACKUP_RETENTION_DAYS: "30"
+      EXEC_FORWARD_OUTPUT: "true"
+      # state.db consistency: litestream replicates WAL pages continuously, so
+      # the tarball is a secondary restore path — no pre-archive checkpoint.
+    volumes:
+      - ${HERMES_DATA_DIR:-/home/hermes/.hermes}:/backup/hermes_data:ro
+      - hermes_backups:/archive
+
 networks:
   hermes:
     driver: bridge
@@ -199,5 +148,4 @@ volumes:
   redis_data:
   postgres_data:
   hindsight_data:
-  hermes_data:
   hermes_backups:    # backup destination — overridden to host bind-mount in vps/override files

@@ -55,14 +55,17 @@ agent:
       \ is gonna be LEGENDARY! ARE YOU READY?! LET'S DO THIS! \U0001F4AA\U0001F624\
       \U0001F680"
 terminal:
-  backend: local
+  backend: docker
   modal_mode: auto
-  cwd: /opt/data/hermes-workspace
+  cwd: /workspace
   timeout: 180
   env_passthrough: []
   docker_image: nikolaik/python-nodejs:python3.11-nodejs20
   docker_forward_env: []
   docker_env: {}
+  docker_volumes:
+    - /home/hermes/work:/workspace
+  docker_mount_cwd_to_workspace: false
   singularity_image: docker://nikolaik/python-nodejs:python3.11-nodejs20
   modal_image: nikolaik/python-nodejs:python3.11-nodejs20
   daytona_image: nikolaik/python-nodejs:python3.11-nodejs20
@@ -70,8 +73,6 @@ terminal:
   container_memory: 5120
   container_disk: 51200
   container_persistent: true
-  docker_volumes: []
-  docker_mount_cwd_to_workspace: false
   persistent_shell: true
   lifetime_seconds: 300
 browser:
@@ -223,7 +224,7 @@ skills:
   creation_nudge_interval: 15
   config:
     wiki:
-      path: /opt/sync/wiki   # inside ./sync bind-mount → synced to MacBook via Syncthing
+      path: ~/.hermes/wiki   # inside hermes home → synced to MacBook via Syncthing
 honcho: {}
 timezone: ''
 discord:

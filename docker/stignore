@@ -1,5 +1,18 @@
-# Syncthing ignore rules for hermes-data folder
-# SQLite WAL files are managed by Litestream — Syncthing must not touch them.
+# Syncthing ignore rules for /home/hermes/.hermes (synced to MacBook).
+# state.db is managed by Litestream; other paths are runtime-only.
+
+# SQLite WAL (Litestream replicates these — Syncthing must not touch them)
 state.db
 state.db-wal
 state.db-shm
+
+# Runtime state — not useful on the MacBook
+sessions
+logs
+cron
+caches
+platforms
+
+# Secrets
+.env
+.env.*

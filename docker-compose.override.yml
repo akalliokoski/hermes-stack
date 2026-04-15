@@ -1,28 +1,22 @@
 # Local development overrides – applied automatically by Docker Compose.
 # Do not deploy this file to the VPS.
+#
+# Locally, HERMES_DATA_DIR defaults to ~/.hermes (the MacBook's hermes install).
+# Set it explicitly in .env if your local hermes lives elsewhere.
 services:
-  hermes-agent:
-    volumes:
-      - ./config.yaml:/opt/data/config.yaml:ro  # use repo config instead of entrypoint default
-
-  # Per-profile config overrides: mount a profile-specific config.yaml if the
-  # profile needs different model/settings from the shared root config.yaml.
-  # Named profiles look for config at /opt/data/profiles/<name>/config.yaml.
-  #
-  # hermes-coder:
-  #   volumes:
-  #     - ./profiles/coder/config.yaml:/opt/data/profiles/coder/config.yaml:ro
-
   litestream:
     volumes:
-      - ./litestream.local.yml:/etc/litestream.yml:ro  # lighter retention for local dev
-      - hermes_data:/opt/data
+      - ./litestream.local.yml:/etc/litestream.yml:ro
+      - ${HERMES_DATA_DIR:-${HOME}/.hermes}:/opt/data
       - hermes_backups:/opt/backups
 
   backup:
     environment:
       BACKUP_CRON_EXPRESSION: "0 3 * * 0"   # weekly (not daily) for local dev
       BACKUP_RETENTION_DAYS: "14"
+    volumes:
+      - ${HERMES_DATA_DIR:-${HOME}/.hermes}:/backup/hermes_data:ro
+      - hermes_backups:/archive
 
 volumes:
   hermes_backups:

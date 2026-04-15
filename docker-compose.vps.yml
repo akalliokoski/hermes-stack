@@ -3,56 +3,29 @@
 # Hindsight is exposed on the tailnet via: tailscale serve --config tailscale/serve.json
 # Usage: docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
 #   (or just: make up)
+#
+# Syncthing mounts /home/hermes/.hermes as a single folder. Ignored files
+# (state.db, sessions, logs, caches, platforms) are declared in docker/stignore.
 services:
   # ---------------------------------------------------------------------------
-  # Hermes – mount repo config.yaml into the data volume so VPS picks up the
-  # same model/provider settings as local dev.
-  # ---------------------------------------------------------------------------
-  hermes-agent:
-    user: "1000:1000"
-    environment:
-      HOME: /opt/data
-    volumes:
-      - ./config.yaml:/opt/data/config.yaml:ro
-    depends_on:
-      syncthing-init:
-        condition: service_completed_successfully
-
-  # ---------------------------------------------------------------------------
-  # Syncthing – sync hermes data (skills, notes, …) → MacBook Pro
+  # Syncthing – sync /home/hermes/.hermes → MacBook over Tailscale.
   # Runs over Tailscale – no public port exposure needed.
   # Web UI accessible via: ssh -L 8384:localhost:8384 my-vps
   # Sync protocol bound to Tailscale interface only (set in Syncthing GUI).
   # ---------------------------------------------------------------------------
-  syncthing-init:
-    image: busybox
-    command: >
-      sh -c "
-        mkdir -p /sync/hermes-data/hermes-workspace &&
-        mkdir -p /sync/shared/wiki &&
-        mkdir -p /sync/shared/obsidian-vault &&
-        chown -R 1000:1000 /sync/hermes-data /sync/shared
-      "
-    volumes:
-      - hermes_data:/sync/hermes-data
-      - ./sync:/sync/shared
-    restart: "no"
-
   syncthing:
     image: syncthing/syncthing:latest
     restart: unless-stopped
     hostname: hermes-vps
     network_mode: host        # allows Syncthing to see the Tailscale interface
-    depends_on:
-      syncthing-init:
-        condition: service_completed_successfully
     volumes:
       - syncthing_config:/var/syncthing
-      - ./sync:/sync/shared            # general shared folder (skills, notes, …)
-      - hermes_data:/sync/hermes-data  # agent state: soul, skills, sessions, memory
-      - ./docker/stignore:/sync/hermes-data/.stignore:ro  # exclude state.db* (Litestream owns those)
+      - /home/hermes/.hermes:/sync/hermes
+      - ./docker/stignore:/sync/hermes/.stignore:ro
     environment:
-      PCAP: ""              # suppress unnecessary capabilities warning
+      PUID: "1001"            # match the hermes system user (verify with `id hermes`)
+      PGID: "1001"
+      PCAP: ""                # suppress unnecessary capabilities warning
 
 volumes:
   syncthing_config:
