@@ -224,7 +224,7 @@ skills:
   creation_nudge_interval: 15
   config:
     wiki:
-      path: ~/.hermes/wiki   # inside hermes home → synced to MacBook via Syncthing
+      path: ~/sync/wiki   # synced to MacBook via Syncthing
 honcho: {}
 timezone: ''
 discord:

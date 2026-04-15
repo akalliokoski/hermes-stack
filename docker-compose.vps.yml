@@ -3,12 +3,9 @@
 # Hindsight is exposed on the tailnet via: tailscale serve --config tailscale/serve.json
 # Usage: docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
 #   (or just: make up)
-#
-# Syncthing mounts /home/hermes/.hermes as a single folder. Ignored files
-# (state.db, sessions, logs, caches, platforms) are declared in docker/stignore.
 services:
   # ---------------------------------------------------------------------------
-  # Syncthing – sync /home/hermes/.hermes → MacBook over Tailscale.
+  # Syncthing – sync /home/hermes/sync → MacBook over Tailscale.
   # Runs over Tailscale – no public port exposure needed.
   # Web UI accessible via: ssh -L 8384:localhost:8384 my-vps
   # Sync protocol bound to Tailscale interface only (set in Syncthing GUI).
@@ -20,8 +17,7 @@ services:
     network_mode: host        # allows Syncthing to see the Tailscale interface
     volumes:
       - syncthing_config:/var/syncthing
-      - /home/hermes/.hermes:/sync/hermes
-      - ./docker/stignore:/sync/hermes/.stignore:ro
+      - /home/hermes/sync:/sync
     environment:
       PUID: "1001"            # match the hermes system user (verify with `id hermes`)
       PGID: "1001"
@@ -34,4 +30,4 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /opt/hermes-backups   # host path — survives docker compose down -v
+      device: /home/hermes/sync/backups   # host path — survives docker compose down -v

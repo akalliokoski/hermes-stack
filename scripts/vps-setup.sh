@@ -52,7 +52,10 @@ usermod -aG docker hermes
 echo "✓ hermes user in docker group"
 
 install -d -o hermes -g hermes -m 700 "${HERMES_DATA}"
-install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/work"
+install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/sync"
+install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/sync/workspace"
+install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/sync/wiki"
+install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/sync/backups"
 
 # ── Drop in config.yaml + .env BEFORE install.sh so the setup wizard is skipped
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -78,10 +81,6 @@ if ! sudo -iu hermes bash -c 'command -v hermes &>/dev/null'; then
 else
   echo "✓ hermes already installed ($(sudo -iu hermes hermes --version 2>/dev/null || echo unknown))"
 fi
-
-# ── Backup directory (host bind-mount) ────────────────────────────────────────
-mkdir -p /opt/hermes-backups
-echo "✓ Backup directory: /opt/hermes-backups"
 
 # ── App directory (docker compose files) ──────────────────────────────────────
 mkdir -p "${VPS_DIR}"

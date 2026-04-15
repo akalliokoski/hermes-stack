@@ -44,12 +44,11 @@ for vol in \
   docker volume rm -f "${vol}" 2>/dev/null && echo "  removed ${vol}" || true
 done
 
-echo "→ Clearing /opt/hermes-backups"
+echo "→ Clearing legacy /opt/hermes-backups (if any)"
 rm -rf /opt/hermes-backups
-mkdir -p /opt/hermes-backups
 
-echo "→ Removing old hermes home (state, prior install)"
-rm -rf /home/hermes/.hermes /home/hermes/work
+echo "→ Removing old hermes home (state, prior install, sync dirs)"
+rm -rf /home/hermes/.hermes /home/hermes/work /home/hermes/sync
 
 echo "→ Pruning dangling images"
 docker image prune -f >/dev/null || true
