@@ -17,6 +17,8 @@
 #   make hermes ARGS="skills"         run a hermes subcommand
 #   make update-agent                 `hermes update` on the VPS (pulls new release)
 #   make add-profile PROFILE=<name>   create a new profile with its own workspace
+#   make setup-hindsight              write hindsight/config.json for default profile
+#   make setup-hindsight PROFILE=<n>  write hindsight/config.json for a named profile
 #
 # Backup & restore (VPS):
 #   make backup-now                   trigger immediate .hermes tarball
@@ -28,11 +30,12 @@
 #   make local-down                   stop them
 #   make local-chat                   `hermes chat` against ~/.hermes
 #   make local-update-agent           `hermes update` locally
+#   make local-setup-hindsight        write hindsight/config.json locally
 
 .PHONY: up down deploy status logs logs-all restart chat shell hermes \
-        update-agent backup-now snapshots restore clean add-profile \
+        update-agent backup-now snapshots restore clean add-profile setup-hindsight \
         local-up local-down local-chat local-status local-logs \
-        local-backup-now local-snapshots local-update-agent
+        local-backup-now local-snapshots local-update-agent local-setup-hindsight
 
 COMPOSE       = docker compose -f docker-compose.yml -f docker-compose.vps.yml
 LOCAL_COMPOSE = docker compose                          # auto-merges docker-compose.override.yml
@@ -79,6 +82,27 @@ hermes:
 update-agent:
 	ssh -t $(VPS_HOST) 'sudo -iu hermes hermes update && sudo systemctl restart hermes-gateway'
 
+# ── Hindsight memory backend ──────────────────────────────────────────────────
+# Write the default-profile hindsight config on the VPS (run once after deploy).
+# Each profile gets its own bank so memories are isolated — see add-profile below.
+
+setup-hindsight:
+	@if [ -n "$(PROFILE)" ]; then \
+	  ssh $(VPS_HOST) 'sudo -iu hermes bash -c " \
+	    mkdir -p /home/hermes/.hermes/profiles/$(PROFILE)/hindsight && \
+	    printf '"'"'{"hindsightApiUrl":"http://127.0.0.1:8888","bankId":"hermes-$(PROFILE)","autoRecall":true,"autoRetain":true}\n'"'"' \
+	      > /home/hermes/.hermes/profiles/$(PROFILE)/hindsight/config.json && \
+	    chmod 600 /home/hermes/.hermes/profiles/$(PROFILE)/hindsight/config.json"' ; \
+	  echo "✓ Hindsight configured for profile '$(PROFILE)' (bank: hermes-$(PROFILE))" ; \
+	else \
+	  ssh $(VPS_HOST) 'sudo -iu hermes bash -c " \
+	    mkdir -p /home/hermes/.hermes/hindsight && \
+	    printf '"'"'{"hindsightApiUrl":"http://127.0.0.1:8888","bankId":"hermes-default","autoRecall":true,"autoRetain":true}\n'"'"' \
+	      > /home/hermes/.hermes/hindsight/config.json && \
+	    chmod 600 /home/hermes/.hermes/hindsight/config.json"' ; \
+	  echo "✓ Hindsight configured for default profile (bank: hermes-default)" ; \
+	fi
+
 # ── Maintenance ────────────────────────────────────────────────────────────────
 
 backup-now:
@@ -117,7 +141,12 @@ add-profile:
 	ssh $(VPS_HOST) 'sudo -iu hermes bash -c "echo TELEGRAM_BOT_TOKEN=$(TELEGRAM_BOT_TOKEN) > /home/hermes/.hermes/profiles/$(PROFILE)/.env && chmod 600 /home/hermes/.hermes/profiles/$(PROFILE)/.env"'
 	ssh $(VPS_HOST) 'sudo -iu hermes hermes -p $(PROFILE) gateway install --system --run-as-user hermes'
 	ssh $(VPS_HOST) 'sudo hermes -p $(PROFILE) gateway start --system'
-	@echo "✓ Profile '$(PROFILE)' ready — gateway running as hermes-gateway-$(PROFILE).service"
+	ssh $(VPS_HOST) 'sudo -iu hermes bash -c " \
+	  mkdir -p /home/hermes/.hermes/profiles/$(PROFILE)/hindsight && \
+	  printf '"'"'{"hindsightApiUrl":"http://127.0.0.1:8888","bankId":"hermes-$(PROFILE)","autoRecall":true,"autoRetain":true}\n'"'"' \
+	    > /home/hermes/.hermes/profiles/$(PROFILE)/hindsight/config.json && \
+	  chmod 600 /home/hermes/.hermes/profiles/$(PROFILE)/hindsight/config.json"'
+	@echo "✓ Profile '$(PROFILE)' ready — gateway running as hermes-gateway-$(PROFILE).service, Hindsight bank: hermes-$(PROFILE)"
 
 # ── Local dev ─────────────────────────────────────────────────────────────────
 # docker-compose.override.yml is merged automatically – no extra -f needed.
@@ -147,3 +176,10 @@ local-backup-now:
 
 local-snapshots:
 	bash scripts/restore.sh list
+
+local-setup-hindsight:
+	mkdir -p $(HOME)/.hermes/hindsight
+	printf '{"hindsightApiUrl":"http://127.0.0.1:8888","bankId":"hermes-default","autoRecall":true,"autoRetain":true}\n' \
+	  > $(HOME)/.hermes/hindsight/config.json
+	chmod 600 $(HOME)/.hermes/hindsight/config.json
+	@echo "✓ Hindsight configured locally (bank: hermes-default)"
