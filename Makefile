@@ -127,7 +127,8 @@ clean:
 #   2. Creates the hermes profile (copies default config)
 #   3. Updates the profile's docker_volumes to use its own workspace
 #   4. Writes TELEGRAM_BOT_TOKEN to the profile's .env
-#   5. Installs + starts the gateway systemd unit for the profile
+#   5. Makes the profile inherit shared git defaults from /home/hermes/.config/git/shared.gitconfig
+#   6. Installs + starts the gateway systemd unit for the profile
 PROFILE ?=
 TELEGRAM_BOT_TOKEN ?=
 
@@ -139,6 +140,7 @@ add-profile:
 	ssh $(VPS_HOST) 'sudo -iu hermes hermes profile create $(PROFILE)'
 	ssh $(VPS_HOST) 'sudo -iu hermes sed -i "s|/home/hermes/work/default:/workspace|/home/hermes/work/$(PROFILE):/workspace|g" /home/hermes/.hermes/profiles/$(PROFILE)/config.yaml'
 	ssh $(VPS_HOST) 'sudo -iu hermes bash -c "echo TELEGRAM_BOT_TOKEN=$(TELEGRAM_BOT_TOKEN) > /home/hermes/.hermes/profiles/$(PROFILE)/.env && chmod 600 /home/hermes/.hermes/profiles/$(PROFILE)/.env"'
+	ssh $(VPS_HOST) 'sudo -iu hermes bash -c "mkdir -p /home/hermes/.hermes/profiles/$(PROFILE)/home && printf '[include]\n  path = /home/hermes/.config/git/shared.gitconfig\n' > /home/hermes/.hermes/profiles/$(PROFILE)/home/.gitconfig && chmod 644 /home/hermes/.hermes/profiles/$(PROFILE)/home/.gitconfig"'
 	ssh $(VPS_HOST) 'sudo -iu hermes hermes -p $(PROFILE) gateway install --system --run-as-user hermes'
 	ssh $(VPS_HOST) 'sudo hermes -p $(PROFILE) gateway start --system'
 	ssh $(VPS_HOST) 'sudo -iu hermes bash -c " \
@@ -146,7 +148,7 @@ add-profile:
 	  printf '"'"'{"hindsightApiUrl":"http://127.0.0.1:8888","bankId":"hermes-$(PROFILE)","autoRecall":true,"autoRetain":true}\n'"'"' \
 	    > /home/hermes/.hermes/profiles/$(PROFILE)/hindsight/config.json && \
 	  chmod 600 /home/hermes/.hermes/profiles/$(PROFILE)/hindsight/config.json"'
-	@echo "✓ Profile '$(PROFILE)' ready — gateway running as hermes-gateway-$(PROFILE).service, Hindsight bank: hermes-$(PROFILE)"
+	@echo "✓ Profile '$(PROFILE)' ready — gateway running as hermes-gateway-$(PROFILE).service, shared git defaults enabled, Hindsight bank: hermes-$(PROFILE)"
 
 # ── Local dev ─────────────────────────────────────────────────────────────────
 # docker-compose.override.yml is merged automatically – no extra -f needed.
