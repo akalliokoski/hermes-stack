@@ -99,6 +99,14 @@ else
   echo "  (hermes-gateway.service not staged next to this script — install manually)"
 fi
 
+# ── Profile provisioning helper ───────────────────────────────────────────────
+if [[ -f "${SCRIPT_DIR}/provision-profile" ]]; then
+  install -m 755 "${SCRIPT_DIR}/provision-profile" /usr/local/bin/provision-profile
+  echo "✓ provision-profile helper installed at /usr/local/bin/provision-profile"
+else
+  echo "  (provision-profile helper not staged next to this script — install manually)"
+fi
+
 echo ""
 echo "✓ VPS setup complete"
 echo ""

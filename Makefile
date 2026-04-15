@@ -16,7 +16,8 @@
 #   make shell                        bash shell on the VPS as the hermes user
 #   make hermes ARGS="skills"         run a hermes subcommand
 #   make update-agent                 `hermes update` on the VPS (pulls new release)
-#   make add-profile PROFILE=<name>   create a new profile with its own workspace
+#   make add-profile PROFILE=<name>   create/update a profile on the VPS via scripts/provision-profile.sh
+#   make sync-souls                  rerender SOUL.md for default + all named profiles on the VPS
 #   make setup-hindsight              write hindsight/config.json for default profile
 #   make setup-hindsight PROFILE=<n>  write hindsight/config.json for a named profile
 #
@@ -33,7 +34,7 @@
 #   make local-setup-hindsight        write hindsight/config.json locally
 
 .PHONY: up down deploy status logs logs-all restart chat shell hermes \
-        update-agent backup-now snapshots restore clean add-profile setup-hindsight \
+        update-agent backup-now snapshots restore clean add-profile sync-souls setup-hindsight \
         local-up local-down local-chat local-status local-logs \
         local-backup-now local-snapshots local-update-agent local-setup-hindsight
 
@@ -119,36 +120,26 @@ clean:
 	docker image prune -f
 
 # ── Profile management ────────────────────────────────────────────────────────
-# Create a new hermes profile with its own isolated workspace.
-# Usage:  make add-profile PROFILE=myprofile TELEGRAM_BOT_TOKEN=123:ABC...
+# Create/update a hermes profile on the VPS via scripts/provision-profile.sh.
+# This is also the same script you can run directly on the VPS (or from Hermes chat)
+# after deploy: `bash /opt/hermes/scripts/provision-profile.sh --profile <name>`.
 #
-# What it does:
-#   1. Creates /home/hermes/work/<profile> on the VPS
-#   2. Creates the hermes profile (copies default config)
-#   3. Updates the profile's docker_volumes to use its own workspace
-#   4. Writes TELEGRAM_BOT_TOKEN to the profile's .env
-#   5. Makes the profile inherit shared git defaults from /home/hermes/.config/git/shared.gitconfig
-#   6. Installs + starts the gateway systemd unit for the profile
+# Usage:
+#   make add-profile PROFILE=myprofile
+#   make add-profile PROFILE=myprofile TELEGRAM_BOT_TOKEN=***
+#   make sync-souls
 PROFILE ?=
 TELEGRAM_BOT_TOKEN ?=
 
 add-profile:
-	@[ -n "$(PROFILE)" ] || { echo "ERROR: PROFILE is required. Usage: make add-profile PROFILE=<name> TELEGRAM_BOT_TOKEN=<token>"; exit 1; }
-	@[ -n "$(TELEGRAM_BOT_TOKEN)" ] || { echo "ERROR: TELEGRAM_BOT_TOKEN is required. Usage: make add-profile PROFILE=<name> TELEGRAM_BOT_TOKEN=<token>"; exit 1; }
-	@echo "→ Creating profile '$(PROFILE)' on $(VPS_HOST)"
-	ssh $(VPS_HOST) 'sudo install -d -o hermes -g hermes -m 755 /home/hermes/work/$(PROFILE)'
-	ssh $(VPS_HOST) 'sudo -iu hermes hermes profile create $(PROFILE)'
-	ssh $(VPS_HOST) 'sudo -iu hermes sed -i "s|/home/hermes/work/default:/workspace|/home/hermes/work/$(PROFILE):/workspace|g" /home/hermes/.hermes/profiles/$(PROFILE)/config.yaml'
-	ssh $(VPS_HOST) 'sudo -iu hermes bash -c "echo TELEGRAM_BOT_TOKEN=$(TELEGRAM_BOT_TOKEN) > /home/hermes/.hermes/profiles/$(PROFILE)/.env && chmod 600 /home/hermes/.hermes/profiles/$(PROFILE)/.env"'
-	ssh $(VPS_HOST) 'sudo -iu hermes bash -c "mkdir -p /home/hermes/.hermes/profiles/$(PROFILE)/home && printf '[include]\n  path = /home/hermes/.config/git/shared.gitconfig\n' > /home/hermes/.hermes/profiles/$(PROFILE)/home/.gitconfig && chmod 644 /home/hermes/.hermes/profiles/$(PROFILE)/home/.gitconfig"'
-	ssh $(VPS_HOST) 'sudo -iu hermes hermes -p $(PROFILE) gateway install --system --run-as-user hermes'
-	ssh $(VPS_HOST) 'sudo hermes -p $(PROFILE) gateway start --system'
-	ssh $(VPS_HOST) 'sudo -iu hermes bash -c " \
-	  mkdir -p /home/hermes/.hermes/profiles/$(PROFILE)/hindsight && \
-	  printf '"'"'{"hindsightApiUrl":"http://127.0.0.1:8888","bankId":"hermes-$(PROFILE)","autoRecall":true,"autoRetain":true}\n'"'"' \
-	    > /home/hermes/.hermes/profiles/$(PROFILE)/hindsight/config.json && \
-	  chmod 600 /home/hermes/.hermes/profiles/$(PROFILE)/hindsight/config.json"'
-	@echo "✓ Profile '$(PROFILE)' ready — gateway running as hermes-gateway-$(PROFILE).service, shared git defaults enabled, Hindsight bank: hermes-$(PROFILE)"
+	@[ -n "$(PROFILE)" ] || { echo "ERROR: PROFILE is required"; exit 1; }
+	@echo "→ Provisioning profile '$(PROFILE)' on $(VPS_HOST)"
+	ssh $(VPS_HOST) "cd /opt/hermes && sudo bash scripts/provision-profile.sh --profile $(PROFILE)$(if $(TELEGRAM_BOT_TOKEN), --telegram-bot-token '$(TELEGRAM_BOT_TOKEN)',)"
+
+
+sync-souls:
+	@echo "→ Rerendering shared SOUL.md files on $(VPS_HOST)"
+	ssh $(VPS_HOST) 'cd /opt/hermes && sudo bash scripts/provision-profile.sh --sync-all-souls'
 
 # ── Local dev ─────────────────────────────────────────────────────────────────
 # docker-compose.override.yml is merged automatically – no extra -f needed.

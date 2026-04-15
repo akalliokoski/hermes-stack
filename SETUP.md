@@ -174,30 +174,65 @@ chmod +x /usr/local/bin/hermes
 
 ### Adding a new profile + gateway
 
+The repo now has one canonical provisioning script that works both ways:
+
 ```bash
-# From MacBook — one command does everything:
-make add-profile PROFILE=<name> TELEGRAM_BOT_TOKEN=<token>
+# From MacBook:
+make add-profile PROFILE=<name>
+make add-profile PROFILE=<name> TELEGRAM_BOT_TOKEN=***
+
+# Directly on the VPS (including from Hermes chat via terminal tool):
+cd /opt/hermes
+sudo bash scripts/provision-profile.sh --profile <name>
+sudo bash scripts/provision-profile.sh --profile <name> --telegram-bot-token ***
+
+# Short helper command installed by vps-setup.sh:
+sudo provision-profile <name>
+sudo provision-profile <name> ***
 ```
 
-This creates `/home/hermes/work/<name>` on the VPS, initialises the profile (copying default config), updates its `docker_volumes` to use the profile-specific workspace, writes `TELEGRAM_BOT_TOKEN` to the profile's `.env`, writes `/home/hermes/.hermes/profiles/<name>/home/.gitconfig` to include `/home/hermes/.config/git/shared.gitconfig`, and installs + starts the gateway systemd unit.
+`scripts/provision-profile.sh`:
 
-To do it manually on the VPS:
+- creates `/home/hermes/work/<name>`
+- creates the Hermes profile if needed
+- updates `docker_volumes` to mount the profile-specific workspace at `/workspace`
+- optionally writes `TELEGRAM_BOT_TOKEN` to the profile's `.env`
+- writes `/home/hermes/.hermes/profiles/<name>/home/.gitconfig` to include `/home/hermes/.config/git/shared.gitconfig`
+- writes `/home/hermes/.hermes/profiles/<name>/hindsight/config.json` with `bankId: hermes-<name>`
+- renders `SOUL.md` from shared base + per-profile override
+- installs + starts the system gateway when root (or passwordless sudo) is available
+
+If you edit shared instructions later, rerender all profile `SOUL.md` files with:
+
 ```bash
-# On the VPS as root (wrapper handles user/root switching):
-sudo install -d -o hermes -g hermes -m 755 /home/hermes/work/<name>
-hermes profile create <name>
-sed -i "s|work/default:/workspace|work/<name>:/workspace|g" \
-  /home/hermes/.hermes/profiles/<name>/config.yaml
-mkdir -p /home/hermes/.hermes/profiles/<name>/home
-cat > /home/hermes/.hermes/profiles/<name>/home/.gitconfig <<'EOF'
-[include]
-  path = /home/hermes/.config/git/shared.gitconfig
-EOF
-echo "TELEGRAM_BOT_TOKEN=***" > /home/hermes/.hermes/profiles/<name>/.env
-chmod 600 /home/hermes/.hermes/profiles/<name>/.env
-hermes -p <name> gateway install --system --run-as-user hermes
-hermes -p <name> gateway start --system
+make sync-souls
+# or directly on the VPS:
+sudo bash /opt/hermes/scripts/provision-profile.sh --sync-all-souls
+# or via the helper:
+sudo provision-profile --sync-all
 ```
+
+### Shared instructions across profiles
+
+Common instructions now live outside individual profile dirs:
+
+```text
+/home/hermes/.hermes/shared/soul/
+├── base.md                 # shared by every profile
+├── README.md
+└── profiles/
+    ├── default.md          # default profile only
+    ├── coder.md            # coder profile only
+    └── <name>.md
+```
+
+Each profile `SOUL.md` is rendered as:
+
+```text
+shared/soul/base.md + shared/soul/profiles/<name>.md
+```
+
+This gives you one place for common behavior, while keeping profile-specific instructions separate. Hindsight memory remains isolated per profile because each profile still gets its own `bankId` even though all profiles use the same Hindsight service.
 
 ### VPS-specific services
 
@@ -266,7 +301,7 @@ Everything lives under `/home/hermes/.hermes` (VPS) / `~/.hermes` (MacBook):
 └── platforms/                platform auth (WhatsApp/Signal), not synced
 ```
 
-Each profile has its own subdirectory under `/home/hermes/work/` bind-mounted into the Docker sandbox as `/workspace` — all agent-run commands see only that profile's folder. Nothing outside `work/<profile>/` is reachable from a sandboxed shell. New profiles are added with `make add-profile PROFILE=<name>`.
+Each profile has its own subdirectory under `/home/hermes/work/` bind-mounted into the Docker sandbox as `/workspace` — all agent-run commands see only that profile's folder. Nothing outside `work/<profile>/` is reachable from a sandboxed shell. New profiles are added with `make add-profile PROFILE=<name>` or directly on the VPS with `bash /opt/hermes/scripts/provision-profile.sh --profile <name>`.
 
 ---
 
@@ -331,7 +366,8 @@ make restore ARGS="file memories/MEMORY.md hermes_data_2026-04-05T03-00-00.tar.g
 | `make snapshots` | List restore points |
 | `make restore ARGS="..."` | See Backup & Restore |
 | `make clean` | Prune stopped containers + dangling images |
-| `make add-profile PROFILE=<name> TELEGRAM_BOT_TOKEN=<token>` | Create a new profile with its own workspace and Telegram bot |
+| `make add-profile PROFILE=name` or `make add-profile PROFILE=name TELEGRAM_BOT_TOKEN=***` | Create/update a profile with its own workspace, SOUL override, Hindsight bank, and optional Telegram bot |
+| `make sync-souls` | Rerender `SOUL.md` for default + all named profiles from shared sources |
 
 ### Local dev
 

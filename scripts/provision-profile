@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TARGET="${SCRIPT_DIR}/provision-profile.sh"
+
+if [[ ! -x "${TARGET}" ]]; then
+  chmod +x "${TARGET}" 2>/dev/null || true
+fi
+
+if [[ $# -lt 1 ]]; then
+  cat <<'EOF'
+Usage:
+  provision-profile <name> [telegram-bot-token]
+  provision-profile --sync-all
+
+Examples:
+  sudo provision-profile coder
+  sudo provision-profile coder 123456:ABCDEF
+  sudo provision-profile --sync-all
+EOF
+  exit 1
+fi
+
+if [[ "$1" == "--sync-all" ]]; then
+  exec bash "${TARGET}" --sync-all-souls
+fi
+
+PROFILE="$1"
+shift || true
+
+if [[ $# -gt 0 ]]; then
+  exec bash "${TARGET}" --profile "${PROFILE}" --telegram-bot-token "$1"
+fi
+
+exec bash "${TARGET}" --profile "${PROFILE}"
