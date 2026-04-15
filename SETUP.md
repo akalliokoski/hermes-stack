@@ -118,21 +118,19 @@ On the MacBook, change `/home/hermes/work` to a local path (e.g. `$HOME/hermes-w
 
 ### One-time bootstrap
 
+Run [scripts/vps-bootstrap.sh](scripts/vps-bootstrap.sh) from the MacBook. It reads `VPS_HOST` from `.env`, prompts for confirmation (the step is destructive on an existing VPS), and then:
+
+1. Stages `vps-reset.sh`, `vps-setup.sh`, `hermes-gateway.service`, `config.yaml`, `.env` into `/tmp/hermes-bootstrap/` on the VPS.
+2. Runs [scripts/vps-reset.sh](scripts/vps-reset.sh) — stops the hermes-gateway unit, `docker compose down --volumes` on the old stack, removes the `hermes_*` named volumes, wipes `/opt/hermes-backups` and `/home/hermes/{.hermes,work}`. Safe no-op on a clean VPS.
+3. Runs [scripts/vps-setup.sh](scripts/vps-setup.sh) — installs Docker (if missing), creates the `hermes` system user, adds it to the `docker` group, installs hermes-agent via the upstream install.sh, seeds `/home/hermes/.hermes/{config.yaml,.env}`, creates `/opt/hermes-backups` + `/opt/hermes`, installs and enables the `hermes-gateway` systemd unit (but does not start it).
+4. Cleans up the staged files.
+
 ```bash
-# 1. Copy secrets + config to VPS
-scp .env config.yaml <vps-host>:/tmp/
-
-# 2. Install Docker, create hermes user, install hermes, enable systemd unit
-ssh <vps-host> 'sudo bash -s' < scripts/vps-setup.sh
-
-# 3. After bootstrap, place the staged files:
-ssh <vps-host> 'sudo install -o hermes -g hermes -m 600 /tmp/.env        /home/hermes/.hermes/.env'
-ssh <vps-host> 'sudo install -o hermes -g hermes -m 600 /tmp/config.yaml /home/hermes/.hermes/config.yaml'
-
-# 4. Push the compose files + bring up the support stack
-make deploy
-ssh <vps-host> 'sudo systemctl start hermes-gateway'
+bash scripts/vps-bootstrap.sh     # one-time, from MacBook
+git push                           # subsequent deploys go through CI
 ```
+
+After bootstrap, the first `git push` to `main` (or a manual `make deploy`) rsyncs the compose files, brings up the support stack, installs the latest `config.yaml`, and `systemctl restart hermes-gateway` starts the agent for the first time.
 
 `VPS_HOST` and `VPS_DIR` are read from `.env`:
 
@@ -140,6 +138,8 @@ ssh <vps-host> 'sudo systemctl start hermes-gateway'
 VPS_HOST=my-vps           # Tailscale hostname or IP
 VPS_DIR=/opt/hermes       # default
 ```
+
+The individual scripts can also be run standalone (e.g. `ssh $VPS_HOST 'sudo bash -s' < scripts/vps-setup.sh`) if you want to skip the wipe on a fresh VPS.
 
 ### Deploying updates
 

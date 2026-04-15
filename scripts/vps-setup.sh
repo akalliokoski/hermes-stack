@@ -22,6 +22,18 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+# ── System packages (ripgrep + ffmpeg for hermes; curl for install.sh) ────────
+# Pre-installed here so the upstream install.sh doesn't try to open /dev/tty
+# for a sudo password prompt over the non-interactive ssh session.
+if command -v apt-get &>/dev/null; then
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  apt-get install -y -qq \
+    curl ca-certificates rsync git \
+    ripgrep ffmpeg \
+    build-essential python3-dev libffi-dev
+fi
+
 # ── Docker ────────────────────────────────────────────────────────────────────
 if ! command -v docker &>/dev/null; then
   echo "→ Installing Docker"
@@ -42,15 +54,7 @@ echo "✓ hermes user in docker group"
 install -d -o hermes -g hermes -m 700 "${HERMES_DATA}"
 install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/work"
 
-# ── Install hermes-agent for the hermes user ──────────────────────────────────
-if ! sudo -iu hermes bash -c 'command -v hermes &>/dev/null'; then
-  echo "→ Installing hermes-agent via upstream install.sh"
-  sudo -iu hermes bash -c 'curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash'
-else
-  echo "✓ hermes already installed ($(sudo -iu hermes hermes --version 2>/dev/null || echo unknown))"
-fi
-
-# ── Drop in config.yaml + .env if they were staged alongside this script ──────
+# ── Drop in config.yaml + .env BEFORE install.sh so the setup wizard is skipped
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "${SCRIPT_DIR}")"
 
@@ -66,6 +70,14 @@ for f in config.yaml .env; do
     echo "  (no ${f} found at ${REPO_DIR} or ${VPS_DIR} — copy it manually)"
   fi
 done
+
+# ── Install hermes-agent for the hermes user ──────────────────────────────────
+if ! sudo -iu hermes bash -c 'command -v hermes &>/dev/null'; then
+  echo "→ Installing hermes-agent via upstream install.sh"
+  sudo -iu hermes bash -c 'curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash < /dev/null'
+else
+  echo "✓ hermes already installed ($(sudo -iu hermes hermes --version 2>/dev/null || echo unknown))"
+fi
 
 # ── Backup directory (host bind-mount) ────────────────────────────────────────
 mkdir -p /opt/hermes-backups
