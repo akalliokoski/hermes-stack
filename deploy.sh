@@ -35,9 +35,13 @@ ssh "${VPS_HOST}" "
   set -e
   cd ${VPS_DIR}
   mkdir -p /opt/hermes-backups
+  HERMES_UID=\$(id -u hermes)
+  HERMES_GID=\$(id -g hermes)
+  sudo install -d -o hermes -g hermes -m 755 /home/hermes/sync /home/hermes/sync/wiki /home/hermes/sync/backups
+  sudo chown -R hermes:hermes /home/hermes/sync
   sudo install -o hermes -g hermes -m 600 config.yaml /home/hermes/.hermes/config.yaml
   docker compose pull --quiet --ignore-buildable
-  docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
+  HERMES_UID=\$HERMES_UID HERMES_GID=\$HERMES_GID docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
   sudo systemctl restart hermes-gateway
   systemctl is-active hermes-gateway
   docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
