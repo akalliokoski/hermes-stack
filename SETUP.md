@@ -179,7 +179,7 @@ chmod +x /usr/local/bin/hermes
 make add-profile PROFILE=<name> TELEGRAM_BOT_TOKEN=<token>
 ```
 
-This creates `/home/hermes/work/<name>` on the VPS, initialises the profile (copying default config), updates its `docker_volumes` to use the profile-specific workspace, writes `TELEGRAM_BOT_TOKEN` to the profile's `.env`, and installs + starts the gateway systemd unit.
+This creates `/home/hermes/work/<name>` on the VPS, initialises the profile (copying default config), updates its `docker_volumes` to use the profile-specific workspace, writes `TELEGRAM_BOT_TOKEN` to the profile's `.env`, writes `/home/hermes/.hermes/profiles/<name>/home/.gitconfig` to include `/home/hermes/.config/git/shared.gitconfig`, and installs + starts the gateway systemd unit.
 
 To do it manually on the VPS:
 ```bash
@@ -188,7 +188,12 @@ sudo install -d -o hermes -g hermes -m 755 /home/hermes/work/<name>
 hermes profile create <name>
 sed -i "s|work/default:/workspace|work/<name>:/workspace|g" \
   /home/hermes/.hermes/profiles/<name>/config.yaml
-echo "TELEGRAM_BOT_TOKEN=<token>" > /home/hermes/.hermes/profiles/<name>/.env
+mkdir -p /home/hermes/.hermes/profiles/<name>/home
+cat > /home/hermes/.hermes/profiles/<name>/home/.gitconfig <<'EOF'
+[include]
+  path = /home/hermes/.config/git/shared.gitconfig
+EOF
+echo "TELEGRAM_BOT_TOKEN=***" > /home/hermes/.hermes/profiles/<name>/.env
 chmod 600 /home/hermes/.hermes/profiles/<name>/.env
 hermes -p <name> gateway install --system --run-as-user hermes
 hermes -p <name> gateway start --system
