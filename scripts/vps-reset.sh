@@ -16,11 +16,19 @@ fi
 
 VPS_DIR="${VPS_DIR:-/opt/hermes}"
 
-echo "→ Stopping hermes-gateway unit (if present)"
+echo "→ Stopping hermes services (if present)"
+systemctl stop hermes-dashboard 2>/dev/null || true
+systemctl disable hermes-dashboard 2>/dev/null || true
+rm -f /etc/systemd/system/hermes-dashboard.service
 systemctl stop hermes-gateway 2>/dev/null || true
 systemctl disable hermes-gateway 2>/dev/null || true
 rm -f /etc/systemd/system/hermes-gateway.service
 systemctl daemon-reload || true
+
+if command -v tailscale >/dev/null 2>&1; then
+  echo "→ Resetting Tailscale Serve config"
+  tailscale serve reset 2>/dev/null || true
+fi
 
 if [[ -d "${VPS_DIR}" ]]; then
   echo "→ Stopping old compose stack in ${VPS_DIR}"

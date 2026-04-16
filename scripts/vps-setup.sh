@@ -88,7 +88,7 @@ fi
 mkdir -p "${VPS_DIR}"
 echo "✓ App directory: ${VPS_DIR}"
 
-# ── systemd unit ──────────────────────────────────────────────────────────────
+# ── systemd units ─────────────────────────────────────────────────────────────
 if [[ -f "${SCRIPT_DIR}/hermes-gateway.service" ]]; then
   install -m 644 "${SCRIPT_DIR}/hermes-gateway.service" /etc/systemd/system/hermes-gateway.service
   systemctl daemon-reload
@@ -97,6 +97,16 @@ if [[ -f "${SCRIPT_DIR}/hermes-gateway.service" ]]; then
   echo "  Start with: systemctl start hermes-gateway"
 else
   echo "  (hermes-gateway.service not staged next to this script — install manually)"
+fi
+
+if [[ -f "${SCRIPT_DIR}/hermes-dashboard.service" ]]; then
+  install -m 644 "${SCRIPT_DIR}/hermes-dashboard.service" /etc/systemd/system/hermes-dashboard.service
+  systemctl daemon-reload
+  systemctl enable hermes-dashboard
+  echo "✓ hermes-dashboard.service installed & enabled"
+  echo "  Start with: systemctl start hermes-dashboard"
+else
+  echo "  (hermes-dashboard.service not staged next to this script — install manually)"
 fi
 
 # ── Profile provisioning helper ───────────────────────────────────────────────
