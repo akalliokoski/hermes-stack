@@ -1,6 +1,6 @@
 # VPS-only services – Syncthing plus a static landing page for tailnet UIs.
 # Tailscale runs on the host (not in Docker) to avoid TUN device conflicts.
-# Tailnet routes are applied on the host via: sudo tailscale serve set-config tailscale/serve.json
+# Tailnet routes are applied on the host via scripts/configure-tailscale-serve.sh
 # Usage: docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
 #   (or just: make up)
 services:
@@ -37,6 +37,7 @@ services:
 
 volumes:
   syncthing_config:
+    name: hermes_syncthing_config
   hermes_backups:
     driver: local
     driver_opts:

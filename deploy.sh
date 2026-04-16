@@ -40,14 +40,17 @@ ssh "${VPS_HOST}" "
   sudo install -d -o hermes -g hermes -m 755 /home/hermes/sync /home/hermes/sync/wiki /home/hermes/sync/backups
   sudo chown -R hermes:hermes /home/hermes/sync
   sudo install -o hermes -g hermes -m 600 config.yaml /home/hermes/.hermes/config.yaml
+  sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
   sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
+  sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh
   sudo systemctl daemon-reload
-  sudo systemctl enable hermes-dashboard
+  sudo systemctl enable hermes-gateway hermes-dashboard
+  HERMES_UID=\$HERMES_UID HERMES_GID=\$HERMES_GID bash scripts/repair-syncthing-volume.sh
   docker compose pull --quiet --ignore-buildable
   HERMES_UID=\$HERMES_UID HERMES_GID=\$HERMES_GID docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
   sudo systemctl restart hermes-dashboard
   sudo systemctl restart hermes-gateway
-  sudo tailscale serve set-config tailscale/serve.json
+  sudo bash scripts/configure-tailscale-serve.sh
   systemctl is-active hermes-dashboard
   systemctl is-active hermes-gateway
   docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
