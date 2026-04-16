@@ -252,16 +252,16 @@ This gives you one place for common behavior, while keeping profile-specific ins
 Open the Hermes stack landing page from any tailnet device:
 
 ```text
-https://openclaw-vps.taild96651.ts.net/
+https://vps.taild96651.ts.net/
 ```
 
 That landing page links to the Hermes dashboard, Syncthing UI, Hindsight UI/API, and Firecrawl API. Direct paths are also available:
 
-- `https://openclaw-vps.taild96651.ts.net/dashboard/`
-- `https://openclaw-vps.taild96651.ts.net/syncthing/`
-- `https://openclaw-vps.taild96651.ts.net:9443/` (Hindsight UI)
-- `https://openclaw-vps.taild96651.ts.net/memory/` (Hindsight API)
-- `https://openclaw-vps.taild96651.ts.net/firecrawl/` (Firecrawl API)
+- `https://vps.taild96651.ts.net/dashboard/`
+- `https://vps.taild96651.ts.net/syncthing/`
+- `https://vps.taild96651.ts.net:9443/` (Hindsight UI)
+- `https://vps.taild96651.ts.net/memory/` (Hindsight API)
+- `https://vps.taild96651.ts.net/firecrawl/` (Firecrawl API)
 
 All of these stay bound to `127.0.0.1` on the VPS and are published externally only through the host Tailscale daemon.
 
@@ -416,4 +416,4 @@ The `hermes` user isn't in the `docker` group yet, or the current shell session 
 Normal — hermes's own fallback transport arming itself. Gateway is connected.
 
 **Syncthing not syncing**
-Check the tailnet UI at `https://openclaw-vps.taild96651.ts.net/syncthing/`. Verify the MacBook device is approved and the `hermes` folder is shared in both directions.
+Check the tailnet UI at `https://vps.taild96651.ts.net/syncthing/`. Verify the MacBook device is approved and the `hermes` folder is shared in both directions.
