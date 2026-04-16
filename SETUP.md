@@ -271,10 +271,10 @@ Because this is a reshape of the old two-folder layout (`hermes-data` + `shared`
 5. Once initial sync is done, delete the old `hermes-data` and `shared` copies on the MacBook.
 6. Re-open Obsidian at the new vault path (`~/Sync/hermes/wiki`).
 
-**Tailscale** exposes the landing page and all internal web UIs on your tailnet via the host Tailscale daemon (not a container). Deploy applies [tailscale/serve.json](tailscale/serve.json) automatically:
+**Tailscale** exposes the landing page and all internal web UIs on your tailnet via the host Tailscale daemon (not a container). Deploy applies this automatically with:
 
 ```bash
-sudo tailscale serve set-config tailscale/serve.json
+sudo bash scripts/configure-tailscale-serve.sh
 ```
 
 ---
