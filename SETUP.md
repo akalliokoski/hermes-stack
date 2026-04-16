@@ -201,7 +201,7 @@ sudo provision-profile <name> ***
 - updates `docker_volumes` to mount the profile-specific workspace at `/workspace`
 - optionally writes `TELEGRAM_BOT_TOKEN` to the profile's `.env`
 - writes `/home/hermes/.hermes/profiles/<name>/home/.gitconfig` to include `/home/hermes/.config/git/shared.gitconfig`
-- writes `/home/hermes/.hermes/profiles/<name>/hindsight/config.json` with `bankId: hermes-<name>`
+- writes `/home/hermes/.hermes/profiles/<name>/hindsight/config.json` in the current Hermes Hindsight plugin format (`mode: local_external`, `api_url`, `bank_id`, auto-retain/recall settings)
 - renders `SOUL.md` from shared base + per-profile override
 - installs + starts the system gateway when root (or passwordless sudo) is available
 

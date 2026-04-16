@@ -168,7 +168,7 @@ local-snapshots:
 
 local-setup-hindsight:
 	mkdir -p $(HOME)/.hermes/hindsight
-	printf '{"hindsightApiUrl":"http://127.0.0.1:8888","bankId":"hermes-default","autoRecall":true,"autoRetain":true}\n' \
+	printf '{"mode":"local_external","api_url":"http://127.0.0.1:8888","bank_id":"hermes-default","recall_budget":"mid","memory_mode":"hybrid","auto_recall":true,"auto_retain":true,"retain_every_n_turns":1,"retain_async":true}\n' \
 	  > $(HOME)/.hermes/hindsight/config.json
 	chmod 600 $(HOME)/.hermes/hindsight/config.json
 	@echo "✓ Hindsight configured locally (bank: hermes-default)"

@@ -84,6 +84,9 @@ else
   echo "✓ hermes already installed ($(sudo -iu hermes hermes --version 2>/dev/null || echo unknown))"
 fi
 
+echo "→ Ensuring Hermes Python deps for Hindsight local_external mode"
+sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 \"$(command -v hermes)\" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"'
+
 # ── App directory (docker compose files) ──────────────────────────────────────
 mkdir -p "${VPS_DIR}"
 echo "✓ App directory: ${VPS_DIR}"

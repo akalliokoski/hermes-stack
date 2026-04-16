@@ -302,10 +302,15 @@ from pathlib import Path
 import json
 path = Path(${config_path@Q})
 payload = {
-    "hindsightApiUrl": ${HINDSIGHT_API_URL@Q},
-    "bankId": ${bank_id@Q},
-    "autoRecall": True,
-    "autoRetain": True,
+    "mode": "local_external",
+    "api_url": ${HINDSIGHT_API_URL@Q},
+    "bank_id": ${bank_id@Q},
+    "recall_budget": "mid",
+    "memory_mode": "hybrid",
+    "auto_recall": True,
+    "auto_retain": True,
+    "retain_every_n_turns": 1,
+    "retain_async": True,
 }
 path.write_text(json.dumps(payload, separators=(",", ":")) + "\n")
 PY

@@ -13,6 +13,7 @@
 #
 # Hermes itself updates separately via `make update-agent`
 # (runs `hermes update` as the hermes user — no rebuild needed).
+# Deploy also re-installs the Hindsight client dependency into Hermes's own venv.
 set -euo pipefail
 
 if [[ -f .env ]]; then
@@ -43,6 +44,7 @@ ssh "${VPS_HOST}" "
   sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
   sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
   sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh
+  sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 \"$(command -v hermes)\" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"'
   sudo systemctl daemon-reload
   sudo systemctl enable hermes-gateway hermes-dashboard
   HERMES_UID=\$HERMES_UID HERMES_GID=\$HERMES_GID bash scripts/repair-syncthing-volume.sh
