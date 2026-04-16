@@ -16,7 +16,7 @@ fi
 "${TAILSCALE_CMD[@]}" serve --bg --https=443 --set-path /dashboard/ http://127.0.0.1:9119
 "${TAILSCALE_CMD[@]}" serve --bg --https=443 --set-path /syncthing/ http://127.0.0.1:8384
 "${TAILSCALE_CMD[@]}" serve --bg --https=443 --set-path /memory/ http://127.0.0.1:8888
-"${TAILSCALE_CMD[@]}" serve --bg --https=443 --set-path /memory-ui/ http://127.0.0.1:9999
+"${TAILSCALE_CMD[@]}" serve --bg --https=9443 http://127.0.0.1:9999
 "${TAILSCALE_CMD[@]}" serve --bg --https=443 --set-path /firecrawl/ http://127.0.0.1:3002
 
 "${TAILSCALE_CMD[@]}" serve status --json

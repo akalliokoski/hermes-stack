@@ -248,9 +248,9 @@ That landing page links to the Hermes dashboard, Syncthing UI, Hindsight UI/API,
 
 - `https://openclaw-vps.taild96651.ts.net/dashboard/`
 - `https://openclaw-vps.taild96651.ts.net/syncthing/`
-- `https://openclaw-vps.taild96651.ts.net/memory-ui/`
-- `https://openclaw-vps.taild96651.ts.net/memory/`
-- `https://openclaw-vps.taild96651.ts.net/firecrawl/`
+- `https://openclaw-vps.taild96651.ts.net:9443/` (Hindsight UI)
+- `https://openclaw-vps.taild96651.ts.net/memory/` (Hindsight API)
+- `https://openclaw-vps.taild96651.ts.net/firecrawl/` (Firecrawl API)
 
 All of these stay bound to `127.0.0.1` on the VPS and are published externally only through the host Tailscale daemon.
 
