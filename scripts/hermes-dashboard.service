@@ -8,6 +8,7 @@ User=hermes
 Group=hermes
 WorkingDirectory=/home/hermes
 Environment=HOME=/home/hermes
+Environment=PATH=/home/hermes/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 EnvironmentFile=/home/hermes/.hermes/.env
 ExecStart=/home/hermes/.local/bin/hermes dashboard --host 127.0.0.1 --port 9119 --no-open
 Restart=always
