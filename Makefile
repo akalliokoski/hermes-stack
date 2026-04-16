@@ -18,6 +18,7 @@
 #   make update-agent                 `hermes update` on the VPS (pulls new release)
 #   make add-profile PROFILE=<name>   create/update a profile on the VPS via scripts/provision-profile.sh
 #   make sync-souls                  rerender SOUL.md for default + all named profiles on the VPS
+#   make sync-profiles               rewrite git/hindsight/SOUL config for default + all named profiles on the VPS
 #   make setup-hindsight              write hindsight/config.json for default profile
 #   make setup-hindsight PROFILE=<n>  write hindsight/config.json for a named profile
 #
@@ -34,7 +35,7 @@
 #   make local-setup-hindsight        write hindsight/config.json locally
 
 .PHONY: up down deploy status logs logs-all restart chat shell hermes \
-        update-agent backup-now snapshots restore clean add-profile sync-souls setup-hindsight \
+        update-agent backup-now snapshots restore clean add-profile sync-souls sync-profiles setup-hindsight \
         local-up local-down local-chat local-status local-logs \
         local-backup-now local-snapshots local-update-agent local-setup-hindsight
 
@@ -84,24 +85,14 @@ update-agent:
 	ssh -t $(VPS_HOST) 'sudo -iu hermes hermes update && sudo systemctl restart hermes-gateway'
 
 # ── Hindsight memory backend ──────────────────────────────────────────────────
-# Write the default-profile hindsight config on the VPS (run once after deploy).
+# Write/repair Hindsight config on the VPS via the canonical provisioning script.
 # Each profile gets its own bank so memories are isolated — see add-profile below.
 
 setup-hindsight:
 	@if [ -n "$(PROFILE)" ]; then \
-	  ssh $(VPS_HOST) 'sudo -iu hermes bash -c " \
-	    mkdir -p /home/hermes/.hermes/profiles/$(PROFILE)/hindsight && \
-	    printf '"'"'{"hindsightApiUrl":"http://127.0.0.1:8888","bankId":"hermes-$(PROFILE)","autoRecall":true,"autoRetain":true}\n'"'"' \
-	      > /home/hermes/.hermes/profiles/$(PROFILE)/hindsight/config.json && \
-	    chmod 600 /home/hermes/.hermes/profiles/$(PROFILE)/hindsight/config.json"' ; \
-	  echo "✓ Hindsight configured for profile '$(PROFILE)' (bank: hermes-$(PROFILE))" ; \
+	  ssh $(VPS_HOST) "cd /opt/hermes && sudo bash scripts/provision-profile.sh --profile $(PROFILE) --gateway skip" ; \
 	else \
-	  ssh $(VPS_HOST) 'sudo -iu hermes bash -c " \
-	    mkdir -p /home/hermes/.hermes/hindsight && \
-	    printf '"'"'{"hindsightApiUrl":"http://127.0.0.1:8888","bankId":"hermes-default","autoRecall":true,"autoRetain":true}\n'"'"' \
-	      > /home/hermes/.hermes/hindsight/config.json && \
-	    chmod 600 /home/hermes/.hermes/hindsight/config.json"' ; \
-	  echo "✓ Hindsight configured for default profile (bank: hermes-default)" ; \
+	  ssh $(VPS_HOST) 'cd /opt/hermes && sudo bash scripts/provision-profile.sh --profile default --gateway skip' ; \
 	fi
 
 # ── Maintenance ────────────────────────────────────────────────────────────────
@@ -128,6 +119,7 @@ clean:
 #   make add-profile PROFILE=myprofile
 #   make add-profile PROFILE=myprofile TELEGRAM_BOT_TOKEN=***
 #   make sync-souls
+#   make sync-profiles
 PROFILE ?=
 TELEGRAM_BOT_TOKEN ?=
 
@@ -140,6 +132,10 @@ add-profile:
 sync-souls:
 	@echo "→ Rerendering shared SOUL.md files on $(VPS_HOST)"
 	ssh $(VPS_HOST) 'cd /opt/hermes && sudo bash scripts/provision-profile.sh --sync-all-souls'
+
+sync-profiles:
+	@echo "→ Rewriting profile config for default + all named profiles on $(VPS_HOST)"
+	ssh $(VPS_HOST) 'cd /opt/hermes && sudo bash scripts/provision-profile.sh --sync-all-profiles --gateway skip'
 
 # ── Local dev ─────────────────────────────────────────────────────────────────
 # docker-compose.override.yml is merged automatically – no extra -f needed.

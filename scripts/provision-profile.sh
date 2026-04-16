@@ -9,6 +9,7 @@ HINDSIGHT_API_URL="${HINDSIGHT_API_URL:-http://127.0.0.1:8888}"
 PROFILE="${PROFILE:-}"
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 SYNC_ALL_SOULS=0
+SYNC_ALL_PROFILES=0
 GATEWAY_MODE="auto"
 
 usage() {
@@ -16,6 +17,7 @@ usage() {
 Usage:
   scripts/provision-profile.sh --profile <name> [--telegram-bot-token <token>] [--gateway auto|skip|required]
   scripts/provision-profile.sh --sync-all-souls
+  scripts/provision-profile.sh --sync-all-profiles [--gateway auto|skip|required]
 
 What it does:
   - creates or updates a Hermes profile on the VPS
@@ -177,6 +179,28 @@ sync_all_souls() {
       render_profile_soul "${profile}"
     done < <(run_as_hermes bash -lc "find \"${profiles_root}\" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort")
   fi
+}
+
+sync_all_profiles() {
+  ensure_shared_soul_layout
+
+  local profiles=(default)
+  local profiles_root="${HERMES_HOME}/profiles"
+  if run_as_hermes test -d "${profiles_root}"; then
+    while IFS= read -r profile; do
+      [[ -n "${profile}" ]] || continue
+      profiles+=("${profile}")
+    done < <(run_as_hermes bash -lc "find \"${profiles_root}\" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort")
+  fi
+
+  local profile
+  for profile in "${profiles[@]}"; do
+    create_profile_if_needed "${profile}"
+    configure_workspace "${profile}"
+    configure_git_include "${profile}"
+    configure_hindsight "${profile}"
+    render_profile_soul "${profile}"
+  done
 }
 
 create_profile_if_needed() {
@@ -343,6 +367,10 @@ while [[ $# -gt 0 ]]; do
       SYNC_ALL_SOULS=1
       shift
       ;;
+    --sync-all-profiles)
+      SYNC_ALL_PROFILES=1
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -355,6 +383,11 @@ done
 
 if [[ ${SYNC_ALL_SOULS} -eq 1 ]]; then
   sync_all_souls
+  exit 0
+fi
+
+if [[ ${SYNC_ALL_PROFILES} -eq 1 ]]; then
+  sync_all_profiles
   exit 0
 fi
 

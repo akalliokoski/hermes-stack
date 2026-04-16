@@ -177,14 +177,17 @@ chmod +x /usr/local/bin/hermes
 The repo now has one canonical provisioning script that works both ways:
 
 ```bash
-# From MacBook:
+# From MacBook
 make add-profile PROFILE=<name>
 make add-profile PROFILE=<name> TELEGRAM_BOT_TOKEN=***
+make sync-souls
+make sync-profiles
 
-# Directly on the VPS (including from Hermes chat via terminal tool):
+# Directly on the VPS (including from Hermes chat)
 cd /opt/hermes
 sudo bash scripts/provision-profile.sh --profile <name>
 sudo bash scripts/provision-profile.sh --profile <name> --telegram-bot-token ***
+sudo bash scripts/provision-profile.sh --sync-all-profiles --gateway skip
 
 # Short helper command installed by vps-setup.sh:
 sudo provision-profile <name>
@@ -210,6 +213,14 @@ make sync-souls
 sudo bash /opt/hermes/scripts/provision-profile.sh --sync-all-souls
 # or via the helper:
 sudo provision-profile --sync-all
+```
+
+If you need to repair or normalize profile-local git/Hindsight/SOUL config for the default profile and every named profile, run:
+
+```bash
+make sync-profiles
+# or directly on the VPS:
+sudo bash /opt/hermes/scripts/provision-profile.sh --sync-all-profiles --gateway skip
 ```
 
 ### Shared instructions across profiles
