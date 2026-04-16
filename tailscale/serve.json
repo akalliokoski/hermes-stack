@@ -7,11 +7,23 @@
   "Web": {
     "openclaw-vps.taild96651.ts.net:443": {
       "Handlers": {
+        "/": {
+          "Proxy": "http://127.0.0.1:8081"
+        },
+        "/dashboard/": {
+          "Proxy": "http://127.0.0.1:9119"
+        },
+        "/syncthing/": {
+          "Proxy": "http://127.0.0.1:8384"
+        },
         "/memory/": {
           "Proxy": "http://127.0.0.1:8888"
         },
         "/memory-ui/": {
           "Proxy": "http://127.0.0.1:9999"
+        },
+        "/firecrawl/": {
+          "Proxy": "http://127.0.0.1:3002"
         }
       }
     }

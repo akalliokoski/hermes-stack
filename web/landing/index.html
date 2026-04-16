@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hermes Stack</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b1020;
+        --panel: rgba(19, 27, 52, 0.88);
+        --panel-border: rgba(140, 165, 255, 0.18);
+        --text: #eef2ff;
+        --muted: #b7c2f0;
+        --accent: #7c9cff;
+        --accent-2: #53e0c1;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(124, 156, 255, 0.28), transparent 26%),
+          radial-gradient(circle at top right, rgba(83, 224, 193, 0.18), transparent 24%),
+          linear-gradient(180deg, #0c1226 0%, #09101e 100%);
+        color: var(--text);
+      }
+
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 48px 24px 72px;
+      }
+
+      .hero {
+        margin-bottom: 28px;
+      }
+
+      .eyebrow {
+        display: inline-block;
+        padding: 6px 10px;
+        border: 1px solid rgba(124, 156, 255, 0.28);
+        border-radius: 999px;
+        color: var(--accent-2);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 16px 0 10px;
+        font-size: clamp(2.2rem, 4vw, 4rem);
+        line-height: 1.05;
+      }
+
+      .subtitle {
+        max-width: 720px;
+        color: var(--muted);
+        font-size: 1.05rem;
+        line-height: 1.65;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 18px;
+        margin-top: 30px;
+      }
+
+      .card {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        text-decoration: none;
+        color: inherit;
+        padding: 22px;
+        border-radius: 20px;
+        border: 1px solid var(--panel-border);
+        background: var(--panel);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+        transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+      }
+
+      .card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(124, 156, 255, 0.42);
+        box-shadow: 0 22px 55px rgba(0, 0, 0, 0.34);
+      }
+
+      .title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 1.15rem;
+        font-weight: 700;
+      }
+
+      .title span:last-child {
+        color: var(--accent-2);
+      }
+
+      .description {
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .meta {
+        margin-top: auto;
+        font-size: 0.9rem;
+        color: #92a3df;
+      }
+
+      .notes {
+        margin-top: 34px;
+        padding: 22px;
+        border-radius: 20px;
+        border: 1px solid var(--panel-border);
+        background: rgba(12, 19, 39, 0.74);
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      code {
+        color: var(--text);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <div class="eyebrow">Tailnet-only control plane</div>
+        <h1>Hermes Stack landing page</h1>
+        <p class="subtitle">
+          This page collects the web UIs exposed from the VPS through Tailscale so they can be opened from the MacBook without needing a browser on the server itself.
+        </p>
+      </section>
+
+      <section class="grid">
+        <a class="card" href="/dashboard/">
+          <div class="title"><span>Hermes Dashboard</span><span>↗</span></div>
+          <div class="description">Hermes Agent web UI for configuration, sessions, logs, and provider credentials.</div>
+          <div class="meta">Proxy target: <code>127.0.0.1:9119</code></div>
+        </a>
+
+        <a class="card" href="/syncthing/">
+          <div class="title"><span>Syncthing UI</span><span>↗</span></div>
+          <div class="description">Manage folder sync, approve devices, and inspect sync health for the shared Hermes workspace.</div>
+          <div class="meta">Proxy target: <code>127.0.0.1:8384</code></div>
+        </a>
+
+        <a class="card" href="/memory-ui/">
+          <div class="title"><span>Hindsight UI</span><span>↗</span></div>
+          <div class="description">Browse and inspect the shared Hindsight service that backs long-term semantic memory for Hermes profiles.</div>
+          <div class="meta">Proxy target: <code>127.0.0.1:9999</code></div>
+        </a>
+
+        <a class="card" href="/memory/">
+          <div class="title"><span>Hindsight API</span><span>↗</span></div>
+          <div class="description">Raw API endpoint for Hindsight. Useful for diagnostics and direct integration testing over the tailnet.</div>
+          <div class="meta">Proxy target: <code>127.0.0.1:8888</code></div>
+        </a>
+
+        <a class="card" href="/firecrawl/">
+          <div class="title"><span>Firecrawl API</span><span>↗</span></div>
+          <div class="description">Firecrawl service endpoint used by Hermes web tooling. Helpful for health checks and manual API exploration.</div>
+          <div class="meta">Proxy target: <code>127.0.0.1:3002</code></div>
+        </a>
+      </section>
+
+      <section class="notes">
+        Access these URLs from any machine already joined to the same Tailscale tailnet. The canonical entrypoint is:
+        <br />
+        <code>https://openclaw-vps.taild96651.ts.net/</code>
+        <br /><br />
+        All services remain bound to localhost on the VPS and are published outward only through Tailscale Serve.
+      </section>
+    </main>
+  </body>
+</html>

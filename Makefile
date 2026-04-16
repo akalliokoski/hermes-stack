@@ -58,7 +58,7 @@ deploy:
 # ── Observability ──────────────────────────────────────────────────────────────
 
 status:
-	@if [ -n "$(VPS_HOST)" ]; then ssh $(VPS_HOST) "systemctl status hermes-gateway --no-pager; cd /opt/hermes && docker compose -f docker-compose.yml -f docker-compose.vps.yml ps"; else echo "Set VPS_HOST in .env"; fi
+	@if [ -n "$(VPS_HOST)" ]; then ssh $(VPS_HOST) "systemctl status hermes-gateway hermes-dashboard --no-pager; cd /opt/hermes && docker compose -f docker-compose.yml -f docker-compose.vps.yml ps; tailscale serve status --json"; else echo "Set VPS_HOST in .env"; fi
 
 logs:
 	ssh -t $(VPS_HOST) 'journalctl -u hermes-gateway -f'

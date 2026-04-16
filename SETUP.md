@@ -238,11 +238,21 @@ This gives you one place for common behavior, while keeping profile-specific ins
 
 **Syncthing** mounts `/home/hermes/.hermes` as a single folder and syncs it to your MacBook over Tailscale. Files ignored by [docker/stignore](docker/stignore): `state.db*` (Litestream owns those), `sessions/`, `logs/`, `cron/`, `caches/`, `platforms/`, `.env`. Everything else — `memories/`, `SOUL.md`, `skills/`, `wiki/` — is synced.
 
-Open the UI via an SSH tunnel:
+Open the Hermes stack landing page from any tailnet device:
 
-```bash
-ssh -L 8384:localhost:8384 <vps-host>
+```text
+https://openclaw-vps.taild96651.ts.net/
 ```
+
+That landing page links to the Hermes dashboard, Syncthing UI, Hindsight UI/API, and Firecrawl API. Direct paths are also available:
+
+- `https://openclaw-vps.taild96651.ts.net/dashboard/`
+- `https://openclaw-vps.taild96651.ts.net/syncthing/`
+- `https://openclaw-vps.taild96651.ts.net/memory-ui/`
+- `https://openclaw-vps.taild96651.ts.net/memory/`
+- `https://openclaw-vps.taild96651.ts.net/firecrawl/`
+
+All of these stay bound to `127.0.0.1` on the VPS and are published externally only through the host Tailscale daemon.
 
 Point the MacBook side at `~/Sync/hermes` (or wherever). Obsidian → **Open folder as vault** → `~/Sync/hermes/wiki`.
 
@@ -261,11 +271,10 @@ Because this is a reshape of the old two-folder layout (`hermes-data` + `shared`
 5. Once initial sync is done, delete the old `hermes-data` and `shared` copies on the MacBook.
 6. Re-open Obsidian at the new vault path (`~/Sync/hermes/wiki`).
 
-**Tailscale** exposes Hindsight on your tailnet via the host Tailscale daemon (not a container):
+**Tailscale** exposes the landing page and all internal web UIs on your tailnet via the host Tailscale daemon (not a container). Deploy applies [tailscale/serve.json](tailscale/serve.json) automatically:
 
 ```bash
-tailscale serve --bg --https=443 --set-path /memory/     http://127.0.0.1:8888
-tailscale serve --bg --https=443 --set-path /memory-ui/  http://127.0.0.1:9999
+sudo tailscale serve set-config tailscale/serve.json
 ```
 
 ---
@@ -396,4 +405,4 @@ The `hermes` user isn't in the `docker` group yet, or the current shell session 
 Normal — hermes's own fallback transport arming itself. Gateway is connected.
 
 **Syncthing not syncing**
-Check UI at `localhost:8384` (via tunnel). Verify MacBook device is approved and the `hermes` folder is shared in both directions.
+Check the tailnet UI at `https://openclaw-vps.taild96651.ts.net/syncthing/`. Verify the MacBook device is approved and the `hermes` folder is shared in both directions.
