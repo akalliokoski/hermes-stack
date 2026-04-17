@@ -43,4 +43,10 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /home/hermes/sync/backups   # tarballs + Hindsight SQL dumps sync from here
+      device: /home/hermes/sync/backups   # tarball backups synced by Syncthing
+  hindsight_sql_backups:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /home/hermes/sync/backups/hindsight   # separate path so tarball pruning cannot delete SQL dumps

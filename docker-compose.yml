@@ -146,6 +146,7 @@ services:
     volumes:
       - ${HERMES_DATA_DIR:-/home/hermes/.hermes}:/backup/hermes_data:ro
       - hermes_backups:/archive
+      - hindsight_sql_backups:/hindsight-archive
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./scripts/backup-hindsight.sh:/etc/backup-scripts/backup-hindsight.sh:ro
 
@@ -157,4 +158,5 @@ volumes:
   redis_data:
   postgres_data:
   hindsight_data:
-  hermes_backups:    # backup destination — overridden to host bind-mount in vps/override files
+  hermes_backups:    # backup destination for .hermes tarballs — overridden to host bind-mount in vps/override files
+  hindsight_sql_backups:

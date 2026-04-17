@@ -1,13 +1,14 @@
 #!/bin/sh
 # backup-hindsight.sh
 # Create a logical pg_dump snapshot of the Hindsight database and place it in
-# /archive so it is retained next to the daily tarball backups.
+# a dedicated archive path so docker-volume-backup's tarball pruning cannot
+# touch unrelated SQL dump files.
 
 set -eu
 
 echo "--- Hindsight Backup Start ---"
 
-ARCHIVE_DIR="${ARCHIVE_DIR:-/archive}"
+ARCHIVE_DIR="${ARCHIVE_DIR:-/hindsight-archive}"
 TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
 OUTPUT_FILE="${ARCHIVE_DIR}/hindsight_dump_${TIMESTAMP}.sql"
 TMP_FILE="${OUTPUT_FILE}.tmp"
