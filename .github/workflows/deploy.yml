@@ -13,6 +13,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      VPS_HOST: 100.121.250.82
     steps:
       - uses: actions/checkout@v4
 
@@ -36,13 +38,13 @@ jobs:
             --exclude='.env' \
             --exclude='backups/' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            . ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }}:/opt/hermes/
+            . ${{ secrets.VPS_SSH_USER }}@${{ env.VPS_HOST }}:/opt/hermes/
 
       - name: Deploy stack
         run: |
           ssh -i ~/.ssh/deploy_key \
             -o StrictHostKeyChecking=no \
-            ${{ secrets.VPS_SSH_USER }}@${{ secrets.VPS_HOST }} \
+            ${{ secrets.VPS_SSH_USER }}@${{ env.VPS_HOST }} \
             "set -e
              cd /opt/hermes
              HERMES_UID=\$(id -u hermes)
