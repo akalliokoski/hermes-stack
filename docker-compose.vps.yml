@@ -43,4 +43,4 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /home/hermes/sync/backups   # host path — survives docker compose down -v
+      device: /home/hermes/sync/backups   # tarballs + Hindsight SQL dumps sync from here

@@ -339,9 +339,9 @@ make restore ARGS="db latest"                   # roll state.db back
 make restore ARGS="db 2026-04-05T21:00:00"      # point-in-time restore
 ```
 
-### docker-volume-backup (daily tarballs)
+### docker-volume-backup (daily tarballs + Hindsight SQL snapshots)
 
-Every day at 3am on VPS (weekly locally), the entire `.hermes` dir is tarballed to `hermes_backups/`. Retained for 30 days.
+Every day at 3am on VPS (weekly locally), the entire `.hermes` dir is tarballed to `hermes_backups/`. Retained for 30 days. On VPS, the same backup run also writes a logical `pg_dump` snapshot of Hindsight into the same backup destination, so Hindsight is protected by SQL dumps rather than raw live volume syncing.
 
 ```bash
 make backup-now

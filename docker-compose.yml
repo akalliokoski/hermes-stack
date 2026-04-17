@@ -129,6 +129,11 @@ services:
   backup:
     image: offen/docker-volume-backup:v2
     restart: unless-stopped
+    labels:
+      # Run a logical Hindsight dump after each tarball is written. This uses the
+      # documented docker-volume-backup lifecycle hook mechanism instead of an
+      # unsupported env var, and stores the SQL dump alongside the tarballs.
+      - docker-volume-backup.archive-post=/bin/sh -c '/etc/backup-scripts/backup-hindsight.sh'
     environment:
       BACKUP_CRON_EXPRESSION: "0 3 * * *"
       BACKUP_FILENAME_FORMAT: "hermes_data_%Y-%m-%dT%H-%M-%S.tar.gz"
@@ -136,9 +141,13 @@ services:
       EXEC_FORWARD_OUTPUT: "true"
       # state.db consistency: litestream replicates WAL pages continuously, so
       # the tarball is a secondary restore path — no pre-archive checkpoint.
+      # Hindsight consistency: run a pg_dump through the Docker socket and write
+      # the SQL snapshot into /archive so Syncthing can carry it off-host.
     volumes:
       - ${HERMES_DATA_DIR:-/home/hermes/.hermes}:/backup/hermes_data:ro
       - hermes_backups:/archive
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./scripts/backup-hindsight.sh:/etc/backup-scripts/backup-hindsight.sh:ro
 
 networks:
   hermes:
