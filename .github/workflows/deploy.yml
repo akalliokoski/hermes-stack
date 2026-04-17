@@ -42,12 +42,17 @@ jobs:
           echo "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
-          if [ -z "${{ secrets.VPS_SSH_KNOWN_HOSTS }}" ]; then
-            echo "Missing required secret VPS_SSH_KNOWN_HOSTS" >&2
+          if [ -n "${{ secrets.VPS_SSH_KNOWN_HOSTS }}" ]; then
+            printf '%s\n' "${{ secrets.VPS_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          else
+            cp .github/ssh_known_hosts ~/.ssh/known_hosts
+          fi
+
+          if [ ! -s ~/.ssh/known_hosts ]; then
+            echo "No pinned SSH host keys available. Set VPS_SSH_KNOWN_HOSTS or populate .github/ssh_known_hosts." >&2
             exit 1
           fi
 
-          printf '%s\n' "${{ secrets.VPS_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
       - name: Resolve deploy target
