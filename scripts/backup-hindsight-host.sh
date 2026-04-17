@@ -1,7 +1,7 @@
 #!/bin/bash
 # backup-hindsight-host.sh
 # This script runs on the HOST to perform a logical pg_dump of the Hindsight container.
-# It saves the dump directly into the Syncthing-synced directory.
+# It uses an ephemeral postgres container to ensure pg_dump is available.
 
 set -eu
 
@@ -9,19 +9,22 @@ echo "--- Hindsight Host-Side Backup Start ---"
 
 # Configuration
 HINDSIGHT_CONTAINER="hermes-hindsight-1"
+NETWORK="hermes_hermes"
 BACKUP_DIR="/home/hermes/sync/backups/hindsight"
 TIMESTAMP=$(date -u +%Y-%m-%dT%H-%M-%SZ)
 OUTPUT_FILE="${BACKUP_DIR}/hindsight_dump_${TIMESTAMP}.sql"
+TMP_FILE="${OUTPUT_FILE}.tmp"
 
 # Ensure backup directory exists
 mkdir -p "${BACKUP_DIR}"
 
-echo "Dumping Hindsight database from ${HINDSIGHT_CONTAINER} to ${OUTPUT_FILE}..."
+echo "Using ephemeral postgres container to dump ${HINDSIGHT_CONTAINER} on network ${NETWORK}..."
 
-# Perform the dump using the host's docker command
-# We use a temporary file to ensure the move is atomic
-TMP_FILE="${OUTPUT_FILE}.tmp"
-if docker exec "${HINDSIGHT_CONTAINER}" pg_dump -U hindsight hindsight > "${TMP_FILE}"; then
+# Execute pg_dump via an ephemeral container
+# We connect to the 'hindsight' database with user 'hindsight'
+# Note: We use the container name as the hostname since they share a network.
+if docker run --rm     --network "${NETWORK}"     postgres:16-alpine     pg_dump -h "${HINDSIGHT_CONTAINER}" -U hindsight hindsight > "${TMP_FILE}"; then
+    
     mv "${TMP_FILE}" "${OUTPUT_FILE}"
     echo "Hindsight dump complete: ${OUTPUT_FILE}"
 else
