@@ -49,7 +49,7 @@ jobs:
              cd /opt/hermes
              HERMES_UID=\$(id -u hermes)
              HERMES_GID=\$(id -g hermes)
-             sudo install -d -o hermes -g hermes -m 755 /home/hermes/sync /home/hermes/sync/wiki /home/hermes/sync/backups
+             sudo install -d -o hermes -g hermes -m 755 /home/hermes/sync /home/hermes/sync/wiki /home/hermes/sync/backups /home/hermes/sync/backups/hindsight
              sudo chown -R hermes:hermes /home/hermes/sync
              sudo install -o hermes -g hermes -m 600 config.yaml /home/hermes/.hermes/config.yaml
              sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
