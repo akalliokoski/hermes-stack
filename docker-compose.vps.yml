@@ -30,6 +30,7 @@ services:
     volumes:
       - syncthing_config:/var/syncthing
       - /home/hermes/sync:/sync
+      - /home/hermes/work/hermes-stack:/sync/hermes-stack
     environment:
       PUID: "${HERMES_UID:-1001}"   # resolved at deploy time from `id -u hermes`
       PGID: "${HERMES_GID:-1001}"   # resolved at deploy time from `id -g hermes`
