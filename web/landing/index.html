@@ -160,6 +160,12 @@
           <div class="meta">Tailnet URL: <code>:9443</code> → local <code>127.0.0.1:9999</code></div>
         </a>
 
+        <a class="card" id="audiobookshelf-link" href="#">
+          <div class="title"><span>Audiobookshelf</span><span>↗</span></div>
+          <div class="description">Self-hosted audiobook and podcast server for Hermes-generated episodes. Use this UI to finish first-run setup, manage libraries, and inspect the podcast feed used by iPhone and Apple Watch clients.</div>
+          <div class="meta">Tailnet URL: <code>:13378</code> → local <code>127.0.0.1:13378</code></div>
+        </a>
+
         <a class="card" href="/memory/">
           <div class="title"><span>Hindsight API</span><span>↗</span></div>
           <div class="description">Raw API endpoint for Hindsight. Useful for diagnostics and direct integration testing over the tailnet.</div>
@@ -188,10 +194,12 @@
       const hindsightUi = `${protocol}//${hostname}:9443/`;
       const dashboardUi = `${protocol}//${hostname}:9444/`;
       const syncthingUi = `${protocol}//${hostname}:9445/`;
+      const audiobookshelfUi = `${protocol}//${hostname}:13378/`;
       document.getElementById("canonical-entrypoint").textContent = canonical;
       document.getElementById("hindsight-ui-link").href = hindsightUi;
       document.getElementById("dashboard-link").href = dashboardUi;
       document.getElementById("syncthing-link").href = syncthingUi;
+      document.getElementById("audiobookshelf-link").href = audiobookshelfUi;
     </script>
   </body>
 </html>

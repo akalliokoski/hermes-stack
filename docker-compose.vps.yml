@@ -37,6 +37,24 @@ services:
       PCAP: ""                      # suppress unnecessary capabilities warning
       STGUIADDRESS: "127.0.0.1:8384"  # keep the Syncthing web UI localhost-only; publish it via Tailscale Serve instead
 
+  # ---------------------------------------------------------------------------
+  # Audiobookshelf – self-hosted podcast/audiobook server.
+  # Bound to localhost and published on the tailnet through Tailscale Serve.
+  # Media roots live under /data/audiobookshelf on the VPS.
+  # ---------------------------------------------------------------------------
+  audiobookshelf:
+    image: ghcr.io/advplyr/audiobookshelf:latest
+    restart: unless-stopped
+    user: "${HERMES_UID:-1001}:${HERMES_GID:-1001}"
+    ports:
+      - "127.0.0.1:13378:80"
+    volumes:
+      - /data/audiobookshelf/audiobooks:/audiobooks
+      - /data/audiobookshelf/podcasts:/podcasts
+      - /data/audiobookshelf/metadata:/metadata
+      - /data/audiobookshelf/config:/config
+    networks: [hermes]
+
 volumes:
   syncthing_config:
     name: hermes_syncthing_config

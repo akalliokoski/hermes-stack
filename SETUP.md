@@ -255,10 +255,11 @@ Open the Hermes stack landing page from any tailnet device:
 https://<current-tailscale-node-name>.<your-tailnet>.ts.net/
 ```
 
-That landing page links to the Hermes dashboard, Syncthing UI, Hindsight UI/API, and Firecrawl API. Direct paths are also available:
+That landing page links to the Hermes dashboard, Syncthing UI, Hindsight UI/API, Firecrawl API, and Audiobookshelf. Direct paths are also available:
 
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9444/` (Hermes Dashboard)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9445/` (Syncthing UI)
+- `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:13378/` (Audiobookshelf UI/API)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9443/` (Hindsight UI)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/memory/` (Hindsight API)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/firecrawl/` (Firecrawl API)
@@ -296,7 +297,7 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 
 - `OPENROUTER_API_KEY` (or `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) — LLM provider.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (numeric IDs, from @userinfobot), `TELEGRAM_HOME_CHANNEL`.
-- `FIRECRAWL_API_URL=http://127.0.0.1:3002`, `HINDSIGHT_API_URL=http://127.0.0.1:8888`.
+- `FIRECRAWL_API_URL=http://127.0.0.1:3002`, `HINDSIGHT_API_URL=http://127.0.0.1:8888`, `AUDIOBOOKSHELF_BASE_URL=http://127.0.0.1:13378`.
 - `VPS_HOST`, `VPS_DIR` (deploy).
 - `HERMES_DATA_DIR` — overrides the bind-mount source for litestream/backup (default `/home/hermes/.hermes`; use `~/.hermes` locally).
 
