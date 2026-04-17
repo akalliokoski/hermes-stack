@@ -19,7 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || vars.VPS_HOST || secrets.VPS_HOST || '100.121.250.82' }}
+      PRIMARY_DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || vars.VPS_HOST || secrets.VPS_HOST || '' }}
+      FALLBACK_DEPLOY_TARGET: 100.121.250.82
+      EXPECTED_REMOTE_HOSTNAME: ${{ vars.VPS_EXPECTED_HOSTNAME || 'vps' }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_HOME_CHANNEL || secrets.TELEGRAM_HOME_CHANNEL }}
       DEPLOY_SUMMARY: ${{ github.event.head_commit.message || format('{0} deploy on {1}', github.event_name, github.ref_name) }}
@@ -38,6 +40,64 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+
+      - name: Resolve deploy target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || '' }}
+        run: |
+          validate_target() {
+            local candidate="$1"
+            [[ "$candidate" =~ ^[A-Za-z0-9.-]+$ ]]
+          }
+
+          candidates=()
+          if [ -n "$PRIMARY_DEPLOY_TARGET" ]; then
+            candidates+=("$PRIMARY_DEPLOY_TARGET")
+          fi
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$DISPATCH_DEPLOY_TARGET" ]; then
+            fallback_allowed=false
+          else
+            fallback_allowed=true
+          fi
+
+          if $fallback_allowed; then
+            candidates+=("$FALLBACK_DEPLOY_TARGET")
+          fi
+
+          seen_candidates=""
+          for candidate in "${candidates[@]}"; do
+            if [ -n "$seen_candidates" ] && printf '%s\n' "$seen_candidates" | grep -Fx -- "$candidate" >/dev/null; then
+              continue
+            fi
+            seen_candidates="${seen_candidates}${candidate}"$'\n'
+
+            if ! validate_target "$candidate"; then
+              echo "Skipping invalid deploy target candidate: $candidate" >&2
+              continue
+            fi
+
+            echo "Trying deploy target: $candidate"
+            remote_hostname=$(ssh -i ~/.ssh/deploy_key \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=10 \
+              "${{ secrets.VPS_SSH_USER }}@$candidate" "hostname -s" 2>/dev/null || true)
+
+            if [ "$remote_hostname" = "$EXPECTED_REMOTE_HOSTNAME" ]; then
+              echo "DEPLOY_TARGET=$candidate" >> "$GITHUB_ENV"
+              echo "Using deploy target: $candidate"
+              exit 0
+            fi
+
+            if [ -n "$remote_hostname" ]; then
+              echo "Candidate $candidate resolved to unexpected host '$remote_hostname'" >&2
+            fi
+          done
+
+          echo "Unable to resolve a trusted deploy target" >&2
+          exit 1
 
       - name: Sync files
         run: |
