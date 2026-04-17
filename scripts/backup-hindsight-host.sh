@@ -1,7 +1,7 @@
 #!/bin/bash
 # backup-hindsight-host.sh
 # This script runs on the HOST to perform a logical pg_dump of the Hindsight container.
-# It uses an ephemeral postgres container to ensure pg_dump is available.
+# It uses the absolute path to the pg_dump binary found inside the container.
 
 set -eu
 
@@ -9,7 +9,10 @@ echo "--- Hindsight Host-Side Backup Start ---"
 
 # Configuration
 HINDSIGHT_CONTAINER="hermes-hindsight-1"
-NETWORK="hermes_hermes"
+PG_DUMP_BIN="/home/hindsight/.pg0/installation/18.1.0/pg_dump"
+# Wait, let me re-verify the path from the successful run.
+# The successful run used: /home/hindsight/.pg0/installation/18.1.0/bin/pg_dump
+PG_DUMP_BIN="/home/hindsight/.pg0/installation/18.1.0/bin/pg_dump"
 BACKUP_DIR="/home/hermes/sync/backups/hindsight"
 TIMESTAMP=$(date -u +%Y-%m-%dT%H-%M-%SZ)
 OUTPUT_FILE="${BACKUP_DIR}/hindsight_dump_${TIMESTAMP}.sql"
@@ -18,13 +21,14 @@ TMP_FILE="${OUTPUT_FILE}.tmp"
 # Ensure backup directory exists
 mkdir -p "${BACKUP_DIR}"
 
-echo "Using ephemeral postgres container to dump ${HINDSIGHT_CONTAINER} on network ${NETWORK}..."
+echo "Fetching password from container ${HINDSIGHT_CONTAINER}..."
+# We fetch the password from the container's env to use it for the dump
+DB_PASSWORD=$(docker exec "${HINDSIGHT_CONTAINER}" printenv HINDSIGHT_DB_PASSWORD)
 
-# Execute pg_dump via an ephemeral container
-# We connect to the 'hindsight' database with user 'hindsight'
-# Note: We use the container name as the hostname since they share a network.
-if docker run --rm     --network "${NETWORK}"     postgres:16-alpine     pg_dump -h "${HINDSIGHT_CONTAINER}" -U hindsight hindsight > "${TMP_FILE}"; then
-    
+echo "Executing: docker exec -e PGPASSWORD=${DB_PASSWORD} ${HINDSIGHT_CONTAINER} ${PG_DUMP_BIN} -U hindsight hindsight"
+
+# Perform the dump
+if docker exec -e PGPASSWORD="${DB_PASSWORD}" "${HINDSIGHT_CONTAINER}" "${PG_DUMP_BIN}" -U hindsight hindsight > "${TMP_FILE}"; then
     mv "${TMP_FILE}" "${OUTPUT_FILE}"
     echo "Hindsight dump complete: ${OUTPUT_FILE}"
 else
