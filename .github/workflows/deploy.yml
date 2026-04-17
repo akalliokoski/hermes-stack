@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: Optional SSH host or Tailscale IP override for the VPS deploy target
+        required: false
+        type: string
 
 concurrency:
   group: deploy
@@ -14,9 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
-      VPS_HOST: 100.121.250.82
+      DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || vars.VPS_HOST || secrets.VPS_HOST || '100.121.250.82' }}
+      TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_HOME_CHANNEL || secrets.TELEGRAM_HOME_CHANNEL }}
+      DEPLOY_SUMMARY: ${{ github.event.head_commit.message || format('{0} deploy on {1}', github.event_name, github.ref_name) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Connect to Tailscale
         uses: tailscale/github-action@v3
@@ -38,13 +45,13 @@ jobs:
             --exclude='.env' \
             --exclude='backups/' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
-            . ${{ secrets.VPS_SSH_USER }}@${{ env.VPS_HOST }}:/opt/hermes/
+            . ${{ secrets.VPS_SSH_USER }}@${{ env.DEPLOY_TARGET }}:/opt/hermes/
 
       - name: Deploy stack
         run: |
           ssh -i ~/.ssh/deploy_key \
             -o StrictHostKeyChecking=no \
-            ${{ secrets.VPS_SSH_USER }}@${{ env.VPS_HOST }} \
+            ${{ secrets.VPS_SSH_USER }}@${{ env.DEPLOY_TARGET }} \
             "set -e
              cd /opt/hermes
              HERMES_UID=\$(id -u hermes)
@@ -72,20 +79,22 @@ jobs:
              tailscale serve status --json"
 
       - name: Notify success
-        if: success()
+        if: success() && secrets.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
+        continue-on-error: true
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d chat_id="${{ secrets.TELEGRAM_HOME_CHANNEL }}" \
+          curl -fsS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ env.TELEGRAM_CHAT_ID }}" \
             -d parse_mode="Markdown" \
             --data-urlencode text="✅ *hermes deployed* \`${{ github.sha }}\`
           👤 ${{ github.actor }}
-          📝 ${{ github.event.head_commit.message }}"
+          📝 ${{ env.DEPLOY_SUMMARY }}"
 
       - name: Notify failure
-        if: failure() || cancelled()
+        if: (failure() || cancelled()) && secrets.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
+        continue-on-error: true
         run: |
-          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-            -d chat_id="${{ secrets.TELEGRAM_HOME_CHANNEL }}" \
+          curl -fsS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id="${{ env.TELEGRAM_CHAT_ID }}" \
             -d parse_mode="Markdown" \
             --data-urlencode text="❌ *hermes deploy FAILED* \`${{ github.sha }}\`
           👤 ${{ github.actor }}
