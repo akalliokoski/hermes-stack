@@ -142,16 +142,16 @@
       </section>
 
       <section class="grid">
-        <a class="card" href="/dashboard/">
+        <a class="card" id="dashboard-link" href="#">
           <div class="title"><span>Hermes Dashboard</span><span>↗</span></div>
-          <div class="description">Hermes Agent web UI for configuration, sessions, logs, and provider credentials.</div>
-          <div class="meta">Proxy target: <code>127.0.0.1:9119</code></div>
+          <div class="description">Hermes Agent web UI for configuration, sessions, logs, and provider credentials. It is exposed on its own Tailnet HTTPS port because the current dashboard frontend is not path-prefix safe.</div>
+          <div class="meta">Tailnet URL: <code>:9444</code> → local <code>127.0.0.1:9119</code></div>
         </a>
 
-        <a class="card" href="/syncthing/">
+        <a class="card" id="syncthing-link" href="#">
           <div class="title"><span>Syncthing UI</span><span>↗</span></div>
-          <div class="description">Manage folder sync, approve devices, and inspect sync health for the shared Hermes workspace.</div>
-          <div class="meta">Proxy target: <code>127.0.0.1:8384</code></div>
+          <div class="description">Manage folder sync, approve devices, and inspect sync health for the shared Hermes workspace. It is exposed on its own Tailnet HTTPS port because Syncthing rejects the proxied Tailnet hostname when served under the landing page path.</div>
+          <div class="meta">Tailnet URL: <code>:9445</code> → local <code>127.0.0.1:8384</code></div>
         </a>
 
         <a class="card" id="hindsight-ui-link" href="#">
@@ -186,8 +186,12 @@
       const protocol = window.location.protocol || "https:";
       const canonical = `${protocol}//${hostname}/`;
       const hindsightUi = `${protocol}//${hostname}:9443/`;
+      const dashboardUi = `${protocol}//${hostname}:9444/`;
+      const syncthingUi = `${protocol}//${hostname}:9445/`;
       document.getElementById("canonical-entrypoint").textContent = canonical;
       document.getElementById("hindsight-ui-link").href = hindsightUi;
+      document.getElementById("dashboard-link").href = dashboardUi;
+      document.getElementById("syncthing-link").href = syncthingUi;
     </script>
   </body>
 </html>

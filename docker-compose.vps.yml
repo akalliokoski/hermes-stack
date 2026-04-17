@@ -19,7 +19,7 @@ services:
   # ---------------------------------------------------------------------------
   # Syncthing – sync /home/hermes/sync → MacBook over Tailscale.
   # Runs over Tailscale – no public port exposure needed.
-  # Web UI is exposed on the tailnet via https://<vps-tailnet-name>/syncthing/
+  # Web UI is exposed on the tailnet via https://<vps-tailnet-name>:9445/
   # Sync protocol bound to Tailscale interface only (set in Syncthing GUI).
   # ---------------------------------------------------------------------------
   syncthing:

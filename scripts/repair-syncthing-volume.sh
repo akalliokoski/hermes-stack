@@ -20,6 +20,11 @@ DOCKER_BIN="${DOCKER_BIN:-docker}"
     mkdir -p /var/syncthing/config
     if [ -f /var/syncthing/config/config.xml ]; then
       sed -i 's#<address>[^<]*:8384</address>#<address>127.0.0.1:8384</address>#g' /var/syncthing/config/config.xml
+      if grep -q '<insecureSkipHostcheck>' /var/syncthing/config/config.xml; then
+        sed -i 's#<insecureSkipHostcheck>[^<]*</insecureSkipHostcheck>#<insecureSkipHostcheck>true</insecureSkipHostcheck>#g' /var/syncthing/config/config.xml
+      else
+        sed -i 's#</gui>#    <insecureSkipHostcheck>true</insecureSkipHostcheck>\n</gui>#' /var/syncthing/config/config.xml
+      fi
     fi
     chown -R ${HERMES_UID}:${HERMES_GID} /var/syncthing
     chmod 700 /var/syncthing/config

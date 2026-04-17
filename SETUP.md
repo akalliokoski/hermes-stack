@@ -257,8 +257,8 @@ https://<current-tailscale-node-name>.<your-tailnet>.ts.net/
 
 That landing page links to the Hermes dashboard, Syncthing UI, Hindsight UI/API, and Firecrawl API. Direct paths are also available:
 
-- `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/dashboard/`
-- `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/syncthing/`
+- `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9444/` (Hermes Dashboard)
+- `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9445/` (Syncthing UI)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9443/` (Hindsight UI)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/memory/` (Hindsight API)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/firecrawl/` (Firecrawl API)
@@ -416,4 +416,4 @@ The `hermes` user isn't in the `docker` group yet, or the current shell session 
 Normal — hermes's own fallback transport arming itself. Gateway is connected.
 
 **Syncthing not syncing**
-Check the tailnet UI at `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/syncthing/`. Verify the MacBook device is approved and the `hermes` folder is shared in both directions.
+Check the tailnet UI at `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9445/`. Verify the MacBook device is approved and the `hermes` folder is shared in both directions.
