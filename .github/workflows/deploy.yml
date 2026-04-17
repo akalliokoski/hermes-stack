@@ -20,6 +20,7 @@ jobs:
     timeout-minutes: 45
     env:
       DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || vars.VPS_HOST || secrets.VPS_HOST || '100.121.250.82' }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_HOME_CHANNEL || secrets.TELEGRAM_HOME_CHANNEL }}
       DEPLOY_SUMMARY: ${{ github.event.head_commit.message || format('{0} deploy on {1}', github.event_name, github.ref_name) }}
     steps:
@@ -79,7 +80,7 @@ jobs:
              tailscale serve status --json"
 
       - name: Notify success
-        if: success() && secrets.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
+        if: success() && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
         continue-on-error: true
         run: |
           curl -fsS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
@@ -90,7 +91,7 @@ jobs:
           📝 ${{ env.DEPLOY_SUMMARY }}"
 
       - name: Notify failure
-        if: (failure() || cancelled()) && secrets.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
+        if: (failure() || cancelled()) && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
         continue-on-error: true
         run: |
           curl -fsS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
