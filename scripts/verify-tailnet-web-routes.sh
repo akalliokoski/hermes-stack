@@ -19,47 +19,55 @@ if self_dns:
 raise SystemExit("Unable to determine current Tailscale DNS name")
 ')"
 
-check_url() {
-  local url="$1"
-  local elapsed=0
-  while true; do
-    if curl --fail --silent --show-error --max-time 20 \
-      --resolve "${CURRENT_TAILNET_DOMAIN}:443:127.0.0.1" \
-      "$url" >/dev/null; then
-      return 0
-    fi
+START_TS="$(date +%s)"
 
-    if (( elapsed >= WAIT_SECONDS )); then
-      echo "Timed out waiting for ${url}" >&2
-      return 1
-    fi
+while true; do
+  SERVE_STATUS_JSON="$(${TAILSCALE_BIN} serve status --json)"
 
-    sleep 2
-    elapsed=$((elapsed + 2))
-  done
+  if CURRENT_TAILNET_DOMAIN="${CURRENT_TAILNET_DOMAIN}" SERVE_STATUS_JSON="${SERVE_STATUS_JSON}" python3 - <<'PY'
+import json, os, sys
+
+domain = os.environ['CURRENT_TAILNET_DOMAIN']
+status = json.loads(os.environ['SERVE_STATUS_JSON'])
+web = status.get('Web') or {}
+expected = {
+    f'{domain}:443': {
+        '/': 'http://127.0.0.1:8081',
+        '/dashboard/': 'http://127.0.0.1:9119',
+        '/syncthing/': 'http://127.0.0.1:8384',
+        '/memory/': 'http://127.0.0.1:8888',
+        '/firecrawl/': 'http://127.0.0.1:3002',
+    },
+    f'{domain}:9443': {
+        '/': 'http://127.0.0.1:9999',
+    },
 }
 
-check_url "https://${CURRENT_TAILNET_DOMAIN}/"
-check_url "https://${CURRENT_TAILNET_DOMAIN}/dashboard/"
-check_url "https://${CURRENT_TAILNET_DOMAIN}/syncthing/"
-check_url "https://${CURRENT_TAILNET_DOMAIN}/memory/openapi.json"
-check_url "https://${CURRENT_TAILNET_DOMAIN}/firecrawl/"
+for listener, paths in expected.items():
+    actual_listener = web.get(listener)
+    if not actual_listener:
+        raise SystemExit(f'missing listener {listener}')
+    handlers = actual_listener.get('Handlers') or {}
+    for path, proxy in paths.items():
+        actual = ((handlers.get(path) or {}).get('Proxy'))
+        if actual != proxy:
+            raise SystemExit(f'{listener}{path} expected {proxy} but found {actual}')
 
-local_hindsight_elapsed=0
-while true; do
-  if curl --fail --silent --show-error --max-time 20 \
-    --resolve "${CURRENT_TAILNET_DOMAIN}:9443:127.0.0.1" \
-    "https://${CURRENT_TAILNET_DOMAIN}:9443/" >/dev/null; then
-    break
+unexpected = sorted(k for k in web if not k.startswith(f'{domain}:'))
+if unexpected:
+    raise SystemExit('stale listeners present: ' + ', '.join(unexpected))
+PY
+  then
+    echo "✓ Verified tailnet-served route mappings on ${CURRENT_TAILNET_DOMAIN}"
+    exit 0
   fi
 
-  if (( local_hindsight_elapsed >= WAIT_SECONDS )); then
-    echo "Timed out waiting for https://${CURRENT_TAILNET_DOMAIN}:9443/" >&2
+  now="$(date +%s)"
+  if (( now - START_TS >= WAIT_SECONDS )); then
+    echo "Timed out waiting for expected Tailscale Serve routes on ${CURRENT_TAILNET_DOMAIN}" >&2
+    printf '%s\n' "${SERVE_STATUS_JSON}" >&2
     exit 1
   fi
 
   sleep 2
-  local_hindsight_elapsed=$((local_hindsight_elapsed + 2))
 done
-
-echo "✓ Verified tailnet-served routes on ${CURRENT_TAILNET_DOMAIN}"
