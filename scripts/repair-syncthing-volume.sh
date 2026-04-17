@@ -15,5 +15,12 @@ DOCKER_BIN="${DOCKER_BIN:-docker}"
 "${DOCKER_BIN}" run --rm \
   -v "${VOLUME_NAME}:/var/syncthing" \
   alpine:latest \
-  sh -c "mkdir -p /var/syncthing/config && chown -R ${HERMES_UID}:${HERMES_GID} /var/syncthing && chmod 700 /var/syncthing/config"
-
+  sh -c "
+    set -e
+    mkdir -p /var/syncthing/config
+    if [ -f /var/syncthing/config/config.xml ]; then
+      sed -i 's#<address>[^<]*:8384</address>#<address>127.0.0.1:8384</address>#g' /var/syncthing/config/config.xml
+    fi
+    chown -R ${HERMES_UID}:${HERMES_GID} /var/syncthing
+    chmod 700 /var/syncthing/config
+  "

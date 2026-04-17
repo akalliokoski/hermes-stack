@@ -43,7 +43,7 @@ ssh "${VPS_HOST}" "
   sudo install -o hermes -g hermes -m 600 config.yaml /home/hermes/.hermes/config.yaml
   sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
   sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
-  sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh
+  sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh
   sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 \"$(command -v hermes)\" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"'
   sudo systemctl daemon-reload
   sudo systemctl enable hermes-gateway hermes-dashboard
@@ -56,6 +56,8 @@ ssh "${VPS_HOST}" "
   systemctl is-active hermes-dashboard
   systemctl is-active hermes-gateway
   docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
+  bash scripts/verify-local-web-bindings.sh
+  bash scripts/verify-tailnet-web-routes.sh
   tailscale serve status --json
 "
 

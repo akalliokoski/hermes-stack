@@ -52,7 +52,7 @@ jobs:
              sudo install -o hermes -g hermes -m 600 config.yaml /home/hermes/.hermes/config.yaml
              sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
              sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
-             sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh
+             sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh
              sudo systemctl daemon-reload
              sudo systemctl enable hermes-gateway hermes-dashboard
              HERMES_UID=\$HERMES_UID HERMES_GID=\$HERMES_GID bash scripts/repair-syncthing-volume.sh
@@ -65,6 +65,8 @@ jobs:
              systemctl is-active hermes-dashboard
              systemctl is-active hermes-gateway
              docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
+             bash scripts/verify-local-web-bindings.sh
+             bash scripts/verify-tailnet-web-routes.sh
              tailscale serve status --json"
 
       - name: Notify success
