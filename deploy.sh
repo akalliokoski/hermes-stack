@@ -2,12 +2,12 @@
 # deploy.sh – run from MacBook to deploy the stack to VPS over Tailscale.
 #
 # One-time bootstrap (first deploy only):
-#   scp .env config.yaml "${VPS_HOST}:/tmp/"
+#   scp .env "${VPS_HOST}:/tmp/"
 #   ssh "${VPS_HOST}" "sudo bash -s" < scripts/vps-setup.sh
 #
 # Routine deploys (this script):
-#   - rsync the repo (compose files, scripts, config) to the VPS
-#   - sync config.yaml into /home/hermes/.hermes/
+#   - rsync the repo (compose files, scripts, config overlays) to the VPS
+#   - render the VPS-specific config into /home/hermes/.hermes/
 #   - `docker compose up -d` for auxiliary services
 #   - `systemctl restart hermes-gateway` for the host-installed agent
 #
@@ -42,14 +42,17 @@ ssh "${VPS_HOST}" "
   sudo chown -R hermes:hermes /home/hermes/sync
   sudo install -d -m 755 /data /data/audiobookshelf
   sudo install -d -o hermes -g hermes -m 755 /data/audiobookshelf/config /data/audiobookshelf/metadata /data/audiobookshelf/audiobooks /data/audiobookshelf/podcasts /data/audiobookshelf/podcasts/ai-generated
-  sudo install -o hermes -g hermes -m 600 config.yaml /home/hermes/.hermes/config.yaml
+  python3 -c 'import yaml' 2>/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml; }
+  sudo -u hermes python3 scripts/render-config.py --env-id vps --target-home /home/hermes --profile default --output /home/hermes/.hermes/config.yaml
   sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
   sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
-  sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/make-podcast.py
+  sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/make-podcast.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh
   sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 \"$(command -v hermes)\" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"; cd /opt/hermes && bash scripts/setup-podcast-pipeline.sh'
+  sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles --gateway skip
   sudo systemctl daemon-reload
   sudo systemctl enable hermes-gateway hermes-dashboard
   HERMES_UID=\$HERMES_UID HERMES_GID=\$HERMES_GID bash scripts/repair-syncthing-volume.sh
+  bash scripts/repair-backup-volume.sh
   docker compose pull --quiet --ignore-buildable
   HERMES_UID=\$HERMES_UID HERMES_GID=\$HERMES_GID docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
   set -a

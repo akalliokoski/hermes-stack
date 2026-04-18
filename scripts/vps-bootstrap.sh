@@ -3,7 +3,7 @@
 #
 # Runs on the LOCAL machine. Wipes any previous hermes setup on the VPS,
 # creates the hermes user, installs hermes-agent + systemd unit, and seeds
-# /home/hermes/.hermes with config.yaml and .env from the repo.
+# /home/hermes/.hermes with .env plus a rendered VPS config from the repo overlays.
 #
 # After this completes, `git push` (or `make deploy`) will handle all future
 # deploys via the hermes-gateway systemd unit.
@@ -15,7 +15,8 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_DIR}"
 
-[[ -f config.yaml ]] || { echo "ERROR: config.yaml not found" >&2; exit 1; }
+[[ -f config/base.yaml ]] || { echo "ERROR: config/base.yaml not found" >&2; exit 1; }
+[[ -f config/env/vps.yaml ]] || { echo "ERROR: config/env/vps.yaml not found" >&2; exit 1; }
 
 if [[ ! -f .env ]]; then
   echo "→ No local .env — attempting to fetch from VPS"
@@ -43,7 +44,10 @@ ssh "${VPS_HOST}" 'sudo rm -rf /tmp/hermes-bootstrap && mkdir -p /tmp/hermes-boo
 scp scripts/vps-reset.sh           "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
 scp scripts/vps-setup.sh           "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
 scp scripts/hermes-gateway.service "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
-scp config.yaml .env               "${VPS_HOST}:/tmp/hermes-bootstrap/"
+scp scripts/hermes-dashboard.service "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
+scp scripts/render-config.py       "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
+scp scripts/provision-profile      "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
+scp -r config .env                 "${VPS_HOST}:/tmp/hermes-bootstrap/"
 
 echo ""
 echo "→ Running vps-reset.sh (destructive)"

@@ -5,6 +5,28 @@ EXPECTED_PORTS=(8081 9119 8384 8888 9999 3002 13378)
 WAIT_SECONDS="${WAIT_SECONDS:-60}"
 START_TS="$(date +%s)"
 
+tailscale_ipv4="$(tailscale ip -4 2>/dev/null || true)"
+tailscale_ipv6="$(tailscale ip -6 2>/dev/null || true)"
+
+is_allowed_listener() {
+  local port="$1"
+  local listener="$2"
+  if [[ "${listener}" == "127.0.0.1:${port}" ]]; then
+    return 0
+  fi
+
+  if [[ "${port}" == "13378" ]]; then
+    if [[ -n "${tailscale_ipv4}" && "${listener}" == "${tailscale_ipv4}:${port}" ]]; then
+      return 0
+    fi
+    if [[ -n "${tailscale_ipv6}" && "${listener}" == "[${tailscale_ipv6}]:${port}" ]]; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
 while true; do
   missing=()
   bad_bindings=()
@@ -18,7 +40,7 @@ while true; do
 
     while IFS= read -r listener; do
       [[ -z "${listener}" ]] && continue
-      if [[ "${listener}" != "127.0.0.1:${port}" ]]; then
+      if ! is_allowed_listener "${port}" "${listener}"; then
         bad_bindings+=("${port}:${listener}")
       fi
     done <<< "${listeners}"

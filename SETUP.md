@@ -44,6 +44,8 @@ VPS host
 
 ## Local Dev (MacBook)
 
+By default, the MacBook profile setup is treated as a **workstation that consumes VPS-hosted services over Tailscale**. The local docker-compose stack remains available as an optional dev/test mode when you explicitly want local Firecrawl/Hindsight containers.
+
 ### First run
 
 ```bash
@@ -53,13 +55,15 @@ exec $SHELL   # reload PATH
 
 # 2. Seed config + secrets
 cp .env.example .env        # fill in API keys, TELEGRAM_BOT_TOKEN, VPS_HOST, …
-cp config.yaml ~/.hermes/config.yaml
 cp .env        ~/.hermes/.env
 
-# 3. Start the support stack (firecrawl, hindsight, litestream, backup)
+# 3. Render the machine-specific Hermes config/environment
+make sync-env
+
+# 4. Optional: start the local support stack (firecrawl, hindsight, litestream, backup)
 make local-up
 
-# 4. Chat with hermes
+# 5. Chat with hermes
 make local-chat            # just runs `hermes chat`
 ```
 
@@ -78,6 +82,10 @@ make local-up              # start support services
 make local-down            # stop them
 make local-status          # compose ps
 make local-logs            # tail all compose logs
+make detect-env            # print detected environment id (vps/macbook/...)
+make sync-env              # render ~/.hermes/config.yaml + ~/.hermes/ENVIRONMENT.md
+make sync-profiles-local   # normalize default + named profiles for this machine
+make sync-profiles-local SERVICE_MODE=local   # opt into local Hindsight URLs when running local dev containers
 make local-chat            # hermes chat
 make local-backup-now      # trigger immediate backup
 make local-snapshots       # list available backups
@@ -85,11 +93,26 @@ make local-snapshots       # list available backups
 
 ### Config
 
-`config.yaml` at the repo root is the canonical source; `make local-up`/first-run copies it to `~/.hermes/config.yaml`. Edit either location and re-copy, or symlink:
+The canonical config source is now split into:
+
+- `config/base.yaml`
+- `config/env/vps.yaml`
+- `config/env/macbook.yaml`
+
+Render the config for the current machine with:
 
 ```bash
-ln -sf "$PWD/config.yaml" ~/.hermes/config.yaml
+make sync-env
 ```
+
+That writes:
+
+- `~/.hermes/config.yaml`
+- `~/.hermes/ENVIRONMENT.md`
+
+The generated environment file is also injected into profile `SOUL.md` renders so Hermes knows which machine it is running on, which local capabilities exist, and which services are remote.
+
+If PyYAML is missing, the local `make sync-*` and `make local-setup-hindsight` targets bootstrap it automatically via `scripts/ensure-python-yaml.sh`.
 
 Key fields:
 
@@ -120,9 +143,9 @@ Each profile gets its own subdirectory under `/home/hermes/work/` mounted as `/w
 
 Run [scripts/vps-bootstrap.sh](scripts/vps-bootstrap.sh) from the MacBook. It reads `VPS_HOST` from `.env`, prompts for confirmation (the step is destructive on an existing VPS), and then:
 
-1. Stages `vps-reset.sh`, `vps-setup.sh`, `hermes-gateway.service`, `config.yaml`, `.env` into `/tmp/hermes-bootstrap/` on the VPS.
+1. Stages `vps-reset.sh`, `vps-setup.sh`, `hermes-gateway.service`, repo config overlays, and `.env` into `/tmp/hermes-bootstrap/` on the VPS.
 2. Runs [scripts/vps-reset.sh](scripts/vps-reset.sh) — stops the hermes-gateway unit, `docker compose down --volumes` on the old stack, removes the `hermes_*` named volumes, wipes `/opt/hermes-backups` and `/home/hermes/{.hermes,work}`. Safe no-op on a clean VPS.
-3. Runs [scripts/vps-setup.sh](scripts/vps-setup.sh) — installs Docker (if missing), creates the `hermes` system user, adds it to the `docker` group, installs hermes-agent via the upstream install.sh, seeds `/home/hermes/.hermes/{config.yaml,.env}`, creates `/opt/hermes-backups` + `/opt/hermes`, installs and enables the `hermes-gateway` systemd unit (but does not start it).
+3. Runs [scripts/vps-setup.sh](scripts/vps-setup.sh) — installs Docker (if missing), creates the `hermes` system user, adds it to the `docker` group, installs hermes-agent via the upstream install.sh, seeds `/home/hermes/.hermes/.env`, renders `/home/hermes/.hermes/config.yaml` from the `vps` environment overlay, creates `/opt/hermes-backups` + `/opt/hermes`, installs and enables the `hermes-gateway` systemd unit (but does not start it).
 4. Cleans up the staged files.
 
 ```bash
@@ -130,7 +153,7 @@ bash scripts/vps-bootstrap.sh     # one-time, from MacBook
 git push                           # subsequent deploys go through CI
 ```
 
-After bootstrap, the first `git push` to `main` (or a manual `make deploy`) rsyncs the compose files, brings up the support stack, installs the latest `config.yaml`, and `systemctl restart hermes-gateway` starts the agent for the first time.
+After bootstrap, the first `git push` to `main` (or a manual `make deploy`) rsyncs the repo, renders the latest VPS config, syncs all profiles/environment context, brings up the support stack, and `systemctl restart hermes-gateway` starts the agent for the first time.
 
 `VPS_HOST` and `VPS_DIR` are read from `.env`:
 
@@ -200,7 +223,7 @@ sudo provision-profile <name> ***
 - creates the Hermes profile if needed
 - updates `docker_volumes` to mount the profile-specific workspace at `/workspace`
 - optionally writes `TELEGRAM_BOT_TOKEN` to the profile's `.env`
-- writes `/home/hermes/.hermes/profiles/<name>/home/.gitconfig` to include `/home/hermes/.config/git/shared.gitconfig`
+- writes `<user-home>/.config/git/shared.gitconfig` into the profile-local git include path so local and VPS installs both use the correct shared git defaults
 - writes `/home/hermes/.hermes/profiles/<name>/hindsight/config.json` in the current Hermes Hindsight plugin format (`mode: local_external`, `api_url`, `bank_id`, auto-retain/recall settings)
 - renders `SOUL.md` from shared base + per-profile override
 - installs + starts the system gateway when root (or passwordless sudo) is available
@@ -244,6 +267,37 @@ shared/soul/base.md + shared/soul/profiles/<name>.md
 ```
 
 This gives you one place for common behavior, while keeping profile-specific instructions separate. Hindsight memory remains isolated per profile because each profile still gets its own `bankId` even though all profiles use the same Hindsight service.
+
+### Environment manifests and runtime awareness
+
+Hermes environment-awareness is now driven by repo-managed manifests:
+
+```text
+config/
+├── base.yaml
+└── env/
+    ├── vps.yaml
+    └── macbook.yaml
+```
+
+- `scripts/detect-env.sh` picks the current environment id.
+- `scripts/render-config.py` renders a machine-specific `config.yaml`.
+- `scripts/render-environment-context.py` generates `ENVIRONMENT.md`.
+- `scripts/provision-profile.sh` now regenerates profile `config.yaml`, `ENVIRONMENT.md`, and `SOUL.md` together.
+
+On a local machine, run:
+
+```bash
+make detect-env
+make sync-env
+make sync-profiles-local
+```
+
+On the VPS, deploy or run:
+
+```bash
+sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles --gateway skip
+```
 
 ### VPS-specific services
 
@@ -341,7 +395,8 @@ Everything lives under `/home/hermes/.hermes` (VPS) / `~/.hermes` (MacBook):
 
 ```
 .hermes/
-├── config.yaml               ← copied from repo on deploy
+├── config.yaml               ← rendered from config/base.yaml + config/env/<env>.yaml
+├── ENVIRONMENT.md            ← generated machine/runtime capability summary
 ├── .env                      ← secrets (NOT synced)
 ├── state.db + wal            ← replicated by Litestream (NOT synced)
 ├── memories/                 ✓ synced

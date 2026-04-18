@@ -1,0 +1,36 @@
+env:
+  id: vps
+  role: service-host
+  hostname: vps
+  profile_root: /home/hermes/.hermes
+  work_root: /home/hermes/work
+  wiki_path: /home/hermes/sync/wiki
+  sync_root: /home/hermes/sync
+  services:
+    hindsight:
+      mode: local_docker
+      api_url: http://127.0.0.1:8888
+      ui_url: https://vps.taild96651.ts.net:9443/
+    firecrawl:
+      mode: local_docker
+      api_url: http://127.0.0.1:3002
+      ui_url: https://vps.taild96651.ts.net/firecrawl/
+    syncthing:
+      mode: local_docker
+      gui_url: https://vps.taild96651.ts.net:9445/
+    tailscale:
+      mode: host_native
+      landing_url: https://vps.taild96651.ts.net/
+  capabilities:
+    can_manage_systemd: true
+    can_manage_tailscale_serve: true
+    can_run_docker_compose: true
+    can_access_local_hindsight_container: true
+config:
+  terminal:
+    docker_volumes:
+      - /home/hermes/work/default:/workspace
+  skills:
+    config:
+      wiki:
+        path: /home/hermes/sync/wiki

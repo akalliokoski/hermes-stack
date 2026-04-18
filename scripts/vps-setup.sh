@@ -5,12 +5,12 @@
 # its official install.sh, lays down config + .env, and enables the
 # hermes-gateway systemd unit.
 #
-# Usage:  scp -r scripts .env config.yaml <vps>:/tmp/hermes-bootstrap/
+# Usage:  scp -r scripts config .env <vps>:/tmp/hermes-bootstrap/
 #         ssh <vps> 'sudo bash /tmp/hermes-bootstrap/scripts/vps-setup.sh'
 #
 # Or from MacBook in one shot:
 #         ssh <vps> 'bash -s' < scripts/vps-setup.sh
-#         (then scp config.yaml and .env separately — see below)
+#         (then stage the repo config directory and .env separately — see above)
 set -euo pipefail
 
 VPS_DIR="${VPS_DIR:-/opt/hermes}"
@@ -31,7 +31,7 @@ if command -v apt-get &>/dev/null; then
   apt-get install -y -qq \
     curl ca-certificates rsync git \
     ripgrep ffmpeg \
-    build-essential python3-dev libffi-dev
+    build-essential python3-dev python3-yaml libffi-dev
 fi
 
 # ── Docker ────────────────────────────────────────────────────────────────────
@@ -59,11 +59,11 @@ install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/sync/backups"
 # default profile workspace (add more with: make add-profile PROFILE=<name>)
 install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/work/default"
 
-# ── Drop in config.yaml + .env BEFORE install.sh so the setup wizard is skipped
+# ── Drop in .env and render config BEFORE install.sh so the setup wizard is skipped
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "${SCRIPT_DIR}")"
 
-for f in config.yaml .env; do
+for f in .env; do
   src=""
   for candidate in "${REPO_DIR}/${f}" "${VPS_DIR}/${f}"; do
     [[ -f "${candidate}" ]] && { src="${candidate}"; break; }
@@ -75,6 +75,15 @@ for f in config.yaml .env; do
     echo "  (no ${f} found at ${REPO_DIR} or ${VPS_DIR} — copy it manually)"
   fi
 done
+
+if [[ -f "${REPO_DIR}/scripts/render-config.py" ]]; then
+  install -o hermes -g hermes -m 755 "${REPO_DIR}/scripts/render-config.py" "${HERMES_DATA}/render-config.py"
+  sudo -iu hermes python3 "${HERMES_DATA}/render-config.py" --repo-root "${REPO_DIR}" --env-id vps --target-home /home/hermes --profile default --output "${HERMES_DATA}/config.yaml"
+  rm -f "${HERMES_DATA}/render-config.py"
+  echo "✓ Rendered VPS config → ${HERMES_DATA}/config.yaml"
+else
+  echo "  (render-config.py not found — copy config.yaml manually if needed)"
+fi
 
 # ── Install hermes-agent for the hermes user ──────────────────────────────────
 if ! sudo -iu hermes bash -c 'command -v hermes &>/dev/null'; then

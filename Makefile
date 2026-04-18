@@ -30,18 +30,22 @@
 # Local dev (MacBook, docker-compose.override.yml auto-applied):
 #   make local-up                     start local support services
 #   make local-down                   stop them
+#   make detect-env                   print the detected Hermes environment id
+#   make sync-env                     render local default config + ENVIRONMENT.md for this machine
+#   make sync-profiles-local          normalize local default + named profiles for this machine
 #   make local-chat                   `hermes chat` against ~/.hermes
 #   make local-update-agent           `hermes update` locally
 #   make local-setup-hindsight        write hindsight/config.json locally
 
 .PHONY: up down deploy status logs logs-all restart chat shell hermes \
         update-agent backup-now snapshots restore clean add-profile sync-souls sync-profiles setup-hindsight \
-        local-up local-down local-chat local-status local-logs \
+        detect-env sync-env sync-profiles-local local-up local-down local-chat local-status local-logs \
         local-backup-now local-snapshots local-update-agent local-setup-hindsight
 
 COMPOSE       = docker compose -f docker-compose.yml -f docker-compose.vps.yml
 LOCAL_COMPOSE = docker compose                          # auto-merges docker-compose.override.yml
 ARGS          ?=
+SERVICE_MODE  ?= auto
 
 VPS_HOST := $(shell grep -E '^VPS_HOST=' .env 2>/dev/null | cut -d= -f2)
 
@@ -110,6 +114,17 @@ clean:
 	docker container prune -f
 	docker image prune -f
 
+detect-env:
+	@bash scripts/detect-env.sh
+
+sync-env:
+	@ENV_ID="$$(bash scripts/detect-env.sh)"; \
+	bash scripts/ensure-python-yaml.sh; \
+	mkdir -p "$$HOME/.hermes"; \
+	python3 scripts/render-config.py --env-id "$$ENV_ID" --target-home "$$HOME" --profile default --output "$$HOME/.hermes/config.yaml"; \
+	python3 scripts/render-environment-context.py --env-id "$$ENV_ID" --profile default --profile-home "$$HOME/.hermes" --config-path "$$HOME/.hermes/config.yaml" --output "$$HOME/.hermes/ENVIRONMENT.md"; \
+	echo "✓ Rendered local default config and ENVIRONMENT.md for $$ENV_ID"
+
 # ── Profile management ────────────────────────────────────────────────────────
 # Create/update a hermes profile on the VPS via scripts/provision-profile.sh.
 # This is also the same script you can run directly on the VPS (or from Hermes chat)
@@ -136,6 +151,14 @@ sync-souls:
 sync-profiles:
 	@echo "→ Rewriting profile config for default + all named profiles on $(VPS_HOST)"
 	ssh $(VPS_HOST) 'cd /opt/hermes && sudo bash scripts/provision-profile.sh --sync-all-profiles --gateway skip'
+
+sync-profiles-local:
+	@ENV_ID="$$(bash scripts/detect-env.sh)"; \
+	bash scripts/ensure-python-yaml.sh; \
+	WORK_ROOT="$$(python3 scripts/render-config.py --env-id "$$ENV_ID" --target-home "$$HOME" --print-meta env.work_root)"; \
+	HINDSIGHT_API_URL="$$(python3 scripts/render-config.py --env-id "$$ENV_ID" --target-home "$$HOME" --print-service-url hindsight --service-mode "$(SERVICE_MODE)")"; \
+	mkdir -p "$$HOME/.hermes"; \
+	HERMES_ENV_ID="$$ENV_ID" HERMES_SERVICE_MODE="$(SERVICE_MODE)" HERMES_USER="$$(id -un)" HERMES_HOME="$$HOME/.hermes" WORK_ROOT="$$WORK_ROOT" HINDSIGHT_API_URL="$$HINDSIGHT_API_URL" bash scripts/provision-profile.sh --sync-all-profiles --gateway skip
 
 # ── Local dev ─────────────────────────────────────────────────────────────────
 # docker-compose.override.yml is merged automatically – no extra -f needed.
@@ -167,8 +190,10 @@ local-snapshots:
 	bash scripts/restore.sh list
 
 local-setup-hindsight:
-	mkdir -p $(HOME)/.hermes/hindsight
-	printf '{"mode":"local_external","api_url":"http://127.0.0.1:8888","bank_id":"hermes-default","recall_budget":"mid","memory_mode":"hybrid","auto_recall":true,"auto_retain":true,"retain_every_n_turns":1,"retain_async":true}\n' \
-	  > $(HOME)/.hermes/hindsight/config.json
-	chmod 600 $(HOME)/.hermes/hindsight/config.json
-	@echo "✓ Hindsight configured locally (bank: hermes-default)"
+	@ENV_ID="$$(bash scripts/detect-env.sh)"; \
+	bash scripts/ensure-python-yaml.sh; \
+	API_URL="$$(python3 scripts/render-config.py --env-id "$$ENV_ID" --target-home "$$HOME" --print-service-url hindsight --service-mode "$(SERVICE_MODE)")"; \
+	mkdir -p $(HOME)/.hermes/hindsight; \
+	printf '{"mode":"local_external","api_url":"%s","bank_id":"hermes-default","recall_budget":"mid","memory_mode":"hybrid","auto_recall":true,"auto_retain":true,"retain_every_n_turns":1,"retain_async":true}\n' "$$API_URL" > $(HOME)/.hermes/hindsight/config.json; \
+	chmod 600 $(HOME)/.hermes/hindsight/config.json; \
+	echo "✓ Hindsight configured locally for $$ENV_ID (bank: hermes-default, service mode: $(SERVICE_MODE))"

@@ -1,0 +1,37 @@
+env:
+  id: macbook
+  role: workstation
+  hostname: codeos-macbook-pro
+  profile_root: ~/.hermes
+  work_root: ~/hermes-work
+  wiki_path: ~/Sync/hermes/wiki
+  sync_root: ~/Sync/hermes
+  services:
+    hindsight:
+      mode: remote_vps_preferred
+      api_url: https://vps.taild96651.ts.net/memory/
+      ui_url: https://vps.taild96651.ts.net:9443/
+      optional_local_api_url: http://127.0.0.1:8888
+    firecrawl:
+      mode: remote_vps_preferred
+      api_url: https://vps.taild96651.ts.net/firecrawl/
+      optional_local_api_url: http://127.0.0.1:3002
+    syncthing:
+      mode: remote_gui
+      gui_url: https://vps.taild96651.ts.net:9445/
+    tailscale:
+      mode: host_native
+      landing_url: https://vps.taild96651.ts.net/
+  capabilities:
+    can_manage_systemd: false
+    can_manage_tailscale_serve: false
+    can_run_docker_compose: true
+    can_access_local_hindsight_container: false
+config:
+  terminal:
+    docker_volumes:
+      - ~/hermes-work/default:/workspace
+  skills:
+    config:
+      wiki:
+        path: ~/Sync/hermes/wiki

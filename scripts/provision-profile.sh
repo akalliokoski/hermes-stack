@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "${SCRIPT_DIR}")"
+CONFIG_RENDERER="${REPO_ROOT}/scripts/render-config.py"
+ENV_CONTEXT_RENDERER="${REPO_ROOT}/scripts/render-environment-context.py"
+TARGET_HOME="$(dirname "${HERMES_HOME:-/home/hermes/.hermes}")"
+
 HERMES_USER="${HERMES_USER:-hermes}"
 HERMES_HOME="${HERMES_HOME:-/home/hermes/.hermes}"
-WORK_ROOT="${WORK_ROOT:-/home/hermes/work}"
+ENV_ID="${HERMES_ENV_ID:-$("${REPO_ROOT}/scripts/detect-env.sh" --repo-root "${REPO_ROOT}")}"
+HERMES_SERVICE_MODE="${HERMES_SERVICE_MODE:-auto}"
+WORK_ROOT="${WORK_ROOT:-$(python3 "${CONFIG_RENDERER}" --repo-root "${REPO_ROOT}" --env-id "${ENV_ID}" --target-home "${TARGET_HOME}" --print-meta env.work_root)}"
 SHARED_SOUL_ROOT="${SHARED_SOUL_ROOT:-${HERMES_HOME}/shared/soul}"
 SHARED_SKILLS_ROOT="${SHARED_SKILLS_ROOT:-${HERMES_HOME}/shared/skills}"
-HINDSIGHT_API_URL="${HINDSIGHT_API_URL:-http://127.0.0.1:8888}"
+HINDSIGHT_API_URL="${HINDSIGHT_API_URL:-$(python3 "${CONFIG_RENDERER}" --repo-root "${REPO_ROOT}" --env-id "${ENV_ID}" --target-home "${TARGET_HOME}" --print-service-url hindsight --service-mode "${HERMES_SERVICE_MODE}")}"
 PROFILE="${PROFILE:-}"
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 SYNC_ALL_SOULS=0
@@ -90,6 +98,10 @@ profile_config_path() {
   printf '%s/config.yaml\n' "$(profile_home "$1")"
 }
 
+profile_environment_path() {
+  printf '%s/ENVIRONMENT.md\n' "$(profile_home "$1")"
+}
+
 profile_hindsight_dir() {
   printf '%s/hindsight\n' "$(profile_home "$1")"
 }
@@ -138,7 +150,7 @@ Shared Hermes skills
 ====================
 
 Put cross-profile skills here so every Hermes profile can load them via
-`skills.external_dirs`.
+skills.external_dirs.
 
 Profiles are normalized to include:
   ${SHARED_SKILLS_ROOT}
@@ -162,14 +174,16 @@ ensure_profile_override_file() {
 
 render_profile_soul() {
   local profile="$1"
-  local base_file override_file target tmp_file
+  local base_file override_file env_file target tmp_file
   base_file="${SHARED_SOUL_ROOT}/base.md"
   override_file="$(profile_override_path "${profile}")"
+  env_file="$(profile_environment_path "${profile}")"
   target="$(profile_soul_path "${profile}")"
   tmp_file="$(mktemp)"
 
   run_as_hermes mkdir -p "$(dirname "${target}")"
   ensure_profile_override_file "${profile}"
+  render_profile_environment "${profile}"
 
   run_as_hermes bash -lc "
     if [[ -s \"${base_file}\" ]]; then
@@ -180,6 +194,12 @@ render_profile_soul() {
     fi
     if [[ -s \"${override_file}\" ]]; then
       cat \"${override_file}\"
+    fi
+    if [[ -s \"${env_file}\" ]]; then
+      if [[ -s \"${base_file}\" || -s \"${override_file}\" ]]; then
+        printf '\n\n'
+      fi
+      cat \"${env_file}\"
     fi
   " > "${tmp_file}"
 
@@ -198,6 +218,25 @@ render_profile_soul() {
 
   rm -f "${tmp_file}"
   log "✓ Rendered SOUL.md for profile '${profile}'"
+}
+
+render_profile_environment() {
+  local profile="$1"
+  local output_path config_path profile_dir
+  output_path="$(profile_environment_path "${profile}")"
+  config_path="$(profile_config_path "${profile}")"
+  profile_dir="$(profile_home "${profile}")"
+
+  run_as_hermes mkdir -p "${profile_dir}"
+  run_as_hermes python3 "${ENV_CONTEXT_RENDERER}" \
+    --repo-root "${REPO_ROOT}" \
+    --env-id "${ENV_ID}" \
+    --profile "${profile}" \
+    --profile-home "${profile_dir}" \
+    --config-path "${config_path}" \
+    --output "${output_path}"
+
+  log "✓ Rendered ENVIRONMENT.md for profile '${profile}' (env: ${ENV_ID})"
 }
 
 sync_all_souls() {
@@ -229,7 +268,7 @@ sync_all_profiles() {
   local profile
   for profile in "${profiles[@]}"; do
     create_profile_if_needed "${profile}"
-    configure_workspace "${profile}"
+    render_profile_config "${profile}"
     configure_shared_skills "${profile}"
     configure_git_include "${profile}"
     configure_hindsight "${profile}"
@@ -250,28 +289,20 @@ create_profile_if_needed() {
   run_as_hermes hermes profile create "${profile}"
 }
 
-configure_workspace() {
+render_profile_config() {
   local profile="$1"
   local config_path
-  [[ "${profile}" != "default" ]] || return 0
-
   config_path="$(profile_config_path "${profile}")"
   run_as_hermes mkdir -p "${WORK_ROOT}/${profile}"
 
-  run_as_hermes python3 - <<PY
-from pathlib import Path
-profile = ${profile@Q}
-path = Path(${config_path@Q})
-old = "/home/hermes/work/default:/workspace"
-new = f"/home/hermes/work/{profile}:/workspace"
-text = path.read_text()
-if new not in text:
-    if old not in text:
-        raise SystemExit(f"Expected to find {old!r} in {path}")
-    path.write_text(text.replace(old, new))
-PY
+  run_as_hermes python3 "${CONFIG_RENDERER}" \
+    --repo-root "${REPO_ROOT}" \
+    --env-id "${ENV_ID}" \
+    --target-home "${TARGET_HOME}" \
+    --profile "${profile}" \
+    --output "${config_path}"
 
-  log "✓ Workspace mapped to ${WORK_ROOT}/${profile}"
+  log "✓ Rendered config.yaml for profile '${profile}' (env: ${ENV_ID}, workspace: ${WORK_ROOT}/${profile})"
 }
 
 configure_shared_skills() {
@@ -362,14 +393,20 @@ PY
 
 configure_git_include() {
   local profile="$1"
-  local home_dir gitconfig_path
+  local home_dir gitconfig_path shared_gitconfig user_home
+  if [[ "$(basename "${HERMES_HOME}")" == ".hermes" ]]; then
+    user_home="$(dirname "${HERMES_HOME}")"
+  else
+    user_home="${HOME}"
+  fi
+  shared_gitconfig="${user_home}/.config/git/shared.gitconfig"
   home_dir="$(profile_home "${profile}")/home"
   gitconfig_path="${home_dir}/.gitconfig"
 
   run_as_hermes mkdir -p "${home_dir}"
   run_as_hermes bash -lc "cat > \"${gitconfig_path}\" <<'EOF'
 [include]
-  path = /home/hermes/.config/git/shared.gitconfig
+  path = ${shared_gitconfig}
 EOF"
   run_as_hermes chmod 644 "${gitconfig_path}"
   log "✓ Shared git defaults enabled for profile '${profile}'"
@@ -488,7 +525,7 @@ fi
 ensure_shared_soul_layout
 ensure_shared_skills_layout
 create_profile_if_needed "${PROFILE}"
-configure_workspace "${PROFILE}"
+render_profile_config "${PROFILE}"
 configure_shared_skills "${PROFILE}"
 write_telegram_env "${PROFILE}"
 configure_git_include "${PROFILE}"
