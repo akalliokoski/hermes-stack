@@ -185,23 +185,19 @@ render_profile_soul() {
   ensure_profile_override_file "${profile}"
   render_profile_environment "${profile}"
 
-  run_as_hermes bash -lc "
-    if [[ -s \"${base_file}\" ]]; then
-      cat \"${base_file}\"
-    fi
-    if [[ -s \"${base_file}\" && -s \"${override_file}\" ]]; then
-      printf '\n\n'
-    fi
-    if [[ -s \"${override_file}\" ]]; then
-      cat \"${override_file}\"
-    fi
-    if [[ -s \"${env_file}\" ]]; then
-      if [[ -s \"${base_file}\" || -s \"${override_file}\" ]]; then
-        printf '\n\n'
-      fi
-      cat \"${env_file}\"
-    fi
-  " > "${tmp_file}"
+  python3 - "${tmp_file}" "${base_file}" "${override_file}" "${env_file}" <<'PY'
+import pathlib
+import sys
+
+output_path = pathlib.Path(sys.argv[1])
+parts = []
+for candidate in sys.argv[2:]:
+    path = pathlib.Path(candidate)
+    if path.is_file() and path.stat().st_size > 0:
+        parts.append(path.read_text())
+
+output_path.write_text("\n\n".join(parts))
+PY
 
   if run_as_hermes test -f "${target}" && cmp -s "${tmp_file}" <(run_as_hermes cat "${target}"); then
     rm -f "${tmp_file}"
