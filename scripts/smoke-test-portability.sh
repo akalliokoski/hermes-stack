@@ -26,8 +26,29 @@ printf '\n== Python compile checks ==\n'
 python3 -m py_compile scripts/render-config.py scripts/render-environment-context.py
 
 printf '\n== Renderer smoke tests ==\n'
-python3 scripts/render-config.py --env-id vps --target-home /home/hermes --profile default >/dev/null
-python3 scripts/render-config.py --env-id macbook --target-home "${TMP_ROOT}/mac-home" --profile default >/dev/null
+python3 scripts/render-config.py --env-id vps --target-home /home/hermes --profile default >"${TMP_ROOT}/rendered-vps-default.yaml"
+python3 scripts/render-config.py --env-id macbook --target-home "${TMP_ROOT}/mac-home" --profile default >"${TMP_ROOT}/rendered-mac-default.yaml"
+python3 - <<'PY' "${TMP_ROOT}/rendered-vps-default.yaml"
+import sys, yaml
+path = sys.argv[1]
+with open(path) as f:
+    cfg = yaml.safe_load(f)
+terminal = cfg.get('terminal', {})
+assert terminal.get('backend') == 'local', terminal
+assert terminal.get('cwd') == '/home/hermes/work/default', terminal
+assert terminal.get('docker_volumes') == [], terminal
+PY
+python3 - <<'PY' "${TMP_ROOT}/rendered-mac-default.yaml"
+import sys, yaml
+path = sys.argv[1]
+with open(path) as f:
+    cfg = yaml.safe_load(f)
+terminal = cfg.get('terminal', {})
+volumes = terminal.get('docker_volumes', [])
+assert terminal.get('backend') == 'docker', terminal
+assert terminal.get('cwd') == '/workspace', terminal
+assert any(entry.endswith(':/workspace') for entry in volumes), volumes
+PY
 python3 scripts/render-environment-context.py --env-id macbook --profile default --profile-home "${TMP_ROOT}/mac-home/.hermes" --config-path "${TMP_ROOT}/mac-home/.hermes/config.yaml" --service-mode auto --output "${TMP_ROOT}/ENVIRONMENT.md"
 
 printf '\n== Podcast pipeline idempotence ==\n'

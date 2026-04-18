@@ -2,7 +2,9 @@
 
 This document covers the deployment layer: local dev, VPS setup, configuration, day-to-day ops, state, and backup/restore.
 
-**Topology.** `hermes-agent` runs natively on the VPS under systemd (user: `hermes`), installed via the upstream [install.sh](https://hermes-agent.nousresearch.com/docs/getting-started/installation). Shell tool calls are sandboxed inside fresh Docker containers via hermes's [Docker terminal backend](https://hermes-agent.nousresearch.com/docs/user-guide/docker). Docker Compose only runs the auxiliary services: firecrawl, hindsight, litestream, backup, and (on VPS) syncthing.
+This is a living document. Keep it actively updated when deploy flow, runtime architecture, profile behavior, verification steps, or recovery procedures change.
+
+**Topology.** `hermes-agent` runs natively on the VPS under systemd (user: `hermes`), installed via the upstream [install.sh](https://hermes-agent.nousresearch.com/docs/getting-started/installation). On the VPS, the default and always-on gateway profiles use Hermes's local terminal backend so CLI and mobile/gateway sessions share the same profile behavior and workspaces. Docker Compose only runs the auxiliary services: firecrawl, hindsight, litestream, backup, and (on VPS) syncthing.
 
 ---
 
@@ -12,7 +14,7 @@ This document covers the deployment layer: local dev, VPS setup, configuration, 
 VPS host
 ├── systemd: hermes-gateway.service          (user: hermes)
 │     └── hermes gateway run                 (state in /home/hermes/.hermes)
-│           └── docker run nikolaik/... per shell command (terminal backend)
+│           └── local terminal backend in /home/hermes/work/<profile>
 │
 └── docker compose
       ├── firecrawl-api  + firecrawl-worker  127.0.0.1:3002 (web scraping)
@@ -217,7 +219,8 @@ make sync-profiles
 cd /opt/hermes
 sudo bash scripts/provision-profile.sh --profile <name>
 sudo bash scripts/provision-profile.sh --profile <name> --telegram-bot-token ***
-sudo bash scripts/provision-profile.sh --sync-all-profiles --gateway skip
+sudo bash scripts/provision-profile.sh --sync-all-profiles --gateway skip      # config-only normalization
+sudo bash scripts/provision-profile.sh --sync-all-profiles --gateway existing  # refresh existing named-profile gateways too
 
 # Short helper command installed by vps-setup.sh:
 sudo provision-profile <name>
@@ -234,6 +237,7 @@ sudo provision-profile <name> ***
 - writes `/home/hermes/.hermes/profiles/<name>/hindsight/config.json` in the current Hermes Hindsight plugin format (`mode: local_external`, `api_url`, `bank_id`, auto-retain/recall settings)
 - renders `SOUL.md` from shared base + per-profile override
 - installs + starts the system gateway when root (or passwordless sudo) is available
+- when `--sync-all-profiles --gateway existing` is used, refreshes hardening drop-ins and restarts only named-profile gateways that already exist as systemd units
 
 If you edit shared instructions later, rerender all profile `SOUL.md` files with:
 
@@ -252,6 +256,8 @@ make sync-profiles
 # or directly on the VPS:
 sudo bash /opt/hermes/scripts/provision-profile.sh --sync-all-profiles --gateway skip
 ```
+
+Use `--gateway skip` for pure config normalization. Use `--gateway existing` when you also want deploy-time refresh of already-installed named-profile gateway units and their drop-in overrides without creating brand new gateways.
 
 ### Shared instructions across profiles
 
@@ -330,6 +336,8 @@ On the VPS, deploy or run:
 sudo env HERMES_ENV_ID=vps HERMES_SERVICE_MODE=auto bash scripts/provision-profile.sh --sync-all-profiles --gateway skip
 sudo -iu hermes HERMES_HOME=/home/hermes/.hermes bash scripts/verify-environment.sh --all-profiles --check-services
 ```
+
+`make deploy` / `scripts/remote-deploy.sh` go one step further than the manual config-only command above: deploy uses `--sync-all-profiles --gateway existing`, refreshes existing named-profile gateway drop-ins, restarts `hermes-gateway`, restarts any existing `hermes-gateway-<profile>` units (such as `hermes-gateway-gemma`), and then re-applies Tailscale Serve plus web-binding verification.
 
 ### VPS-specific services
 
@@ -570,8 +578,8 @@ make import-profile PROFILE=default ARCHIVE=~/Sync/hermes/exports/profiles/defau
 
 ## Troubleshooting
 
-**`docker: permission denied` from inside hermes (Docker terminal backend failing)**
-The `hermes` user isn't in the `docker` group yet, or the current shell session pre-dates the group change. Re-run `sudo usermod -aG docker hermes` and restart the unit: `sudo systemctl restart hermes-gateway`.
+**Gateway/profile command behavior differs from CLI expectations**
+Check the rendered profile config (`~/.hermes/config.yaml` or `~/.hermes/profiles/<name>/config.yaml`). On the VPS, always-on gateway profiles should use `terminal.backend: local` and `terminal.cwd: /home/hermes/work/<profile>`. If a profile still shows `backend: docker`, rerender with `python3 scripts/render-config.py ... --output ...` or `sudo bash scripts/provision-profile.sh --sync-all-profiles --gateway skip`, then restart the relevant gateway unit.
 
 **firecrawl-api keeps restarting**
 `nuq-migrate` didn't complete. Check `docker compose logs nuq-migrate`.

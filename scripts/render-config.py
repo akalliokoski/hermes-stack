@@ -106,28 +106,64 @@ def select_service_url(service: dict[str, Any], service_mode: str) -> str:
     raise SystemExit(f"Could not determine service URL for mode={service_mode!r} service={service}")
 
 
+def append_unique(items: list[str], value: str) -> list[str]:
+    if value not in items:
+        items.append(value)
+    return items
+
+
 def apply_profile_overrides(config: dict[str, Any], manifest: dict[str, Any], profile: str) -> dict[str, Any]:
     work_root = get_path(manifest, 'env.work_root')
+    profile_root = Path(get_path(manifest, 'env.profile_root'))
+    host_home = str(profile_root.parent)
+    env_role = str(get_path(manifest, 'env.role'))
     terminal = config.setdefault('terminal', {})
+    profile_workspace = f"{work_root}/{profile}"
+
+    if env_role == 'service-host':
+        terminal['backend'] = 'local'
+        terminal['cwd'] = profile_workspace
+        terminal['docker_env'] = {}
+        terminal['docker_volumes'] = []
+        terminal['docker_forward_env'] = []
+        return config
+
     docker_volumes = terminal.get('docker_volumes')
-    desired = f"{work_root}/{profile}:/workspace"
+    workspace_mount = f"{profile_workspace}:/workspace"
     if docker_volumes is None:
-        terminal['docker_volumes'] = [desired]
+        updated_volumes = [workspace_mount]
     elif isinstance(docker_volumes, list):
-        updated = []
+        updated_volumes = []
         replaced = False
         for entry in docker_volumes:
             entry_str = str(entry)
             if entry_str.endswith(':/workspace') and not replaced:
-                updated.append(desired)
+                updated_volumes.append(workspace_mount)
                 replaced = True
             else:
-                updated.append(entry_str)
+                updated_volumes.append(entry_str)
         if not replaced:
-            updated.append(desired)
-        terminal['docker_volumes'] = updated
+            updated_volumes.append(workspace_mount)
     else:
-        terminal['docker_volumes'] = [desired]
+        updated_volumes = [workspace_mount]
+
+    git_runtime_mounts = [
+        f"{host_home}/.gitconfig:/home/hermes/.gitconfig:ro",
+        f"{host_home}/.config/git:/home/hermes/.config/git:ro",
+        f"{host_home}/.ssh:/home/hermes/.ssh:ro",
+        f"{host_home}/.gitconfig:/root/.gitconfig:ro",
+        f"{host_home}/.config/git:/root/.config/git:ro",
+        f"{host_home}/.ssh:/root/.ssh:ro",
+    ]
+    for mount in git_runtime_mounts:
+        append_unique(updated_volumes, mount)
+    terminal['docker_volumes'] = updated_volumes
+
+    docker_env = terminal.get('docker_env')
+    if not isinstance(docker_env, dict):
+        docker_env = {}
+    docker_env.setdefault('HOME', '/home/hermes')
+    terminal['docker_env'] = docker_env
     return config
 
 

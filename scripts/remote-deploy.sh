@@ -10,6 +10,22 @@ log_step() {
   printf '\n==> %s\n' "$1"
 }
 
+restart_named_profile_gateways() {
+  local profiles_root="/home/hermes/.hermes/profiles"
+  local profile unit_name
+
+  [[ -d "${profiles_root}" ]] || return 0
+
+  while IFS= read -r profile; do
+    [[ -n "${profile}" ]] || continue
+    unit_name="hermes-gateway-${profile}.service"
+    if sudo systemctl list-unit-files --full --type=service "${unit_name}" 2>/dev/null | grep -Fq "${unit_name}"; then
+      log_step "restart ${unit_name}"
+      sudo systemctl restart "${unit_name}"
+    fi
+  done < <(find "${profiles_root}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
+}
+
 log_step "prepare directories and ids"
 mkdir -p /opt/hermes-backups
 HERMES_UID="$(id -u hermes)"
@@ -24,7 +40,7 @@ python3 -c 'import yaml' 2>/dev/null || { sudo apt-get update -qq && sudo apt-ge
 
 log_step "render hermes config and sync profiles"
 sudo -u hermes python3 scripts/render-config.py --env-id vps --target-home /home/hermes --profile default --output /home/hermes/.hermes/config.yaml
-sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles --gateway skip
+sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles --gateway existing
 
 log_step "install systemd units and helper executables"
 sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
@@ -56,6 +72,7 @@ python3 scripts/bootstrap-audiobookshelf.py
 log_step "restart host services"
 sudo systemctl restart hermes-dashboard
 sudo systemctl restart hermes-gateway
+restart_named_profile_gateways
 sudo bash scripts/configure-tailscale-serve.sh
 
 log_step "validate live services"

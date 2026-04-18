@@ -20,13 +20,14 @@ TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 SYNC_ALL_SOULS=0
 SYNC_ALL_PROFILES=0
 GATEWAY_MODE="auto"
+GATEWAY_MODE_SET=0
 
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/provision-profile.sh --profile <name> [--telegram-bot-token <token>] [--gateway auto|skip|required]
+  scripts/provision-profile.sh --profile <name> [--telegram-bot-token <token>] [--gateway auto|skip|required|existing]
   scripts/provision-profile.sh --sync-all-souls
-  scripts/provision-profile.sh --sync-all-profiles [--gateway auto|skip|required]
+  scripts/provision-profile.sh --sync-all-profiles [--gateway auto|skip|required|existing]
 
 What it does:
   - creates or updates a Hermes profile on the VPS
@@ -270,6 +271,7 @@ sync_all_profiles() {
     configure_git_include "${profile}"
     configure_hindsight "${profile}"
     render_profile_soul "${profile}"
+    configure_gateway "${profile}"
   done
 }
 
@@ -440,6 +442,34 @@ PY
   log "✓ Hindsight configured for profile '${profile}' (bank: ${bank_id})"
 }
 
+write_gateway_override() {
+  local profile="$1"
+  local unit_name dropin_dir override_path
+  unit_name="hermes-gateway-${profile}.service"
+  dropin_dir="/etc/systemd/system/${unit_name}.d"
+  override_path="${dropin_dir}/override.conf"
+
+  run_as_root_if_possible mkdir -p "${dropin_dir}" || die "Need root or passwordless sudo to harden ${unit_name}"
+  run_as_root_if_possible python3 - <<PY
+from pathlib import Path
+path = Path(${override_path@Q})
+path.write_text('''[Service]\nNoNewPrivileges=true\nPrivateTmp=true\nProtectSystem=full\nProtectHome=false\nRestrictSUIDSGID=true\nLockPersonality=true\n''')
+PY
+}
+
+system_gateway_exists() {
+  local profile="$1"
+  local unit_name="hermes-gateway-${profile}.service"
+
+  if [[ ${EUID} -eq 0 ]]; then
+    systemctl list-unit-files --full --type=service "${unit_name}" 2>/dev/null | grep -Fq "${unit_name}"
+  elif have_passwordless_sudo; then
+    sudo systemctl list-unit-files --full --type=service "${unit_name}" 2>/dev/null | grep -Fq "${unit_name}"
+  else
+    return 1
+  fi
+}
+
 configure_gateway() {
   local profile="$1"
   [[ "${profile}" != "default" ]] || return 0
@@ -448,6 +478,12 @@ configure_gateway() {
     skip)
       log "• Skipping gateway install/start for profile '${profile}'"
       return 0
+      ;;
+    existing)
+      if ! system_gateway_exists "${profile}"; then
+        log "• No existing system gateway for profile '${profile}'; skipping gateway refresh"
+        return 0
+      fi
       ;;
     auto|required)
       ;;
@@ -460,9 +496,13 @@ configure_gateway() {
     log "→ Installing system gateway for profile '${profile}'"
     if [[ ${EUID} -eq 0 ]]; then
       sudo -iu "${HERMES_USER}" hermes -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}"
+      write_gateway_override "${profile}"
+      systemctl daemon-reload
       HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway start --system
     else
       sudo -iu "${HERMES_USER}" hermes -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}"
+      write_gateway_override "${profile}"
+      sudo systemctl daemon-reload
       sudo env HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway start --system
     fi
     log "✓ Gateway running as hermes-gateway-${profile}.service"
@@ -488,6 +528,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --gateway)
       GATEWAY_MODE="${2:-}"
+      GATEWAY_MODE_SET=1
       shift 2
       ;;
     --sync-all-souls)
@@ -514,6 +555,9 @@ if [[ ${SYNC_ALL_SOULS} -eq 1 ]]; then
 fi
 
 if [[ ${SYNC_ALL_PROFILES} -eq 1 ]]; then
+  if [[ ${GATEWAY_MODE_SET} -eq 0 ]]; then
+    GATEWAY_MODE="skip"
+  fi
   sync_all_profiles
   exit 0
 fi
