@@ -289,6 +289,37 @@ Because this is a reshape of the old two-folder layout (`hermes-data` + `shared`
 sudo bash scripts/configure-tailscale-serve.sh
 ```
 
+### Podcast pipeline helpers
+
+Deploy also installs a dedicated podcast pipeline venv for Hermes under:
+
+```text
+/home/hermes/.venvs/podcast-pipeline/bin/python
+```
+
+That venv contains validated dependencies for:
+- `podcastfy==0.4.3`
+- `playwright` (Python package)
+- `mutagen`
+
+The main orchestration entrypoint is:
+
+```bash
+python3 /opt/hermes/scripts/make-podcast.py --title "AI Research Weekly" --source-file /path/to/notes.md --kokoro-base-url http://mac.tailnet.ts.net:8880/v1 --dry-run
+```
+
+Required env/config for a real run:
+- `KOKORO_BASE_URL` or `--kokoro-base-url`
+- `AUDIOBOOKSHELF_BASE_URL` optional (defaults to `http://127.0.0.1:13378`)
+- optional `TELEGRAM_BOT_TOKEN` + `TELEGRAM_HOME_CHANNEL` for ready notifications
+
+The script can:
+- ask Hermes to generate the transcript from local files, URLs, inline text, or a topic hint
+- call the shared `podcast-pipeline` skill wrappers
+- write the MP3 into `/data/audiobookshelf/podcasts/ai-generated/`
+- trigger an Audiobookshelf scan
+- send a Telegram notification when configured
+
 ---
 
 ## Environment variables
@@ -298,6 +329,7 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 - `OPENROUTER_API_KEY` (or `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) — LLM provider.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (numeric IDs, from @userinfobot), `TELEGRAM_HOME_CHANNEL`.
 - `FIRECRAWL_API_URL=http://127.0.0.1:3002`, `HINDSIGHT_API_URL=http://127.0.0.1:8888`, `AUDIOBOOKSHELF_BASE_URL=http://127.0.0.1:13378`.
+- `KOKORO_BASE_URL=http://<mac-tailnet-name>.ts.net:8880/v1`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
 - `VPS_HOST`, `VPS_DIR` (deploy).
 - `HERMES_DATA_DIR` — overrides the bind-mount source for litestream/backup (default `/home/hermes/.hermes`; use `~/.hermes` locally).
 
