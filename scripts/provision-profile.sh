@@ -5,6 +5,7 @@ HERMES_USER="${HERMES_USER:-hermes}"
 HERMES_HOME="${HERMES_HOME:-/home/hermes/.hermes}"
 WORK_ROOT="${WORK_ROOT:-/home/hermes/work}"
 SHARED_SOUL_ROOT="${SHARED_SOUL_ROOT:-${HERMES_HOME}/shared/soul}"
+SHARED_SKILLS_ROOT="${SHARED_SKILLS_ROOT:-${HERMES_HOME}/shared/skills}"
 HINDSIGHT_API_URL="${HINDSIGHT_API_URL:-http://127.0.0.1:8888}"
 PROFILE="${PROFILE:-}"
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
@@ -24,12 +25,16 @@ What it does:
   - gives the profile its own /home/hermes/work/<profile> workspace
   - writes profile-local Hindsight config with bankId hermes-<profile>
   - manages shared SOUL sources under ~/.hermes/shared/soul/
+  - exposes shared reusable skills from ~/.hermes/shared/skills/
   - renders profile SOUL.md from shared base + per-profile override
   - installs/starts the system gateway when root/passwordless sudo is available
 
 Shared SOUL layout:
   ~/.hermes/shared/soul/base.md
   ~/.hermes/shared/soul/profiles/<profile>.md
+
+Shared skills layout:
+  ~/.hermes/shared/skills/<category>/<skill>/SKILL.md
 EOF
 }
 
@@ -81,6 +86,10 @@ profile_env_path() {
   printf '%s/.env\n' "$(profile_home "$1")"
 }
 
+profile_config_path() {
+  printf '%s/config.yaml\n' "$(profile_home "$1")"
+}
+
 profile_hindsight_dir() {
   printf '%s/hindsight\n' "$(profile_home "$1")"
 }
@@ -116,6 +125,29 @@ After changing either file, rerun:
 
 Or update a single profile:
   bash /opt/hermes/scripts/provision-profile.sh --profile <name>
+EOF"
+  fi
+}
+
+ensure_shared_skills_layout() {
+  run_as_hermes mkdir -p "${SHARED_SKILLS_ROOT}"
+
+  if ! run_as_hermes test -f "${SHARED_SKILLS_ROOT}/README.md"; then
+    run_as_hermes bash -lc "cat > \"${SHARED_SKILLS_ROOT}/README.md\" <<'EOF'
+Shared Hermes skills
+====================
+
+Put cross-profile skills here so every Hermes profile can load them via
+`skills.external_dirs`.
+
+Profiles are normalized to include:
+  ${SHARED_SKILLS_ROOT}
+
+After adding or updating shared skills, rerun:
+  bash /opt/hermes/scripts/provision-profile.sh --sync-all-profiles --gateway skip
+
+Or update a single profile:
+  bash /opt/hermes/scripts/provision-profile.sh --profile <name> --gateway skip
 EOF"
   fi
 }
@@ -183,6 +215,7 @@ sync_all_souls() {
 
 sync_all_profiles() {
   ensure_shared_soul_layout
+  ensure_shared_skills_layout
 
   local profiles=(default)
   local profiles_root="${HERMES_HOME}/profiles"
@@ -197,6 +230,7 @@ sync_all_profiles() {
   for profile in "${profiles[@]}"; do
     create_profile_if_needed "${profile}"
     configure_workspace "${profile}"
+    configure_shared_skills "${profile}"
     configure_git_include "${profile}"
     configure_hindsight "${profile}"
     render_profile_soul "${profile}"
@@ -221,7 +255,7 @@ configure_workspace() {
   local config_path
   [[ "${profile}" != "default" ]] || return 0
 
-  config_path="$(profile_home "${profile}")/config.yaml"
+  config_path="$(profile_config_path "${profile}")"
   run_as_hermes mkdir -p "${WORK_ROOT}/${profile}"
 
   run_as_hermes python3 - <<PY
@@ -238,6 +272,58 @@ if new not in text:
 PY
 
   log "✓ Workspace mapped to ${WORK_ROOT}/${profile}"
+}
+
+configure_shared_skills() {
+  local profile="$1"
+  local config_path
+  config_path="$(profile_config_path "${profile}")"
+
+  run_as_hermes mkdir -p "${SHARED_SKILLS_ROOT}"
+
+  run_as_hermes python3 - <<PY
+from pathlib import Path
+import yaml
+
+path = Path(${config_path@Q})
+shared_dir = ${SHARED_SKILLS_ROOT@Q}
+
+if not path.exists():
+    raise SystemExit(f"Expected config file to exist: {path}")
+
+raw = path.read_text()
+parsed = yaml.safe_load(raw) or {}
+if not isinstance(parsed, dict):
+    raise SystemExit(f"Expected top-level mapping in {path}")
+
+skills = parsed.get("skills")
+if skills is None:
+    skills = {}
+    parsed["skills"] = skills
+if not isinstance(skills, dict):
+    raise SystemExit(f"Expected skills mapping in {path}")
+
+external_dirs = skills.get("external_dirs")
+if external_dirs is None:
+    external_dirs = []
+elif isinstance(external_dirs, str):
+    external_dirs = [external_dirs]
+elif not isinstance(external_dirs, list):
+    raise SystemExit(f"Expected skills.external_dirs to be a list/string in {path}")
+
+normalized = []
+for entry in external_dirs:
+    entry = str(entry).strip()
+    if entry and entry not in normalized:
+        normalized.append(entry)
+if shared_dir not in normalized:
+    normalized.append(shared_dir)
+
+skills["external_dirs"] = normalized
+path.write_text(yaml.safe_dump(parsed, sort_keys=False))
+PY
+
+  log "✓ Shared skills enabled for profile '${profile}'"
 }
 
 write_telegram_env() {
@@ -400,8 +486,10 @@ fi
 [[ "${PROFILE}" =~ ^[A-Za-z0-9_-]+$ ]] || die "Profile names must be alphanumeric with hyphens/underscores"
 
 ensure_shared_soul_layout
+ensure_shared_skills_layout
 create_profile_if_needed "${PROFILE}"
 configure_workspace "${PROFILE}"
+configure_shared_skills "${PROFILE}"
 write_telegram_env "${PROFILE}"
 configure_git_include "${PROFILE}"
 configure_hindsight "${PROFILE}"
