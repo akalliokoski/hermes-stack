@@ -32,6 +32,34 @@ def bool_text(value: bool) -> str:
     return 'yes' if value else 'no'
 
 
+def select_service_url(service: dict[str, Any], service_mode: str) -> str | None:
+    if service_mode == 'local':
+        for key in ('local_api_url', 'local_gui_url', 'optional_local_api_url', 'optional_local_gui_url', 'api_url', 'ui_url', 'gui_url', 'landing_url'):
+            value = service.get(key)
+            if value:
+                return str(value)
+        return None
+
+    if service_mode in ('remote', 'auto'):
+        if service_mode == 'auto' and str(service.get('mode', '')).startswith('local'):
+            for key in ('local_api_url', 'local_gui_url', 'api_url', 'ui_url', 'gui_url', 'landing_url', 'optional_local_api_url', 'optional_local_gui_url'):
+                value = service.get(key)
+                if value:
+                    return str(value)
+        for key in ('remote_api_url', 'remote_ui_url', 'remote_gui_url', 'api_url', 'ui_url', 'gui_url', 'landing_url', 'optional_remote_api_url', 'optional_remote_ui_url', 'optional_remote_gui_url'):
+            value = service.get(key)
+            if value:
+                return str(value)
+        if service_mode == 'auto':
+            for key in ('optional_local_api_url', 'optional_local_gui_url', 'local_api_url', 'local_gui_url'):
+                value = service.get(key)
+                if value:
+                    return str(value)
+        return None
+
+    raise SystemExit(f'Unsupported service mode: {service_mode}')
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument('--repo-root', default=str(Path(__file__).resolve().parents[1]))
@@ -40,6 +68,7 @@ def main() -> None:
     parser.add_argument('--profile-home', required=True)
     parser.add_argument('--config-path', required=True)
     parser.add_argument('--output', required=True)
+    parser.add_argument('--service-mode', choices=['auto', 'local', 'remote'], default=os.environ.get('HERMES_SERVICE_MODE', 'auto'))
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
@@ -68,6 +97,7 @@ def main() -> None:
     lines.append(f'- Config path: `{config_path}` (exists: {bool_text(config_path.exists())})')
     lines.append(f'- Declared work root: `{env.get("work_root", "unknown")}`')
     lines.append(f'- Declared wiki path: `{env.get("wiki_path", "unknown")}`')
+    lines.append(f'- Service mode preference: `{args.service_mode}`')
     lines.append('')
     lines.append('## Capabilities')
     lines.append('')
@@ -82,7 +112,10 @@ def main() -> None:
         for name in sorted(services):
             service = services[name] or {}
             mode = service.get('mode', 'unknown')
+            preferred = select_service_url(service, args.service_mode)
             lines.append(f'- `{name}` ({mode})')
+            if preferred:
+                lines.append(f'  - preferred_url[{args.service_mode}]: `{preferred}`')
             for field, value in service.items():
                 if field == 'mode':
                     continue

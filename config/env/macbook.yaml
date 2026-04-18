@@ -9,15 +9,19 @@ env:
   services:
     hindsight:
       mode: remote_vps_preferred
+      remote_api_url: https://vps.taild96651.ts.net/memory/
+      remote_ui_url: https://vps.taild96651.ts.net:9443/
       api_url: https://vps.taild96651.ts.net/memory/
       ui_url: https://vps.taild96651.ts.net:9443/
       optional_local_api_url: http://127.0.0.1:8888
     firecrawl:
       mode: remote_vps_preferred
+      remote_api_url: https://vps.taild96651.ts.net/firecrawl/
       api_url: https://vps.taild96651.ts.net/firecrawl/
       optional_local_api_url: http://127.0.0.1:3002
     syncthing:
       mode: remote_gui
+      remote_gui_url: https://vps.taild96651.ts.net:9445/
       gui_url: https://vps.taild96651.ts.net:9445/
     tailscale:
       mode: host_native

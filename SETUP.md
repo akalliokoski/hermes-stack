@@ -57,14 +57,17 @@ exec $SHELL   # reload PATH
 cp .env.example .env        # fill in API keys, TELEGRAM_BOT_TOKEN, VPS_HOST, …
 cp .env        ~/.hermes/.env
 
-# 3. Render the machine-specific Hermes config/environment
-make sync-env
+# 3. Bootstrap the machine-specific shared/synced layout + render config
+make machine-bootstrap
 
 # 4. Optional: start the local support stack (firecrawl, hindsight, litestream, backup)
-make local-up
+make local-up SERVICE_MODE=local
 
-# 5. Chat with hermes
-make local-chat            # just runs `hermes chat`
+# 5. Verify what Hermes believes is available here
+make verify-env-local
+
+# 6. Chat with hermes
+make local-chat
 ```
 
 Hermes is talking to Docker for each shell tool call — confirm with `docker ps` during a command (you'll see a short-lived `nikolaik/python-nodejs` container).
@@ -78,17 +81,21 @@ make local-update-agent    # runs `hermes update`
 ### Common commands
 
 ```bash
-make local-up              # start support services
-make local-down            # stop them
-make local-status          # compose ps
-make local-logs            # tail all compose logs
-make detect-env            # print detected environment id (vps/macbook/...)
-make sync-env              # render ~/.hermes/config.yaml + ~/.hermes/ENVIRONMENT.md
-make sync-profiles-local   # normalize default + named profiles for this machine
+make local-up SERVICE_MODE=local   # start local support services and prefer local APIs
+make local-down                    # stop them
+make local-status                  # compose ps
+make local-logs                    # tail all compose logs
+make detect-env                    # print detected environment id (vps/macbook/...)
+make machine-bootstrap             # create synced layout + shared symlinks + render config
+make sync-env                      # rerender ~/.hermes/config.yaml + ~/.hermes/ENVIRONMENT.md
+make sync-profiles-local           # normalize default + named profiles for this machine
+make verify-env-local              # validate rendered profile wiring for this machine
 make sync-profiles-local SERVICE_MODE=local   # opt into local Hindsight URLs when running local dev containers
-make local-chat            # hermes chat
-make local-backup-now      # trigger immediate backup
-make local-snapshots       # list available backups
+make export-profile PROFILE=default           # create portable profile bundle under synced exports root
+make import-profile ARCHIVE=/path/to/bundle.tar.gz PROFILE=default
+make local-chat                    # hermes chat
+make local-backup-now              # trigger immediate backup
+make local-snapshots               # list available backups
 ```
 
 ### Config
@@ -248,29 +255,41 @@ sudo bash /opt/hermes/scripts/provision-profile.sh --sync-all-profiles --gateway
 
 ### Shared instructions across profiles
 
-Common instructions now live outside individual profile dirs:
+Common instructions still render through `~/.hermes/shared/soul/`, but `make machine-bootstrap` now links that directory to the Syncthing-backed shared root when possible:
 
 ```text
-/home/hermes/.hermes/shared/soul/
-├── base.md                 # shared by every profile
-├── README.md
-└── profiles/
-    ├── default.md          # default profile only
-    ├── coder.md            # coder profile only
-    └── <name>.md
+~/.hermes/shared/soul -> <sync_root>/soul
+~/.hermes/shared/skills -> <sync_root>/skills
+```
+
+Within the synced root, the contract is:
+
+```text
+<sync_root>/
+├── wiki/
+├── soul/
+│   ├── base.md
+│   └── profiles/
+│       ├── default.md
+│       └── <name>.md
+├── skills/
+├── exports/
+├── backups/
+│   └── hindsight/
+└── envs/
 ```
 
 Each profile `SOUL.md` is rendered as:
 
 ```text
-shared/soul/base.md + shared/soul/profiles/<name>.md
+shared/soul/base.md + shared/soul/profiles/<name>.md + profile ENVIRONMENT.md
 ```
 
-This gives you one place for common behavior, while keeping profile-specific instructions separate. Hindsight memory remains isolated per profile because each profile still gets its own `bankId` even though all profiles use the same Hindsight service.
+This gives you one place for common behavior, while keeping profile-specific instructions separate and synced across machines. Hindsight memory remains isolated per profile because each profile still gets its own `bank_id` even though all profiles use the same Hindsight service.
 
 ### Environment manifests and runtime awareness
 
-Hermes environment-awareness is now driven by repo-managed manifests:
+Hermes environment-awareness is driven by repo-managed manifests plus a generated runtime summary:
 
 ```text
 config/
@@ -280,28 +299,44 @@ config/
     └── macbook.yaml
 ```
 
+The operating flow is:
+
 - `scripts/detect-env.sh` picks the current environment id.
 - `scripts/render-config.py` renders a machine-specific `config.yaml`.
-- `scripts/render-environment-context.py` generates `ENVIRONMENT.md`.
-- `scripts/provision-profile.sh` now regenerates profile `config.yaml`, `ENVIRONMENT.md`, and `SOUL.md` together.
+- `scripts/render-environment-context.py` generates `ENVIRONMENT.md`, including the preferred service URLs for the chosen `SERVICE_MODE`.
+- `scripts/provision-profile.sh` regenerates profile `config.yaml`, `ENVIRONMENT.md`, and `SOUL.md` together.
+- `scripts/verify-environment.sh` validates that rendered profiles match the declared environment contract.
+- `scripts/bootstrap-machine.sh` creates the synced/shared directory layout, mirrors env manifests into `<sync_root>/envs`, links shared soul/skills, and rerenders local profiles.
 
 On a local machine, run:
 
 ```bash
 make detect-env
-make sync-env
-make sync-profiles-local
+make machine-bootstrap SERVICE_MODE=remote
+make verify-env-local SERVICE_MODE=remote
+```
+
+If you intentionally want local support services on a workstation:
+
+```bash
+make local-up SERVICE_MODE=local
+make machine-bootstrap SERVICE_MODE=local
+make verify-env-local SERVICE_MODE=local
 ```
 
 On the VPS, deploy or run:
 
 ```bash
-sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles --gateway skip
+sudo env HERMES_ENV_ID=vps HERMES_SERVICE_MODE=auto bash scripts/provision-profile.sh --sync-all-profiles --gateway skip
+sudo -iu hermes HERMES_HOME=/home/hermes/.hermes bash scripts/verify-environment.sh --all-profiles --check-services
 ```
 
 ### VPS-specific services
 
-**Syncthing** mounts `/home/hermes/.hermes` as a single folder and syncs it to your MacBook over Tailscale. Files ignored by [docker/stignore](docker/stignore): `state.db*` (Litestream owns those), `sessions/`, `logs/`, `cron/`, `caches/`, `platforms/`, `.env`. Everything else — `memories/`, `SOUL.md`, `skills/`, `wiki/` — is synced.
+**Syncthing** now synchronizes the machine-agnostic shared root at `/home/hermes/sync`, not the entire live `~/.hermes` runtime directory. The important split is:
+
+- synced: `wiki/`, shared `soul/`, shared `skills/`, `exports/`, backup archives, copied env manifests
+- not blindly synced: `~/.hermes/.env`, live `state.db*`, sessions/logs/cron caches, platform auth, host-specific runtime config
 
 Open the Hermes stack landing page from any tailnet device:
 
@@ -324,18 +359,17 @@ Point the MacBook side at `~/Sync/hermes` (or wherever). Obsidian → **Open fol
 
 #### Syncthing settings to change after first deploy (one-time)
 
-Because this is a reshape of the old two-folder layout (`hermes-data` + `shared`), do the following in the Syncthing UI after first start:
+Because the shared root now lives directly at `/home/hermes/sync`, do the following in the Syncthing UI after first start or after migrating from the old layout:
 
 1. **Remove** the old `hermes-data` and `shared` folders (Edit → Remove; keep files on disk).
 2. **Add** a new folder:
-   - Folder Path (in container): `/sync/hermes`
+   - Folder Path (in container): `/sync`
    - Folder ID: `hermes`
-   - Ignore Patterns: already loaded from the bind-mounted `/sync/hermes/.stignore`.
    - Share with the MacBook device.
 3. On the **MacBook**: accept the share, point it at `~/Sync/hermes` (or your chosen path).
 4. Enable **Staggered File Versioning** (30 days, 1 h interval) on the new folder.
-5. Once initial sync is done, delete the old `hermes-data` and `shared` copies on the MacBook.
-6. Re-open Obsidian at the new vault path (`~/Sync/hermes/wiki`).
+5. Once initial sync is done, reopen Obsidian at the synced vault path (`~/Sync/hermes/wiki`).
+6. Run `make machine-bootstrap` on the MacBook so `~/.hermes/shared/{soul,skills}` link into the synced tree and local config is rerendered.
 
 **Tailscale** exposes the landing page and all internal web UIs on your tailnet via the host Tailscale daemon (not a container). Deploy applies this automatically with:
 
@@ -391,35 +425,42 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 
 ## Agent state & persistence
 
-Everything lives under `/home/hermes/.hermes` (VPS) / `~/.hermes` (MacBook):
+Everything live/runtime-specific stays under `/home/hermes/.hermes` (VPS) / `~/.hermes` (MacBook), while the machine-agnostic shared root lives under `/home/hermes/sync` (VPS) / `~/Sync/hermes` (MacBook).
 
-```
+```text
 .hermes/
 ├── config.yaml               ← rendered from config/base.yaml + config/env/<env>.yaml
 ├── ENVIRONMENT.md            ← generated machine/runtime capability summary
 ├── .env                      ← secrets (NOT synced)
 ├── state.db + wal            ← replicated by Litestream (NOT synced)
-├── memories/                 ✓ synced
-│   ├── MEMORY.md
-│   └── USER.md
-├── SOUL.md                   ✓ synced
-├── skills/                   ✓ synced
-├── wiki/                     ✓ synced (Obsidian vault target)
+├── memories/                 local runtime state
+├── SOUL.md                   rendered from shared soul + ENVIRONMENT.md
+├── shared/
+│   ├── soul -> <sync_root>/soul
+│   └── skills -> <sync_root>/skills
 ├── sessions/ logs/ cron/     runtime-only, not synced
 └── platforms/                platform auth (WhatsApp/Signal), not synced
+
+<sync_root>/
+├── wiki/                     synced Obsidian vault
+├── soul/                     shared profile instructions
+├── skills/                   shared cross-profile skills
+├── exports/                  portable profile bundles
+├── backups/                  tarballs + hindsight SQL dumps
+└── envs/                     mirrored environment manifests
 ```
 
-Each profile has its own subdirectory under `/home/hermes/work/` bind-mounted into the Docker sandbox as `/workspace` — all agent-run commands see only that profile's folder. Nothing outside `work/<profile>/` is reachable from a sandboxed shell. New profiles are added with `make add-profile PROFILE=<name>` or directly on the VPS with `bash /opt/hermes/scripts/provision-profile.sh --profile <name>`.
+Each profile has its own subdirectory under `/home/hermes/work/` or `~/hermes-work/` bind-mounted into the Docker sandbox as `/workspace`. New profiles are added with `make add-profile PROFILE=<name>` on the VPS or imported locally via `make import-profile ARCHIVE=... PROFILE=<name>`.
 
 ---
 
 ## Backup & Restore
 
-Two complementary mechanisms, both operating on `/home/hermes/.hermes`:
+Three complementary layers protect portability and recovery:
 
-### Litestream (continuous SQLite replication)
+### 1. Litestream (continuous SQLite replication)
 
-`state.db` is a live WAL-mode SQLite DB — it cannot be safely `tar`'d while running. Litestream streams WAL pages to `hermes_backups/litestream/` every 10–30 s and writes full snapshots every 6–12 h.
+`state.db` is a live WAL-mode SQLite DB — it cannot be safely `tar`'d while running. Litestream streams WAL pages to the backup archive every 10–30 s and writes full snapshots every 6–12 h.
 
 ```bash
 make snapshots                                  # list restore points
@@ -427,9 +468,9 @@ make restore ARGS="db latest"                   # roll state.db back
 make restore ARGS="db 2026-04-05T21:00:00"      # point-in-time restore
 ```
 
-### docker-volume-backup (daily tarballs + Hindsight SQL snapshots)
+### 2. docker-volume-backup tarballs (`.hermes` runtime state)
 
-Every day at 3am on VPS (weekly locally), the entire `.hermes` dir is tarballed to `hermes_backups/`. Retained for 30 days. On VPS, the same backup run also writes a logical `pg_dump` snapshot of Hindsight into a separate `backups/hindsight/` path, so Hindsight is protected by SQL dumps rather than raw live volume syncing and the tarball pruner cannot delete unrelated SQL dump files.
+Every day at 3am on VPS (weekly locally), the runtime `.hermes` dir is tarballed into the synced backup root.
 
 ```bash
 make backup-now
@@ -438,12 +479,42 @@ make restore ARGS="volume hermes_data_2026-04-05T03-00-00.tar.gz"
 make restore ARGS="file memories/MEMORY.md hermes_data_2026-04-05T03-00-00.tar.gz"
 ```
 
+### 3. Hindsight logical SQL dumps
+
+The VPS backup flow also writes a logical `pg_dump` snapshot of Hindsight into `backups/hindsight/`, keeping Hindsight protected independently of live Docker volumes.
+
+```bash
+make backup-hindsight
+make restore-hindsight ARGS="list"
+make restore-hindsight ARGS="validate-bank hermes-default"
+make restore-hindsight ARGS="restore-db /home/hermes/sync/backups/hindsight/hindsight_dump_....sql"
+```
+
+### Portable profile export/import
+
+Use exports when you want to move a profile to another machine without hand-editing config paths.
+
+```bash
+make export-profile PROFILE=default
+make import-profile PROFILE=default ARCHIVE=~/Sync/hermes/exports/profiles/default/default_macbook_....tar.gz
+```
+
+`export-profile` writes a portable bundle containing:
+
+- profile metadata (`bank_id`, source env, service mode)
+- rendered `SOUL.md` / `ENVIRONMENT.md` / config references
+- shared soul source files relevant to the profile
+- `.env.template` without secret values
+- references to the latest synced tarball + Hindsight dump
+
+`import-profile` restores shared/profile soul sources, rerenders the profile for the target machine, and keeps reference copies of the source-machine artifacts under `~/.hermes[/profiles/<name>]/imports/`.
+
 **Backup locations:**
 
-| Env | Litestream replica | Tarballs |
-|---|---|---|
-| Local | `./backups/litestream/` | `./backups/*.tar.gz` |
-| VPS | `/opt/hermes-backups/litestream/` | `/opt/hermes-backups/*.tar.gz` |
+| Env | Sync root | Tarballs | Hindsight SQL dumps |
+|---|---|---|---|
+| Local | `~/Sync/hermes` (recommended) | `<sync_root>/backups/*.tar.gz` | `<sync_root>/backups/hindsight/*.sql` |
+| VPS | `/home/hermes/sync` | `/home/hermes/sync/backups/*.tar.gz` | `/home/hermes/sync/backups/hindsight/*.sql` |
 
 ---
 
@@ -471,8 +542,11 @@ make restore ARGS="file memories/MEMORY.md hermes_data_2026-04-05T03-00-00.tar.g
 | `make hermes ARGS="skills"` | Arbitrary hermes subcommand |
 | `make update-agent` | `hermes update` + restart |
 | `make backup-now` | Immediate tarball |
+| `make backup-hindsight` | Trigger a logical Hindsight SQL dump on the VPS |
 | `make snapshots` | List restore points |
 | `make restore ARGS="..."` | See Backup & Restore |
+| `make restore-hindsight ARGS="..."` | Validate or restore Hindsight SQL dumps on the VPS |
+| `make verify-env` | Verify rendered VPS profile/environment wiring and service reachability |
 | `make clean` | Prune stopped containers + dangling images |
 | `make add-profile PROFILE=name` or `make add-profile PROFILE=name TELEGRAM_BOT_TOKEN=***` | Create/update a profile with its own workspace, SOUL override, Hindsight bank, and optional Telegram bot |
 | `make sync-souls` | Rerender `SOUL.md` for default + all named profiles from shared sources |
@@ -483,9 +557,14 @@ make restore ARGS="file memories/MEMORY.md hermes_data_2026-04-05T03-00-00.tar.g
 |---|---|
 | `make local-up` / `local-down` | Support services |
 | `make local-status` / `local-logs` | Observability |
+| `make machine-bootstrap` | Create synced shared layout + render local config |
+| `make verify-env-local` | Validate local rendered environment/profile wiring |
 | `make local-chat` | `hermes chat` against `~/.hermes` |
 | `make local-update-agent` | `hermes update` locally |
+| `make export-profile PROFILE=name` | Create a portable profile bundle |
+| `make import-profile PROFILE=name ARCHIVE=/path/to/bundle.tar.gz` | Import a portable profile bundle locally |
 | `make local-backup-now` / `local-snapshots` | Backups |
+| `make portability-smoke` | Run local regression/smoke checks for portability scripts |
 
 ---
 

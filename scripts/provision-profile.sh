@@ -230,6 +230,7 @@ render_profile_environment() {
     --profile "${profile}" \
     --profile-home "${profile_dir}" \
     --config-path "${config_path}" \
+    --service-mode "${HERMES_SERVICE_MODE}" \
     --output "${output_path}"
 
   log "✓ Rendered ENVIRONMENT.md for profile '${profile}' (env: ${ENV_ID})"
