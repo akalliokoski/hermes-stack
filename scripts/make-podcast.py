@@ -139,10 +139,13 @@ def generate_transcript(title: str, files: list[Path], urls: list[str], topic: s
     return output.strip()
 
 
-def scan_audiobookshelf(podcastfy_python: str) -> None:
+def scan_audiobookshelf(podcastfy_python: str) -> bool:
     proc = run([podcastfy_python, str(ABS_API), "scan"])
     if proc.returncode != 0:
-        raise SystemExit(f"Audiobookshelf scan failed:\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}")
+        warning = proc.stderr.strip() or proc.stdout.strip() or "unknown Audiobookshelf scan error"
+        print(f"warning: Audiobookshelf scan skipped: {warning}", file=sys.stderr)
+        return False
+    return True
 
 
 def main() -> int:
