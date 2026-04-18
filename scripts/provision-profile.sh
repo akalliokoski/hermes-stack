@@ -404,10 +404,12 @@ configure_git_include() {
   gitconfig_path="${home_dir}/.gitconfig"
 
   run_as_hermes mkdir -p "${home_dir}"
-  run_as_hermes bash -lc "cat > \"${gitconfig_path}\" <<'EOF'
-[include]
-  path = ${shared_gitconfig}
-EOF"
+  run_as_hermes python3 - <<PY
+from pathlib import Path
+path = Path(${gitconfig_path@Q})
+shared = ${shared_gitconfig@Q}
+path.write_text(f"[include]\n  path = {shared}\n")
+PY
   run_as_hermes chmod 644 "${gitconfig_path}"
   log "✓ Shared git defaults enabled for profile '${profile}'"
 }
