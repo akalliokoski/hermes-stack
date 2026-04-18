@@ -146,8 +146,17 @@ verify-env-local:
 	@bash scripts/verify-environment.sh --all-profiles --service-mode "$(SERVICE_MODE)"
 
 verify-env:
-	@echo "→ Verifying rendered environment/profile wiring on $(VPS_HOST)"
-	ssh $(VPS_HOST) 'cd /opt/hermes && sudo -iu hermes HERMES_HOME=/home/hermes/.hermes HERMES_SERVICE_MODE=$(SERVICE_MODE) bash scripts/verify-environment.sh --all-profiles --service-mode $(SERVICE_MODE) --check-services'
+	@ENV_ID="$$(bash scripts/detect-env.sh --repo-root "$(CURDIR)")"; \
+	if [ "$$ENV_ID" = "vps" ]; then \
+		echo "→ Verifying rendered environment/profile wiring on this VPS"; \
+		HERMES_HOME=/home/hermes/.hermes HERMES_SERVICE_MODE=$(SERVICE_MODE) bash scripts/verify-environment.sh --all-profiles --service-mode $(SERVICE_MODE) --check-services; \
+	elif [ -n "$(VPS_HOST)" ]; then \
+		echo "→ Verifying rendered environment/profile wiring on $(VPS_HOST)"; \
+		ssh $(VPS_HOST) 'cd /opt/hermes && sudo -iu hermes HERMES_HOME=/home/hermes/.hermes HERMES_SERVICE_MODE=$(SERVICE_MODE) bash scripts/verify-environment.sh --all-profiles --service-mode $(SERVICE_MODE) --check-services'; \
+	else \
+		echo "Set VPS_HOST in .env or run this target on the VPS"; \
+		exit 1; \
+	fi
 
 # ── Profile management ────────────────────────────────────────────────────────
 # Create/update a hermes profile on the VPS via scripts/provision-profile.sh.

@@ -53,27 +53,56 @@ def get_path(data: dict[str, Any], dotted: str) -> Any:
     return current
 
 
+def first_present(service: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = service.get(key)
+        if value:
+            return str(value)
+    return None
+
+
 def select_service_url(service: dict[str, Any], service_mode: str) -> str:
+    local_keys = (
+        'local_api_url',
+        'api_url',
+        'optional_local_api_url',
+        'local_gui_url',
+        'gui_url',
+        'optional_local_gui_url',
+        'local_ui_url',
+        'ui_url',
+        'optional_local_ui_url',
+        'landing_url',
+    )
+    remote_keys = (
+        'remote_api_url',
+        'api_url',
+        'optional_remote_api_url',
+        'remote_gui_url',
+        'gui_url',
+        'optional_remote_gui_url',
+        'remote_ui_url',
+        'ui_url',
+        'optional_remote_ui_url',
+        'landing_url',
+    )
+
     if service_mode == 'local':
-        for key in ('local_api_url', 'optional_local_api_url', 'api_url'):
-            value = service.get(key)
-            if value:
-                return str(value)
+        selected = first_present(service, *local_keys)
+        if selected:
+            return selected
     elif service_mode in ('remote', 'auto'):
         if service_mode == 'auto' and str(service.get('mode', '')).startswith('local'):
-            for key in ('local_api_url', 'api_url', 'optional_local_api_url'):
-                value = service.get(key)
-                if value:
-                    return str(value)
-        for key in ('remote_api_url', 'api_url', 'optional_remote_api_url'):
-            value = service.get(key)
-            if value:
-                return str(value)
+            selected = first_present(service, *local_keys)
+            if selected:
+                return selected
+        selected = first_present(service, *remote_keys)
+        if selected:
+            return selected
         if service_mode == 'auto':
-            for key in ('optional_local_api_url', 'local_api_url'):
-                value = service.get(key)
-                if value:
-                    return str(value)
+            selected = first_present(service, *local_keys)
+            if selected:
+                return selected
     raise SystemExit(f"Could not determine service URL for mode={service_mode!r} service={service}")
 
 

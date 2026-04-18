@@ -176,15 +176,21 @@ if [[ ${CHECK_SERVICES} -eq 1 ]]; then
   while IFS= read -r service; do
     [[ -n "${service}" ]] || continue
     url="$(python3 "${CONFIG_RENDERER}" --repo-root "${REPO_ROOT}" --env-id "${ENV_ID}" --target-home "${TARGET_HOME}" --print-service-url "${service}" --service-mode "${SERVICE_MODE}")"
+    probe_url="${url}"
+    case "${service}" in
+      hindsight)
+        probe_url="${url%/}/health"
+        ;;
+    esac
     log "• ${service} => ${url}"
     if command -v curl >/dev/null 2>&1; then
-      if curl -fsSIL --max-time 10 "${url}" >/dev/null 2>&1 || curl -fsS --max-time 10 "${url}" >/dev/null 2>&1; then
+      if curl -fsSIL --max-time 10 "${probe_url}" >/dev/null 2>&1 || curl -fsS --max-time 10 "${probe_url}" >/dev/null 2>&1; then
         log "  ✓ reachable"
       else
         if [[ ${STRICT} -eq 1 ]]; then
-          die "service check failed for ${service}: ${url}"
+          die "service check failed for ${service}: ${probe_url}"
         fi
-        warn "service check failed for ${service}: ${url}"
+        warn "service check failed for ${service}: ${probe_url}"
       fi
     else
       warn "curl not found; skipping reachability check for ${service}"
