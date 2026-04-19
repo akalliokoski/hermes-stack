@@ -9,7 +9,7 @@
 #   - rsync the repo (compose files, scripts, config overlays) to the VPS
 #   - render the VPS-specific config into /home/hermes/.hermes/
 #   - `docker compose up -d` for auxiliary services
-#   - `systemctl restart hermes-gateway` for the host-installed agent
+#   - restart `hermes-gateway` only when rendered config or service units changed
 #
 # Hermes itself updates separately via `make update-agent`
 # (runs `hermes update` as the hermes user — no rebuild needed).

@@ -162,7 +162,7 @@ bash scripts/vps-bootstrap.sh     # one-time, from MacBook
 git push                           # subsequent deploys go through CI
 ```
 
-After bootstrap, the first `git push` to `main` (or a manual `make deploy`) rsyncs the repo, renders the latest VPS config, syncs all profiles/environment context, brings up the support stack, and `systemctl restart hermes-gateway` starts the agent for the first time.
+After bootstrap, the first `git push` to `main` (or a manual `make deploy`) rsyncs the repo, renders the latest VPS config, syncs all profiles/environment context, brings up the support stack, and starts `hermes-gateway` if it is not already running. Later deploys only restart gateway services when their rendered config or systemd unit changed, so routine stack deploys do not interrupt active chats unnecessarily.
 
 `VPS_HOST` and `VPS_DIR` are read from `.env`:
 
@@ -584,7 +584,7 @@ make import-profile PROFILE=default ARCHIVE=~/Sync/hermes/exports/profiles/defau
 
 ## CI/CD (GitHub Actions)
 
-`.github/workflows/deploy.yml` still runs on push to `main`: joins tailnet → rsync → `docker compose up -d` → `systemctl restart hermes-gateway`. Secrets unchanged (`VPS_HOST`, `VPS_SSH_*`, `TAILSCALE_OAUTH_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_HOME_CHANNEL`). The old "build hermes-agent image" step is gone.
+`.github/workflows/deploy.yml` still runs on push to `main`: joins tailnet → rsync → `docker compose up -d` → `scripts/remote-deploy.sh`. The deploy script now restarts `hermes-gateway` (and named profile gateways) only when their rendered config or installed systemd unit changed; otherwise it leaves running gateways alone. Secrets unchanged (`VPS_HOST`, `VPS_SSH_*`, `TAILSCALE_OAUTH_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_HOME_CHANNEL`). The old "build hermes-agent image" step is gone.
 
 ---
 
