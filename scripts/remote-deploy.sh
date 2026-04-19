@@ -1,15 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+LOG_DIR="${REMOTE_DEPLOY_LOG_DIR:-/opt/hermes-backups/deploy-logs}"
+DEPLOY_LOG="${REMOTE_DEPLOY_LOG:-${LOG_DIR}/remote-deploy-$(date +%Y%m%d-%H%M%S).log}"
+LOG_PARENT="$(dirname "${DEPLOY_LOG}")"
+sudo install -d -o "$(id -un)" -g "$(id -gn)" -m 755 "${LOG_PARENT}"
+: > "${DEPLOY_LOG}"
+exec > >(tee -a "${DEPLOY_LOG}") 2>&1
+
 export PS4='+ [remote-deploy] '
 set -x
 
 LAST_COMMAND=""
 CURRENT_STEP="startup"
 trap 'LAST_COMMAND=${BASH_COMMAND}' DEBUG
-trap 'status=$?; echo "[remote-deploy] ERROR: step=${CURRENT_STEP} command=${LAST_COMMAND} exit=${status}" >&2' ERR
+trap 'status=$?; echo "[remote-deploy] ERROR: step=${CURRENT_STEP} command=${LAST_COMMAND} exit=${status} log=${DEPLOY_LOG}" >&2' ERR
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
+
+echo "[remote-deploy] log_path=${DEPLOY_LOG}"
 
 log_step() {
   CURRENT_STEP="$1"

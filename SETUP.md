@@ -339,6 +339,8 @@ sudo -iu hermes HERMES_HOME=/home/hermes/.hermes bash scripts/verify-environment
 
 `make deploy` / `scripts/remote-deploy.sh` go one step further than the manual config-only command above: deploy uses `--sync-all-profiles --gateway existing`, refreshes existing named-profile gateway drop-ins, restarts `hermes-gateway`, restarts any existing `hermes-gateway-<profile>` units (such as `hermes-gateway-gemma`), and then re-applies Tailscale Serve plus web-binding verification.
 
+`scripts/remote-deploy.sh` now also writes a timestamped log under `/opt/hermes-backups/deploy-logs/` by default and includes the failing `step=...`, `command=...`, `exit=...`, and `log=...` path in its error trap output. The GitHub deploy workflow pins a per-run log path (for example `/opt/hermes-backups/deploy-logs/github-run-<run-id>.log`) and, on failure, appends the tail of that remote log to the Actions step summary so the last failing command is visible without manually SSHing into the VPS.
+
 ### VPS-specific services
 
 **Syncthing** now synchronizes the machine-agnostic shared root at `/home/hermes/sync`, not the entire live `~/.hermes` runtime directory. The important split is:
@@ -450,6 +452,10 @@ Required env/config for a real run:
 - recommended for non-interactive scans/verifications: `AUDIOBOOKSHELF_TOKEN`
 - bootstrap/login fallback: `AUDIOBOOKSHELF_ADMIN_USERNAME`, `AUDIOBOOKSHELF_ADMIN_PASSWORD`
 - optional Audiobookshelf overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`
+- `PODCASTFY_PYTHON` optional if the podcast venv lives somewhere non-default at runtime
+- `PODCAST_OUTPUT_DIR` optional if generated episodes should land somewhere other than `/data/audiobookshelf/podcasts/ai-generated`
+- `HF_TOKEN` if your Modal Chatterbox deploy needs Hugging Face auth (sync it into Modal with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py`)
+- `PODCASTFY_VENV` optional when bootstrapping the podcast helper venv somewhere else
 - optional `TELEGRAM_BOT_TOKEN` + `TELEGRAM_HOME_CHANNEL` for ready notifications
 - optional legacy fallback: `KOKORO_BASE_URL`
 
@@ -468,7 +474,7 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 
 - `OPENROUTER_API_KEY` (or `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) — LLM provider.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (numeric IDs, from @userinfobot), `TELEGRAM_HOME_CHANNEL`.
-- `FIRECRAWL_API_URL=http://127.0.0.1:3002`, `HINDSIGHT_API_URL=http://127.0.0.1:8888`, `AUDIOBOOKSHELF_BASE_URL=http://127.0.0.1:13378`.
+- optional local service URL overrides: `FIRECRAWL_API_URL=http://127.0.0.1:3002`, `HINDSIGHT_API_URL=http://127.0.0.1:8888`, `AUDIOBOOKSHELF_BASE_URL=http://127.0.0.1:13378`.
 - `AUDIOBOOKSHELF_TOKEN` for non-interactive scans/verification, or `AUDIOBOOKSHELF_ADMIN_USERNAME` + `AUDIOBOOKSHELF_ADMIN_PASSWORD` as a login/bootstrap fallback.
 - optional Audiobookshelf library overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`.
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
@@ -477,6 +483,7 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 - optional legacy/local fallback: `KOKORO_BASE_URL=http://<mac-tailnet-name>.ts.net:8880/v1`.
 - `VPS_HOST`, `VPS_DIR` (deploy).
 - `HERMES_DATA_DIR` — overrides the bind-mount source for litestream/backup (default `/home/hermes/.hermes`; use `~/.hermes` locally).
+- optional deploy diagnostics overrides for `scripts/remote-deploy.sh`: `REMOTE_DEPLOY_LOG_DIR`, `REMOTE_DEPLOY_LOG`.
 
 ---
 
