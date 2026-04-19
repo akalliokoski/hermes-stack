@@ -12,7 +12,9 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-BASE_URL = os.environ.get("AUDIOBOOKSHELF_BASE_URL", "http://127.0.0.1:13378").rstrip("/")
+from podcast_pipeline_common import DEFAULT_AUDIOBOOKSHELF_BASE_URL
+
+BASE_URL = os.environ.get("AUDIOBOOKSHELF_BASE_URL", DEFAULT_AUDIOBOOKSHELF_BASE_URL).rstrip("/")
 TOKEN = os.environ.get("AUDIOBOOKSHELF_TOKEN", "")
 USERNAME = os.environ.get("AUDIOBOOKSHELF_ADMIN_USERNAME", "")
 PASSWORD = os.environ.get("AUDIOBOOKSHELF_ADMIN_PASSWORD", "")
