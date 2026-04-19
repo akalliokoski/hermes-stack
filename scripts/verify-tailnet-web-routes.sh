@@ -48,6 +48,9 @@ expected = {
     f'{domain}:13378': {
         '/': 'http://127.0.0.1:13378',
     },
+    f'{domain}:8096': {
+        '/': 'http://127.0.0.1:8096',
+    },
 }
 
 for listener, paths in expected.items():

@@ -4,7 +4,7 @@ This document covers the deployment layer: local dev, VPS setup, configuration, 
 
 This is a living document. Keep it actively updated when deploy flow, runtime architecture, profile behavior, verification steps, or recovery procedures change.
 
-**Topology.** `hermes-agent` runs natively on the VPS under systemd (user: `hermes`), installed via the upstream [install.sh](https://hermes-agent.nousresearch.com/docs/getting-started/installation). On the VPS, the default and always-on gateway profiles use Hermes's local terminal backend so CLI and mobile/gateway sessions share the same profile behavior and workspaces. Docker Compose only runs the auxiliary services: firecrawl, hindsight, litestream, backup, and (on VPS) syncthing.
+**Topology.** `hermes-agent` runs natively on the VPS under systemd (user: `hermes`), installed via the upstream [install.sh](https://hermes-agent.nousresearch.com/docs/getting-started/installation). On the VPS, the default and always-on gateway profiles use Hermes's local terminal backend so CLI and mobile/gateway sessions share the same profile behavior and workspaces. Docker Compose runs the auxiliary services: firecrawl, hindsight, litestream, backup, and on the VPS the tailnet-facing support apps such as Syncthing, Audiobookshelf, and Jellyfin.
 
 ---
 
@@ -22,8 +22,10 @@ VPS host
       ├── hindsight                          127.0.0.1:8888 / 9999 (vector memory)
       ├── litestream                         continuous state.db WAL replication
       ├── backup                             daily /home/hermes/.hermes tarball
-      └── syncthing (VPS only)               sync /home/hermes/.hermes → MacBook
-                                             over Tailscale
+      ├── syncthing (VPS only)               sync /home/hermes/sync → MacBook
+      │                                      over Tailscale
+      ├── audiobookshelf (VPS only)          127.0.0.1:13378 podcast delivery
+      └── jellyfin (VPS only)                127.0.0.1:8096 video delivery
 ```
 
 **Compose files:**
@@ -32,7 +34,7 @@ VPS host
 |---|---|
 | `docker-compose.yml` | Base — auxiliary services only |
 | `docker-compose.override.yml` | Local dev overrides (auto-applied) |
-| `docker-compose.vps.yml` | VPS additions: syncthing, host backup bind-mount |
+| `docker-compose.vps.yml` | VPS additions: syncthing, Audiobookshelf, Jellyfin, and host data bind-mounts |
 
 ---
 
@@ -354,11 +356,12 @@ Open the Hermes stack landing page from any tailnet device:
 https://<current-tailscale-node-name>.<your-tailnet>.ts.net/
 ```
 
-That landing page links to the Hermes dashboard, Syncthing UI, Hindsight UI/API, Firecrawl API, and Audiobookshelf. Direct paths are also available:
+That landing page links to the Hermes dashboard, Syncthing UI, Hindsight UI/API, Firecrawl API, Audiobookshelf, and Jellyfin. Direct paths are also available:
 
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9444/` (Hermes Dashboard)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9445/` (Syncthing UI)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:13378/` (Audiobookshelf UI/API)
+- `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:8096/` (Jellyfin UI/API)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9443/` (Hindsight UI)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/memory/` (Hindsight API)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/firecrawl/` (Firecrawl API)
@@ -387,7 +390,7 @@ Because the shared root now lives directly at `/home/hermes/sync`, do the follow
 sudo bash scripts/configure-tailscale-serve.sh
 ```
 
-### Podcast pipeline helpers
+### Podcast and video pipeline helpers
 
 Deploy also installs a dedicated podcast pipeline venv for Hermes under:
 
@@ -410,6 +413,7 @@ Canonical repo tools:
 
 ```text
 /opt/hermes/scripts/make-podcast.py
+/opt/hermes/scripts/make-manim-video.py
 /opt/hermes/scripts/run_podcastfy_pipeline.py
 /opt/hermes/scripts/audiobookshelf_api.py
 /opt/hermes/scripts/bootstrap-audiobookshelf.py
@@ -454,6 +458,8 @@ Required env/config for a real run:
 - optional Audiobookshelf overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`
 - `PODCASTFY_PYTHON` optional if the podcast venv lives somewhere non-default at runtime
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
+- `VIDEO_OUTPUT_DIR=/data/jellyfin/videos/ai-generated`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline` for the Manim/Jellyfin explainer workflow.
+- `WIKI_PATH=/home/hermes/sync/wiki` if you want transcript/brief archives written somewhere other than the shared synced wiki default.
 - `HF_TOKEN` if your Modal Chatterbox deploy needs Hugging Face auth (sync it into Modal with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py`)
 - `PODCASTFY_VENV` optional when bootstrapping the podcast helper venv somewhere else
 - optional `TELEGRAM_BOT_TOKEN` + `TELEGRAM_HOME_CHANNEL` for ready notifications
@@ -464,8 +470,15 @@ The repo tools can:
 - ask Hermes to generate the transcript from local files, URLs, inline text, or a topic hint
 - normalize dialogue into Podcastfy-compatible tags
 - write the MP3 into `/data/audiobookshelf/podcasts/ai-generated/<show-slug>/`
+- archive each podcast transcript into the shared wiki under `raw/transcripts/media/podcasts/`
 - trigger an Audiobookshelf scan
 - send a Telegram notification when configured
+- scaffold NotebookLM-style Manim explainer projects under `/data/jellyfin/videos/ai-generated/<series>/<date_slug>/`
+- archive each explainer brief into the shared wiki under `raw/transcripts/media/video-explainers/`
+- save `brief.md`, `source-packet.md`, `script.py`, and `render.sh` so Jellyfin-backed video work can start from a repeatable project layout
+- keep explainer videos silent by default unless you explicitly opt into adding narration later
+
+Jellyfin serves the resulting MP4s from `/data/jellyfin/videos` on the host, mounted as `/media/videos` inside the container. After first launch, create a Jellyfin library that points at `/media/videos` so new explainer projects become browsable once renders are copied into place.
 
 ---
 
@@ -475,11 +488,13 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 
 - `OPENROUTER_API_KEY` (or `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) — LLM provider.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (numeric IDs, from @userinfobot), `TELEGRAM_HOME_CHANNEL`.
-- optional local service URL overrides: `FIRECRAWL_API_URL=http://127.0.0.1:3002`, `HINDSIGHT_API_URL=http://127.0.0.1:8888`, `AUDIOBOOKSHELF_BASE_URL=http://127.0.0.1:13378`.
+- optional local service URL overrides: `FIRECRAWL_API_URL=http://127.0.0.1:3002`, `HINDSIGHT_API_URL=http://127.0.0.1:8888`, `AUDIOBOOKSHELF_BASE_URL=http://127.0.0.1:13378`, `JELLYFIN_BASE_URL=http://127.0.0.1:8096`.
 - `AUDIOBOOKSHELF_TOKEN` for non-interactive scans/verification, or `AUDIOBOOKSHELF_ADMIN_USERNAME` + `AUDIOBOOKSHELF_ADMIN_PASSWORD` as a login/bootstrap fallback.
 - on the VPS itself, `scripts/audiobookshelf_api.py` can also fall back to the local Audiobookshelf SQLite user token cache when explicit auth env vars are absent; explicit env vars are still preferred for portability.
 - optional Audiobookshelf library overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`.
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
+- `VIDEO_OUTPUT_DIR=/data/jellyfin/videos/ai-generated`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline`.
+- `WIKI_PATH=/home/hermes/sync/wiki` to override where podcast transcripts and explainer briefs are archived.
 - `HF_TOKEN` as the local source of truth for Modal's `hf-token` secret; sync it with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py` before deploys that need Hugging Face auth.
 - optional setup override: `PODCASTFY_VENV=/home/hermes/.venvs/podcast-pipeline` when bootstrapping the podcast venv somewhere else.
 - optional legacy/local fallback: `KOKORO_BASE_URL=http://<mac-tailnet-name>.ts.net:8880/v1`.

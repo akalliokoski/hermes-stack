@@ -167,6 +167,8 @@ sudo install -d -o hermes -g hermes -m 755 /home/hermes/sync /home/hermes/sync/w
 sudo chown -R hermes:hermes /home/hermes/sync
 sudo install -d -m 755 /data /data/audiobookshelf
 sudo install -d -o hermes -g hermes -m 755 /data/audiobookshelf/config /data/audiobookshelf/metadata /data/audiobookshelf/audiobooks /data/audiobookshelf/podcasts /data/audiobookshelf/podcasts/ai-generated
+sudo install -d -m 755 /data/jellyfin
+sudo install -d -o hermes -g hermes -m 755 /data/jellyfin/config /data/jellyfin/cache /data/jellyfin/videos /data/jellyfin/videos/ai-generated
 
 log_step "ensure python yaml"
 python3 -c 'import yaml' 2>/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml; }
@@ -178,7 +180,7 @@ sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles
 log_step "install systemd units and helper executables"
 sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
 sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
-sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/make-podcast.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh
+sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh
 sudo systemctl daemon-reload
 sudo systemctl enable hermes-gateway hermes-dashboard
 

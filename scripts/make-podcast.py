@@ -17,6 +17,7 @@ from audiobookshelf_api import ensure_library_and_scan
 from podcast_pipeline_common import (
     DEFAULT_OUTPUT_DIR,
     DEFAULT_PODCASTFY_PYTHON,
+    archive_generated_text,
     final_output_path,
     hermes_binary,
     resolve_tts_base_url,
@@ -204,7 +205,17 @@ def main() -> int:
             transcript_path = tmpdir / "generated-transcript.txt"
             transcript_path.write_text(transcript_text, encoding="utf-8")
 
+        wiki_transcript_path = archive_generated_text(
+            category="podcasts",
+            title=args.title,
+            content=transcript_text,
+            artifact_label="transcript",
+            purpose="Archive podcast transcripts in the shared wiki so they are easy to find and reuse.",
+            pipeline_name="podcast-pipeline",
+        )
+
         print(f"Transcript ready: {transcript_path}")
+        print(f"Wiki transcript archive: {wiki_transcript_path}")
 
         if not tts_base_url:
             raise SystemExit("TTS_BASE_URL/CHATTERBOX_BASE_URL or --tts-base-url is required")

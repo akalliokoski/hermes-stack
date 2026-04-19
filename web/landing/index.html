@@ -166,6 +166,12 @@
           <div class="meta">Tailnet URL: <code>:13378</code> → local <code>127.0.0.1:13378</code></div>
         </a>
 
+        <a class="card" id="jellyfin-link" href="#">
+          <div class="title"><span>Jellyfin</span><span>↗</span></div>
+          <div class="description">Self-hosted video library for Hermes-generated explainers. Use it to create a library rooted at <code>/media/videos</code> and browse Manim-rendered NotebookLM-style videos over the tailnet.</div>
+          <div class="meta">Tailnet URL: <code>:8096</code> → local <code>127.0.0.1:8096</code></div>
+        </a>
+
         <a class="card" href="/memory/">
           <div class="title"><span>Hindsight API</span><span>↗</span></div>
           <div class="description">Raw API endpoint for Hindsight. Useful for diagnostics and direct integration testing over the tailnet.</div>
@@ -195,11 +201,13 @@
       const dashboardUi = `${protocol}//${hostname}:9444/`;
       const syncthingUi = `${protocol}//${hostname}:9445/`;
       const audiobookshelfUi = `${protocol}//${hostname}:13378/`;
+      const jellyfinUi = `${protocol}//${hostname}:8096/`;
       document.getElementById("canonical-entrypoint").textContent = canonical;
       document.getElementById("hindsight-ui-link").href = hindsightUi;
       document.getElementById("dashboard-link").href = dashboardUi;
       document.getElementById("syncthing-link").href = syncthingUi;
       document.getElementById("audiobookshelf-link").href = audiobookshelfUi;
+      document.getElementById("jellyfin-link").href = jellyfinUi;
     </script>
   </body>
 </html>
