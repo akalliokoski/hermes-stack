@@ -3,10 +3,16 @@ set -euo pipefail
 export PS4='+ [remote-deploy] '
 set -x
 
+LAST_COMMAND=""
+CURRENT_STEP="startup"
+trap 'LAST_COMMAND=${BASH_COMMAND}' DEBUG
+trap 'status=$?; echo "[remote-deploy] ERROR: step=${CURRENT_STEP} command=${LAST_COMMAND} exit=${status}" >&2' ERR
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${REPO_ROOT}"
 
 log_step() {
+  CURRENT_STEP="$1"
   printf '\n==> %s\n' "$1"
 }
 

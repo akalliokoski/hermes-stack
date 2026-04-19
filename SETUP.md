@@ -447,6 +447,9 @@ python3 /opt/hermes/scripts/make-podcast.py --title "AI Research Weekly" --sourc
 Required env/config for a real run:
 - `TTS_BASE_URL` or `CHATTERBOX_BASE_URL`
 - `AUDIOBOOKSHELF_BASE_URL` optional (defaults to `http://127.0.0.1:13378`)
+- recommended for non-interactive scans/verifications: `AUDIOBOOKSHELF_TOKEN`
+- bootstrap/login fallback: `AUDIOBOOKSHELF_ADMIN_USERNAME`, `AUDIOBOOKSHELF_ADMIN_PASSWORD`
+- optional Audiobookshelf overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`
 - optional `TELEGRAM_BOT_TOKEN` + `TELEGRAM_HOME_CHANNEL` for ready notifications
 - optional legacy fallback: `KOKORO_BASE_URL`
 
@@ -466,7 +469,11 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 - `OPENROUTER_API_KEY` (or `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) — LLM provider.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (numeric IDs, from @userinfobot), `TELEGRAM_HOME_CHANNEL`.
 - `FIRECRAWL_API_URL=http://127.0.0.1:3002`, `HINDSIGHT_API_URL=http://127.0.0.1:8888`, `AUDIOBOOKSHELF_BASE_URL=http://127.0.0.1:13378`.
+- `AUDIOBOOKSHELF_TOKEN` for non-interactive scans/verification, or `AUDIOBOOKSHELF_ADMIN_USERNAME` + `AUDIOBOOKSHELF_ADMIN_PASSWORD` as a login/bootstrap fallback.
+- optional Audiobookshelf library overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`.
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
+- `HF_TOKEN` as the local source of truth for Modal's `hf-token` secret; sync it with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py` before deploys that need Hugging Face auth.
+- optional setup override: `PODCASTFY_VENV=/home/hermes/.venvs/podcast-pipeline` when bootstrapping the podcast venv somewhere else.
 - optional legacy/local fallback: `KOKORO_BASE_URL=http://<mac-tailnet-name>.ts.net:8880/v1`.
 - `VPS_HOST`, `VPS_DIR` (deploy).
 - `HERMES_DATA_DIR` — overrides the bind-mount source for litestream/backup (default `/home/hermes/.hermes`; use `~/.hermes` locally).
