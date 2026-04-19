@@ -394,20 +394,36 @@ Deploy also installs a dedicated podcast pipeline venv for Hermes under:
 ```
 
 That venv contains validated dependencies for:
+- `modal`
 - `podcastfy==0.4.3`
 - `playwright` (Python package)
 - `mutagen`
 
+The repo also includes a deployable Modal app for Chatterbox at:
+
+```text
+/opt/hermes/scripts/modal_chatterbox_openai.py
+```
+
+Deploy it from the VPS after authenticating with Modal (`modal setup`), for example:
+
+```bash
+/home/hermes/.venvs/podcast-pipeline/bin/python -m modal deploy /opt/hermes/scripts/modal_chatterbox_openai.py
+```
+
+Use the resulting HTTPS URL as `TTS_BASE_URL`.
+
 The main orchestration entrypoint is:
 
 ```bash
-python3 /opt/hermes/scripts/make-podcast.py --title "AI Research Weekly" --source-file /path/to/notes.md --kokoro-base-url http://mac.tailnet.ts.net:8880/v1 --dry-run
+python3 /opt/hermes/scripts/make-podcast.py --title "AI Research Weekly" --source-file /path/to/notes.md --tts-base-url https://<workspace>--hermes-chatterbox-openai.modal.run --dry-run
 ```
 
 Required env/config for a real run:
-- `KOKORO_BASE_URL` or `--kokoro-base-url`
+- `TTS_BASE_URL` or `CHATTERBOX_BASE_URL`
 - `AUDIOBOOKSHELF_BASE_URL` optional (defaults to `http://127.0.0.1:13378`)
 - optional `TELEGRAM_BOT_TOKEN` + `TELEGRAM_HOME_CHANNEL` for ready notifications
+- optional legacy fallback: `KOKORO_BASE_URL`
 
 The script can:
 - ask Hermes to generate the transcript from local files, URLs, inline text, or a topic hint
@@ -425,7 +441,8 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 - `OPENROUTER_API_KEY` (or `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`) — LLM provider.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (numeric IDs, from @userinfobot), `TELEGRAM_HOME_CHANNEL`.
 - `FIRECRAWL_API_URL=http://127.0.0.1:3002`, `HINDSIGHT_API_URL=http://127.0.0.1:8888`, `AUDIOBOOKSHELF_BASE_URL=http://127.0.0.1:13378`.
-- `KOKORO_BASE_URL=http://<mac-tailnet-name>.ts.net:8880/v1`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
+- `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
+- optional legacy/local fallback: `KOKORO_BASE_URL=http://<mac-tailnet-name>.ts.net:8880/v1`.
 - `VPS_HOST`, `VPS_DIR` (deploy).
 - `HERMES_DATA_DIR` — overrides the bind-mount source for litestream/backup (default `/home/hermes/.hermes`; use `~/.hermes` locally).
 

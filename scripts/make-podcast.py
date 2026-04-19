@@ -157,7 +157,17 @@ def main() -> int:
     parser.add_argument("--topic", help="Optional topic hint for transcript generation")
     parser.add_argument("--notes", help="Optional additional instructions for transcript generation")
     parser.add_argument("--text", help="Inline source text; stored in a temp file and provided to Hermes")
-    parser.add_argument("--kokoro-base-url", default=os.environ.get("KOKORO_BASE_URL", ""))
+    parser.add_argument(
+        "--tts-base-url",
+        default=os.environ.get("TTS_BASE_URL") or os.environ.get("CHATTERBOX_BASE_URL") or os.environ.get("KOKORO_BASE_URL", ""),
+        help="OpenAI-compatible TTS base URL; defaults to Modal-hosted Chatterbox, but can point to any compatible backend.",
+    )
+    parser.add_argument(
+        "--kokoro-base-url",
+        dest="legacy_kokoro_base_url",
+        default="",
+        help=argparse.SUPPRESS,
+    )
     parser.add_argument("--podcastfy-python", default=DEFAULT_PODCASTFY_PYTHON)
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--dry-run", action="store_true", help="Generate transcript and show planned audio command without running TTS")
@@ -165,6 +175,7 @@ def main() -> int:
     args = parser.parse_args()
 
     podcastfy_python = args.podcastfy_python
+    tts_base_url = args.tts_base_url or args.legacy_kokoro_base_url
     if not Path(podcastfy_python).exists():
         raise SystemExit(f"podcastfy python not found: {podcastfy_python}. Run scripts/setup-podcast-pipeline.sh first.")
 
@@ -198,8 +209,8 @@ def main() -> int:
 
         print(f"Transcript ready: {transcript_path}")
 
-        if not args.kokoro_base_url:
-            raise SystemExit("KOKORO_BASE_URL or --kokoro-base-url is required")
+        if not tts_base_url:
+            raise SystemExit("TTS_BASE_URL/CHATTERBOX_BASE_URL or --tts-base-url is required")
 
         cmd = [
             podcastfy_python,
@@ -210,8 +221,8 @@ def main() -> int:
             str(transcript_path),
             "--output-dir",
             str(output_dir),
-            "--kokoro-base-url",
-            args.kokoro_base_url,
+            "--tts-base-url",
+            tts_base_url,
             "--python",
             podcastfy_python,
         ]
