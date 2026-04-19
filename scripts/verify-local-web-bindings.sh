@@ -15,7 +15,7 @@ is_allowed_listener() {
     return 0
   fi
 
-  if [[ "${port}" == "13378" ]]; then
+  if [[ "${port}" == "13378" || "${port}" == "8096" ]]; then
     if [[ -n "${tailscale_ipv4}" && "${listener}" == "${tailscale_ipv4}:${port}" ]]; then
       return 0
     fi
