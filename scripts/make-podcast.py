@@ -29,8 +29,12 @@ def slugify(value: str) -> str:
     return value.strip("-") or "episode"
 
 
+def show_output_dir(title: str, output_dir: Path) -> Path:
+    return output_dir / slugify(title)
+
+
 def final_output_path(title: str, output_dir: Path) -> Path:
-    return output_dir / f"{dt.date.today().isoformat()}_{slugify(title)}.mp3"
+    return show_output_dir(title, output_dir) / f"{dt.date.today().isoformat()}_{slugify(title)}.mp3"
 
 
 def run(cmd: list[str], *, env: dict[str, str] | None = None, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
@@ -184,6 +188,8 @@ def main() -> int:
 
     output_dir = Path(args.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
+    episode_output_dir = show_output_dir(args.title, output_dir)
+    episode_output_dir.mkdir(parents=True, exist_ok=True)
 
     source_files = [Path(p).expanduser().resolve() for p in args.source_file]
     for path in source_files:
@@ -220,7 +226,7 @@ def main() -> int:
             "--transcript",
             str(transcript_path),
             "--output-dir",
-            str(output_dir),
+            str(episode_output_dir),
             "--tts-base-url",
             tts_base_url,
             "--python",

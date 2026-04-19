@@ -412,6 +412,7 @@ Deploy it from the VPS after authenticating with Modal (`modal setup`), for exam
 ```
 
 Use the resulting HTTPS URL as `TTS_BASE_URL`.
+For the repo's `scripts/modal_chatterbox_openai.py` helper, keep it as the bare Modal app URL (no `/v1` suffix); the helper serves both `/audio/speech` and `/v1/audio/speech` compatibility routes and returns real MP3 bytes for default/mp3 requests.
 
 The main orchestration entrypoint is:
 
@@ -428,7 +429,7 @@ Required env/config for a real run:
 The script can:
 - ask Hermes to generate the transcript from local files, URLs, inline text, or a topic hint
 - call the shared `podcast-pipeline` skill wrappers
-- write the MP3 into `/data/audiobookshelf/podcasts/ai-generated/`
+- write the MP3 into `/data/audiobookshelf/podcasts/ai-generated/<show-slug>/`
 - trigger an Audiobookshelf scan
 - send a Telegram notification when configured
 

@@ -3,7 +3,7 @@
 
 Purpose:
 - Provide a default serverless TTS backend for the Hermes podcast pipeline.
-- Expose POST /v1/audio/speech so podcastfy can keep using --tts-model openai.
+- Expose OpenAI-compatible speech routes so podcastfy can keep using --tts-model openai.
 - Keep the wire contract stable so a future Apple Silicon backend can reuse the same API shape.
 
 Quick start:
@@ -13,18 +13,26 @@ Quick start:
     modal volume create chatterbox-tts-voices
     modal volume put chatterbox-tts-voices /path/to/prompts
 - Create the required Hugging Face secret if model access needs it:
-    modal secret create hf-token HF_TOKEN=hf_xxx
+    modal secret create hf-token HF_TOKEN=***
 - Deploy:
     /home/hermes/.venvs/podcast-pipeline/bin/python -m modal deploy scripts/modal_chatterbox_openai.py
 
 After deploy, use the returned HTTPS base URL as `TTS_BASE_URL`, for example:
     https://<workspace>--hermes-chatterbox-openai.modal.run
 
-The podcast pipeline expects the OpenAI-compatible speech endpoint at:
-    $TTS_BASE_URL/v1/audio/speech
+Compatibility routes:
+- Bare-root OpenAI client base URL callers will hit: $TTS_BASE_URL/audio/speech
+- `/v1`-prefixed OpenAI client base URL callers will hit: $TTS_BASE_URL/v1/audio/speech
+
+Important: MP3 requests now return real MP3 bytes rather than WAV-in-an-.mp3 wrapper.
+This keeps podcastfy's merge step compatible with the Modal backend.
 """
 
 from __future__ import annotations
+
+import io
+import subprocess
+from pathlib import Path
 
 import modal
 
@@ -32,22 +40,22 @@ APP_NAME = "hermes-chatterbox-openai"
 VOICE_ROOT = "/voices"
 DEFAULT_VOICE_FILE = "Lucy.wav"
 
-image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
-    "chatterbox-tts==0.1.6",
-    "fastapi[standard]==0.124.4",
-    "numpy<2",
-    "peft==0.18.0",
-    "soundfile==0.13.1",
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("ffmpeg")
+    .uv_pip_install(
+        "chatterbox-tts==0.1.6",
+        "fastapi[standard]==0.124.4",
+        "numpy<2",
+        "peft==0.18.0",
+        "soundfile==0.13.1",
+    )
 )
 
 voice_prompts = modal.Volume.from_name("chatterbox-tts-voices", create_if_missing=True)
 app = modal.App(APP_NAME, image=image)
 
 with image.imports():
-    import io
-    from pathlib import Path
-
-    import soundfile as sf
     from chatterbox.tts_turbo import ChatterboxTurboTTS
     from fastapi import FastAPI, HTTPException
     from fastapi.responses import JSONResponse, Response
@@ -79,6 +87,59 @@ def resolve_voice_prompt(voice_name: str | None) -> str | None:
     return None
 
 
+def render_audio_bytes(samples, sample_rate: int, response_format: str) -> tuple[bytes, str]:
+    import wave
+
+    import numpy as np
+
+    pcm16 = np.clip(samples, -1.0, 1.0)
+    pcm16 = (pcm16 * 32767.0).astype(np.int16)
+    pcm_bytes = pcm16.tobytes()
+
+    if response_format == "pcm":
+        return pcm_bytes, "application/octet-stream"
+
+    wav_buffer = io.BytesIO()
+    with wave.open(wav_buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(pcm_bytes)
+    wav_bytes = wav_buffer.getvalue()
+
+    if response_format == "wav":
+        return wav_bytes, "audio/wav"
+
+    ffmpeg = subprocess.run(
+        [
+            "ffmpeg",
+            "-nostdin",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "wav",
+            "-i",
+            "pipe:0",
+            "-f",
+            "mp3",
+            "-codec:a",
+            "libmp3lame",
+            "-b:a",
+            "192k",
+            "pipe:1",
+        ],
+        input=wav_bytes,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if ffmpeg.returncode != 0:
+        detail = ffmpeg.stderr.decode("utf-8", errors="replace").strip() or "ffmpeg mp3 encode failed"
+        raise RuntimeError(detail)
+    return ffmpeg.stdout, "audio/mpeg"
+
+
 @app.function(
     gpu="a10g",
     scaledown_window=60 * 5,
@@ -108,12 +169,13 @@ def fastapi_app():
                 "ok": True,
                 "model_loaded": MODEL is not None,
                 "default_voice_prompt": resolve_voice_prompt("Lucy"),
-                "speech_endpoint": "/v1/audio/speech",
+                "speech_endpoints": ["/audio/speech", "/v1/audio/speech"],
+                "default_response_format": "mp3",
+                "supported_response_formats": ["mp3", "wav", "pcm"],
             }
         )
 
-    @web_app.post("/v1/audio/speech")
-    def create_speech(payload: dict) -> Response:
+    def create_speech_impl(payload: dict) -> Response:
         global MODEL
         if MODEL is None:
             raise HTTPException(status_code=503, detail="Model is still loading")
@@ -122,7 +184,7 @@ def fastapi_app():
         if not input_text:
             raise HTTPException(status_code=400, detail="Missing required field: input")
 
-        response_format = str(payload.get("response_format", "wav")).lower()
+        response_format = str(payload.get("response_format", "mp3")).lower()
         if response_format not in {"wav", "pcm", "mp3"}:
             raise HTTPException(status_code=400, detail="Supported response_format values: wav, pcm, mp3")
 
@@ -130,19 +192,13 @@ def fastapi_app():
         waveform = MODEL.generate(input_text, audio_prompt_path=voice_prompt)
         samples = waveform.squeeze().detach().cpu().numpy()
 
-        buffer = io.BytesIO()
-        if response_format == "pcm":
-            sf.write(buffer, samples, MODEL.sr, format="RAW", subtype="PCM_16")
-            media_type = "application/octet-stream"
-        else:
-            # Return WAV bytes for both wav and mp3 requests by default. This keeps the
-            # endpoint useful to OpenAI-compatible clients without adding ffmpeg/lame
-            # encoding complexity inside the serverless image.
-            sf.write(buffer, samples, MODEL.sr, format="WAV")
-            media_type = "audio/wav"
+        try:
+            rendered_bytes, media_type = render_audio_bytes(samples, MODEL.sr, response_format)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=f"Audio encode failed: {exc}") from exc
 
         return Response(
-            content=buffer.getvalue(),
+            content=rendered_bytes,
             media_type=media_type,
             headers={
                 "x-tts-backend": "chatterbox-turbo",
@@ -150,6 +206,14 @@ def fastapi_app():
                 "x-response-format": response_format,
             },
         )
+
+    @web_app.post("/v1/audio/speech")
+    def create_speech_v1(payload: dict) -> Response:
+        return create_speech_impl(payload)
+
+    @web_app.post("/audio/speech")
+    def create_speech_root(payload: dict) -> Response:
+        return create_speech_impl(payload)
 
     return web_app
 
