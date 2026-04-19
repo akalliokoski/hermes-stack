@@ -25,6 +25,19 @@ jobs:
       REMOTE_DEPLOY_LOG_PATH: /opt/hermes-backups/deploy-logs/github-run-${{ github.run_id }}.log
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_HOME_CHANNEL || secrets.TELEGRAM_HOME_CHANNEL }}
+      TELEGRAM_HOME_CHANNEL: ${{ vars.TELEGRAM_HOME_CHANNEL || secrets.TELEGRAM_HOME_CHANNEL }}
+      AUDIOBOOKSHELF_BASE_URL: ${{ vars.AUDIOBOOKSHELF_BASE_URL || secrets.AUDIOBOOKSHELF_BASE_URL || '' }}
+      AUDIOBOOKSHELF_TOKEN: ${{ secrets.AUDIOBOOKSHELF_TOKEN || '' }}
+      AUDIOBOOKSHELF_ADMIN_USERNAME: ${{ vars.AUDIOBOOKSHELF_ADMIN_USERNAME || secrets.AUDIOBOOKSHELF_ADMIN_USERNAME || '' }}
+      AUDIOBOOKSHELF_ADMIN_PASSWORD: ${{ secrets.AUDIOBOOKSHELF_ADMIN_PASSWORD || '' }}
+      AUDIOBOOKSHELF_LIBRARY_NAME: ${{ vars.AUDIOBOOKSHELF_LIBRARY_NAME || secrets.AUDIOBOOKSHELF_LIBRARY_NAME || '' }}
+      AUDIOBOOKSHELF_PODCASTS_PATH: ${{ vars.AUDIOBOOKSHELF_PODCASTS_PATH || secrets.AUDIOBOOKSHELF_PODCASTS_PATH || '' }}
+      TTS_BASE_URL: ${{ vars.TTS_BASE_URL || secrets.TTS_BASE_URL || '' }}
+      CHATTERBOX_BASE_URL: ${{ vars.CHATTERBOX_BASE_URL || secrets.CHATTERBOX_BASE_URL || '' }}
+      PODCASTFY_PYTHON: ${{ vars.PODCASTFY_PYTHON || secrets.PODCASTFY_PYTHON || '' }}
+      PODCAST_OUTPUT_DIR: ${{ vars.PODCAST_OUTPUT_DIR || secrets.PODCAST_OUTPUT_DIR || '' }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN || '' }}
+      KOKORO_BASE_URL: ${{ vars.KOKORO_BASE_URL || secrets.KOKORO_BASE_URL || '' }}
       DEPLOY_SUMMARY: ${{ github.event.head_commit.message || format('{0} deploy on {1}', github.event_name, github.ref_name) }}
     steps:
       - uses: actions/checkout@v5

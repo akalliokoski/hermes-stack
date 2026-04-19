@@ -21,6 +21,19 @@ cd "${REPO_ROOT}"
 
 echo "[remote-deploy] log_path=${DEPLOY_LOG}"
 
+load_repo_env() {
+  if [[ -f .env ]]; then
+    set -a
+    { set +x; } 2>/dev/null || true
+    . ./.env
+    set -x
+    set +a
+  fi
+  export TELEGRAM_HOME_CHANNEL="${TELEGRAM_HOME_CHANNEL:-${TELEGRAM_CHAT_ID:-}}"
+}
+
+load_repo_env
+
 log_step() {
   CURRENT_STEP="$1"
   printf '\n==> %s\n' "$1"
@@ -186,11 +199,6 @@ docker compose pull --quiet --ignore-buildable
 HERMES_UID="$HERMES_UID" HERMES_GID="$HERMES_GID" docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
 
 log_step "bootstrap service-specific state"
-set -a
-set +x
-if [ -f .env ]; then . ./.env; fi
-set -x
-set +a
 python3 scripts/bootstrap-audiobookshelf.py
 
 log_step "refresh host services"

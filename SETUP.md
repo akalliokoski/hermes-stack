@@ -453,11 +453,12 @@ Required env/config for a real run:
 - bootstrap/login fallback: `AUDIOBOOKSHELF_ADMIN_USERNAME`, `AUDIOBOOKSHELF_ADMIN_PASSWORD`
 - optional Audiobookshelf overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`
 - `PODCASTFY_PYTHON` optional if the podcast venv lives somewhere non-default at runtime
-- `PODCAST_OUTPUT_DIR` optional if generated episodes should land somewhere other than `/data/audiobookshelf/podcasts/ai-generated`
+- `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
 - `HF_TOKEN` if your Modal Chatterbox deploy needs Hugging Face auth (sync it into Modal with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py`)
 - `PODCASTFY_VENV` optional when bootstrapping the podcast helper venv somewhere else
 - optional `TELEGRAM_BOT_TOKEN` + `TELEGRAM_HOME_CHANNEL` for ready notifications
 - optional legacy fallback: `KOKORO_BASE_URL`
+- during `scripts/remote-deploy.sh`, repo/runtime env values from `/opt/hermes/.env` (and matching GitHub Actions env/secrets when provided) are loaded before `provision-profile.sh`, then synced into each profile env file such as `/home/hermes/.hermes/.env`. This keeps chat-triggered helpers like `make-podcast.py` able to reuse Audiobookshelf/TTS/Telegram settings non-interactively after deploy.
 
 The repo tools can:
 - ask Hermes to generate the transcript from local files, URLs, inline text, or a topic hint

@@ -17,6 +17,19 @@ SHARED_SKILLS_ROOT="${SHARED_SKILLS_ROOT:-${HERMES_HOME}/shared/skills}"
 HINDSIGHT_API_URL="${HINDSIGHT_API_URL:-$(python3 "${CONFIG_RENDERER}" --repo-root "${REPO_ROOT}" --env-id "${ENV_ID}" --target-home "${TARGET_HOME}" --print-service-url hindsight --service-mode "${HERMES_SERVICE_MODE}")}"
 PROFILE="${PROFILE:-}"
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+TELEGRAM_HOME_CHANNEL="${TELEGRAM_HOME_CHANNEL:-${TELEGRAM_CHAT_ID:-}}"
+AUDIOBOOKSHELF_BASE_URL="${AUDIOBOOKSHELF_BASE_URL:-}"
+AUDIOBOOKSHELF_TOKEN="${AUDIOBOOKSHELF_TOKEN:-}"
+AUDIOBOOKSHELF_ADMIN_USERNAME="${AUDIOBOOKSHELF_ADMIN_USERNAME:-}"
+AUDIOBOOKSHELF_ADMIN_PASSWORD="${AUDIOBOOKSHELF_ADMIN_PASSWORD:-}"
+AUDIOBOOKSHELF_LIBRARY_NAME="${AUDIOBOOKSHELF_LIBRARY_NAME:-}"
+AUDIOBOOKSHELF_PODCASTS_PATH="${AUDIOBOOKSHELF_PODCASTS_PATH:-}"
+TTS_BASE_URL="${TTS_BASE_URL:-}"
+CHATTERBOX_BASE_URL="${CHATTERBOX_BASE_URL:-}"
+PODCASTFY_PYTHON="${PODCASTFY_PYTHON:-}"
+PODCAST_OUTPUT_DIR="${PODCAST_OUTPUT_DIR:-}"
+HF_TOKEN="${HF_TOKEN:-}"
+KOKORO_BASE_URL="${KOKORO_BASE_URL:-}"
 SYNC_ALL_SOULS=0
 SYNC_ALL_PROFILES=0
 GATEWAY_MODE="auto"
@@ -268,6 +281,7 @@ sync_all_profiles() {
     create_profile_if_needed "${profile}"
     render_profile_config "${profile}"
     configure_shared_skills "${profile}"
+    write_runtime_env "${profile}"
     configure_git_include "${profile}"
     configure_hindsight "${profile}"
     render_profile_soul "${profile}"
@@ -356,38 +370,56 @@ PY
   log "✓ Shared skills enabled for profile '${profile}'"
 }
 
-write_telegram_env() {
+write_runtime_env() {
   local profile="$1"
   local env_path
   env_path="$(profile_env_path "${profile}")"
 
-  if [[ -z "${TELEGRAM_BOT_TOKEN}" ]]; then
-    log "• TELEGRAM_BOT_TOKEN not provided; leaving ${env_path} unchanged"
+  if run_as_hermes python3 - <<PY
+from pathlib import Path
+
+path = Path(${env_path@Q})
+updates = {
+    "TELEGRAM_BOT_TOKEN": ${TELEGRAM_BOT_TOKEN@Q},
+    "TELEGRAM_HOME_CHANNEL": ${TELEGRAM_HOME_CHANNEL@Q},
+    "AUDIOBOOKSHELF_BASE_URL": ${AUDIOBOOKSHELF_BASE_URL@Q},
+    "AUDIOBOOKSHELF_TOKEN": ${AUDIOBOOKSHELF_TOKEN@Q},
+    "AUDIOBOOKSHELF_ADMIN_USERNAME": ${AUDIOBOOKSHELF_ADMIN_USERNAME@Q},
+    "AUDIOBOOKSHELF_ADMIN_PASSWORD": ${AUDIOBOOKSHELF_ADMIN_PASSWORD@Q},
+    "AUDIOBOOKSHELF_LIBRARY_NAME": ${AUDIOBOOKSHELF_LIBRARY_NAME@Q},
+    "AUDIOBOOKSHELF_PODCASTS_PATH": ${AUDIOBOOKSHELF_PODCASTS_PATH@Q},
+    "TTS_BASE_URL": ${TTS_BASE_URL@Q},
+    "CHATTERBOX_BASE_URL": ${CHATTERBOX_BASE_URL@Q},
+    "PODCASTFY_PYTHON": ${PODCASTFY_PYTHON@Q},
+    "PODCAST_OUTPUT_DIR": ${PODCAST_OUTPUT_DIR@Q},
+    "HF_TOKEN": ${HF_TOKEN@Q},
+    "KOKORO_BASE_URL": ${KOKORO_BASE_URL@Q},
+}
+updates = {key: value for key, value in updates.items() if value}
+if not updates:
+    raise SystemExit(10)
+lines = path.read_text().splitlines() if path.exists() else []
+remaining = []
+for line in lines:
+    if any(line.startswith(f"{key}=") for key in updates):
+        continue
+    remaining.append(line)
+for key, value in updates.items():
+    remaining.append(f"{key}={value}")
+path.write_text("\n".join(remaining).rstrip() + "\n")
+PY
+  then
+    status=0
+  else
+    status=$?
+  fi
+  if [[ ${status} -eq 10 ]]; then
+    log "• No runtime env vars provided; leaving ${env_path} unchanged"
     return 0
   fi
-
-  run_as_hermes python3 - <<PY
-from pathlib import Path
-path = Path(${env_path@Q})
-key = "TELEGRAM_BOT_TOKEN"
-value = ${TELEGRAM_BOT_TOKEN@Q}
-lines = []
-if path.exists():
-    lines = path.read_text().splitlines()
-updated = False
-new_lines = []
-for line in lines:
-    if line.startswith(f"{key}="):
-        new_lines.append(f"{key}={value}")
-        updated = True
-    else:
-        new_lines.append(line)
-if not updated:
-    new_lines.append(f"{key}={value}")
-path.write_text("\n".join(new_lines).rstrip() + "\n")
-PY
+  [[ ${status} -eq 0 ]] || return ${status}
   run_as_hermes chmod 600 "${env_path}"
-  log "✓ Updated TELEGRAM_BOT_TOKEN in ${env_path}"
+  log "✓ Updated runtime env in ${env_path}"
 }
 
 configure_git_include() {
@@ -570,7 +602,7 @@ ensure_shared_skills_layout
 create_profile_if_needed "${PROFILE}"
 render_profile_config "${PROFILE}"
 configure_shared_skills "${PROFILE}"
-write_telegram_env "${PROFILE}"
+write_runtime_env "${PROFILE}"
 configure_git_include "${PROFILE}"
 configure_hindsight "${PROFILE}"
 render_profile_soul "${PROFILE}"
