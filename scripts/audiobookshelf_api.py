@@ -6,10 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sqlite3
 import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 from podcast_pipeline_common import DEFAULT_AUDIOBOOKSHELF_BASE_URL
@@ -20,6 +22,7 @@ USERNAME = os.environ.get("AUDIOBOOKSHELF_ADMIN_USERNAME", "")
 PASSWORD = os.environ.get("AUDIOBOOKSHELF_ADMIN_PASSWORD", "")
 LIBRARY_NAME = os.environ.get("AUDIOBOOKSHELF_LIBRARY_NAME", "AI Generated Podcasts")
 PODCASTS_PATH = os.environ.get("AUDIOBOOKSHELF_PODCASTS_PATH", "/podcasts")
+LOCAL_DB_PATH = Path(os.environ.get("AUDIOBOOKSHELF_DB_PATH", "/data/audiobookshelf/config/absdatabase.sqlite"))
 
 
 def request(path: str, method: str = "GET", data: dict[str, Any] | None = None, token: str | None = None) -> dict[str, Any] | list[Any] | str:
@@ -73,15 +76,44 @@ def ensure_initialized(status: dict[str, Any]) -> bool:
     return True
 
 
+def local_token_from_db() -> str:
+    if not LOCAL_DB_PATH.exists():
+        return ""
+    try:
+        with sqlite3.connect(LOCAL_DB_PATH) as conn:
+            row = conn.execute(
+                """
+                SELECT token
+                FROM users
+                WHERE isActive = 1
+                  AND token IS NOT NULL
+                  AND token != ''
+                ORDER BY CASE WHEN type = 'root' THEN 0 ELSE 1 END, updatedAt DESC
+                LIMIT 1
+                """
+            ).fetchone()
+    except sqlite3.Error:
+        return ""
+    if not row:
+        return ""
+    token = row[0]
+    return token if isinstance(token, str) else ""
+
+
 def login() -> str:
     if TOKEN:
         return TOKEN
-    if not USERNAME or not PASSWORD:
-        raise RuntimeError("Set AUDIOBOOKSHELF_TOKEN or AUDIOBOOKSHELF_ADMIN_USERNAME/AUDIOBOOKSHELF_ADMIN_PASSWORD")
-    payload = request("/login", method="POST", data={"username": USERNAME, "password": PASSWORD})
-    if not isinstance(payload, dict):
-        raise RuntimeError(f"Unexpected /login payload: {payload!r}")
-    return payload["user"]["token"]
+    if USERNAME and PASSWORD:
+        payload = request("/login", method="POST", data={"username": USERNAME, "password": PASSWORD})
+        if not isinstance(payload, dict):
+            raise RuntimeError(f"Unexpected /login payload: {payload!r}")
+        return payload["user"]["token"]
+    local_token = local_token_from_db()
+    if local_token:
+        return local_token
+    raise RuntimeError(
+        "Set AUDIOBOOKSHELF_TOKEN or AUDIOBOOKSHELF_ADMIN_USERNAME/AUDIOBOOKSHELF_ADMIN_PASSWORD, or run on a host that can read the local Audiobookshelf database token cache"
+    )
 
 
 def libraries(token: str) -> dict[str, Any]:

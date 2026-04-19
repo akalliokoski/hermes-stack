@@ -477,6 +477,7 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS` (numeric IDs, from @userinfobot), `TELEGRAM_HOME_CHANNEL`.
 - optional local service URL overrides: `FIRECRAWL_API_URL=http://127.0.0.1:3002`, `HINDSIGHT_API_URL=http://127.0.0.1:8888`, `AUDIOBOOKSHELF_BASE_URL=http://127.0.0.1:13378`.
 - `AUDIOBOOKSHELF_TOKEN` for non-interactive scans/verification, or `AUDIOBOOKSHELF_ADMIN_USERNAME` + `AUDIOBOOKSHELF_ADMIN_PASSWORD` as a login/bootstrap fallback.
+- on the VPS itself, `scripts/audiobookshelf_api.py` can also fall back to the local Audiobookshelf SQLite user token cache when explicit auth env vars are absent; explicit env vars are still preferred for portability.
 - optional Audiobookshelf library overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`.
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
 - `HF_TOKEN` as the local source of truth for Modal's `hf-token` secret; sync it with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py` before deploys that need Hugging Face auth.
