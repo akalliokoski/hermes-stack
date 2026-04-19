@@ -2,12 +2,9 @@
 from __future__ import annotations
 
 import argparse
-import datetime as dt
-import json
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -16,29 +13,21 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-SKILL_DIR = Path("/home/hermes/.hermes/skills/media/podcast-pipeline/scripts")
-RUN_PIPELINE = SKILL_DIR / "run_pipeline.py"
-ABS_API = SKILL_DIR / "abs_api.py"
-DEFAULT_PODCASTFY_PYTHON = os.environ.get("PODCASTFY_PYTHON", "/home/hermes/.venvs/podcast-pipeline/bin/python")
-DEFAULT_OUTPUT_DIR = os.environ.get("PODCAST_OUTPUT_DIR", "/data/audiobookshelf/podcasts/ai-generated")
-
-
-def slugify(value: str) -> str:
-    value = value.strip().lower()
-    value = re.sub(r"[^a-z0-9]+", "-", value)
-    return value.strip("-") or "episode"
-
-
-def show_output_dir(title: str, output_dir: Path) -> Path:
-    return output_dir / slugify(title)
-
-
-def final_output_path(title: str, output_dir: Path) -> Path:
-    return show_output_dir(title, output_dir) / f"{dt.date.today().isoformat()}_{slugify(title)}.mp3"
+from audiobookshelf_api import ensure_library_and_scan
+from podcast_pipeline_common import (
+    DEFAULT_OUTPUT_DIR,
+    DEFAULT_PODCASTFY_PYTHON,
+    final_output_path,
+    hermes_binary,
+    resolve_tts_base_url,
+    show_output_dir,
+)
+from run_podcastfy_pipeline import run_pipeline
 
 
 def run(cmd: list[str], *, env: dict[str, str] | None = None, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, text=True, capture_output=True, env=env, cwd=cwd, check=False)
+
 
 
 def ensure_file(path: Path) -> None:
@@ -46,14 +35,19 @@ def ensure_file(path: Path) -> None:
         raise SystemExit(f"Required file not found: {path}")
 
 
+
 def duration_minutes_seconds(mp3_path: Path, podcastfy_python: str) -> str | None:
-    probe = [podcastfy_python, "-c", textwrap.dedent(
-        f"""
-        from mutagen.mp3 import MP3
-        audio = MP3(r'{mp3_path}')
-        print(int(audio.info.length))
-        """
-    )]
+    probe = [
+        podcastfy_python,
+        "-c",
+        textwrap.dedent(
+            f"""
+            from mutagen.mp3 import MP3
+            audio = MP3(r'{mp3_path}')
+            print(int(audio.info.length))
+            """
+        ),
+    ]
     proc = run(probe)
     if proc.returncode != 0:
         return None
@@ -62,6 +56,7 @@ def duration_minutes_seconds(mp3_path: Path, podcastfy_python: str) -> str | Non
     except ValueError:
         return None
     return f"{total // 60}m {total % 60}s"
+
 
 
 def send_telegram_notification(text: str) -> None:
@@ -78,8 +73,9 @@ def send_telegram_notification(text: str) -> None:
     try:
         with urllib.request.urlopen(req, timeout=20):
             return
-    except Exception as exc:
+    except Exception as exc:  # pragma: no cover - best effort notify helper
         print(f"warning: telegram notification failed: {exc}", file=sys.stderr)
+
 
 
 def build_generation_prompt(title: str, files: list[Path], urls: list[str], topic: str | None, notes: str | None) -> str:
@@ -119,10 +115,11 @@ def build_generation_prompt(title: str, files: list[Path], urls: list[str], topi
     ).strip()
 
 
+
 def generate_transcript(title: str, files: list[Path], urls: list[str], topic: str | None, notes: str | None) -> str:
     prompt = build_generation_prompt(title, files, urls, topic, notes)
     cmd = [
-        shutil.which("hermes") or "/home/hermes/.local/bin/hermes",
+        hermes_binary(),
         "chat",
         "-Q",
         "--source",
@@ -143,13 +140,15 @@ def generate_transcript(title: str, files: list[Path], urls: list[str], topic: s
     return output.strip()
 
 
-def scan_audiobookshelf(podcastfy_python: str) -> bool:
-    proc = run([podcastfy_python, str(ABS_API), "scan"])
-    if proc.returncode != 0:
-        warning = proc.stderr.strip() or proc.stdout.strip() or "unknown Audiobookshelf scan error"
-        print(f"warning: Audiobookshelf scan skipped: {warning}", file=sys.stderr)
+
+def scan_audiobookshelf() -> bool:
+    try:
+        ensure_library_and_scan()
+        return True
+    except Exception as exc:  # pragma: no cover - best effort operational helper
+        print(f"warning: Audiobookshelf scan skipped: {exc}", file=sys.stderr)
         return False
-    return True
+
 
 
 def main() -> int:
@@ -166,12 +165,7 @@ def main() -> int:
         default=os.environ.get("TTS_BASE_URL") or os.environ.get("CHATTERBOX_BASE_URL") or os.environ.get("KOKORO_BASE_URL", ""),
         help="OpenAI-compatible TTS base URL; defaults to Modal-hosted Chatterbox, but can point to any compatible backend.",
     )
-    parser.add_argument(
-        "--kokoro-base-url",
-        dest="legacy_kokoro_base_url",
-        default="",
-        help=argparse.SUPPRESS,
-    )
+    parser.add_argument("--kokoro-base-url", dest="legacy_kokoro_base_url", default="", help=argparse.SUPPRESS)
     parser.add_argument("--podcastfy-python", default=DEFAULT_PODCASTFY_PYTHON)
     parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--dry-run", action="store_true", help="Generate transcript and show planned audio command without running TTS")
@@ -179,12 +173,9 @@ def main() -> int:
     args = parser.parse_args()
 
     podcastfy_python = args.podcastfy_python
-    tts_base_url = args.tts_base_url or args.legacy_kokoro_base_url
+    tts_base_url = resolve_tts_base_url(args.tts_base_url, args.legacy_kokoro_base_url)
     if not Path(podcastfy_python).exists():
         raise SystemExit(f"podcastfy python not found: {podcastfy_python}. Run scripts/setup-podcast-pipeline.sh first.")
-
-    ensure_file(RUN_PIPELINE)
-    ensure_file(ABS_API)
 
     output_dir = Path(args.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -218,39 +209,47 @@ def main() -> int:
         if not tts_base_url:
             raise SystemExit("TTS_BASE_URL/CHATTERBOX_BASE_URL or --tts-base-url is required")
 
-        cmd = [
-            podcastfy_python,
-            str(RUN_PIPELINE),
-            "--title",
-            args.title,
-            "--transcript",
-            str(transcript_path),
-            "--output-dir",
-            str(episode_output_dir),
-            "--tts-base-url",
-            tts_base_url,
-            "--python",
-            podcastfy_python,
-        ]
-        if args.dry_run:
-            cmd.append("--dry-run")
-
         print("Running audio pipeline:")
-        print(" ".join(shlex.quote(part) for part in cmd))
-        proc = run(cmd, env=os.environ.copy())
-        if proc.stdout:
-            print(proc.stdout, end="" if proc.stdout.endswith("\n") else "\n")
-        if proc.returncode != 0:
-            raise SystemExit(f"Audio pipeline failed:\nSTDERR:\n{proc.stderr}")
+        print(
+            " ".join(
+                shlex.quote(part)
+                for part in [
+                    podcastfy_python,
+                    str(Path(__file__).resolve().parent / "run_podcastfy_pipeline.py"),
+                    "--title",
+                    args.title,
+                    "--transcript",
+                    str(transcript_path),
+                    "--output-dir",
+                    str(episode_output_dir),
+                    "--tts-base-url",
+                    tts_base_url,
+                    "--python",
+                    podcastfy_python,
+                ]
+            )
+        )
+
+        try:
+            final_mp3 = run_pipeline(
+                title=args.title,
+                transcript_path=transcript_path,
+                output_dir=episode_output_dir,
+                tts_base_url=tts_base_url,
+                python_executable=podcastfy_python,
+                dry_run=args.dry_run,
+            )
+        except (FileNotFoundError, RuntimeError) as exc:
+            raise SystemExit(f"Audio pipeline failed: {exc}") from exc
 
         if args.dry_run:
             return 0
 
-        final_mp3 = final_output_path(args.title, output_dir)
-        if not final_mp3.exists():
-            raise SystemExit(f"Expected output not found: {final_mp3}")
+        expected_mp3 = final_output_path(args.title, output_dir)
+        if final_mp3 != expected_mp3 or not expected_mp3.exists():
+            raise SystemExit(f"Expected output not found: {expected_mp3}")
 
-        scan_audiobookshelf(podcastfy_python)
+        scan_audiobookshelf()
         duration = duration_minutes_seconds(final_mp3, podcastfy_python)
         msg = f"🎙️ Podcast ready: {args.title}"
         if duration:

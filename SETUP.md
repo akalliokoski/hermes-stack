@@ -399,13 +399,37 @@ That venv contains validated dependencies for:
 - `playwright` (Python package)
 - `mutagen`
 
+The podcast pipeline now follows a thin-skill / repo-tools split:
+
+- skill responsibility: prompt conventions, transcript style, operator guidance
+- repo responsibility: reusable runtime tools under `/opt/hermes/scripts/`
+
+Canonical repo tools:
+
+```text
+/opt/hermes/scripts/make-podcast.py
+/opt/hermes/scripts/run_podcastfy_pipeline.py
+/opt/hermes/scripts/audiobookshelf_api.py
+/opt/hermes/scripts/bootstrap-audiobookshelf.py
+/opt/hermes/scripts/modal_chatterbox_openai.py
+/opt/hermes/scripts/sync-modal-hf-secret.py
+```
+
 The repo also includes a deployable Modal app for Chatterbox at:
 
 ```text
 /opt/hermes/scripts/modal_chatterbox_openai.py
 ```
 
-Deploy it from the VPS after authenticating with Modal (`modal setup`), for example:
+Before deploying the Modal app, sync Hugging Face auth from the main Hermes env into Modal's remote secret store:
+
+```bash
+python3 /opt/hermes/scripts/sync-modal-hf-secret.py
+```
+
+That keeps `HF_TOKEN` in the main Hermes `.env` as the local source of truth while still copying it into Modal's required remote secret.
+
+Deploy the Modal app from the VPS after authenticating with Modal (`modal setup`), for example:
 
 ```bash
 /home/hermes/.venvs/podcast-pipeline/bin/python -m modal deploy /opt/hermes/scripts/modal_chatterbox_openai.py
@@ -426,9 +450,9 @@ Required env/config for a real run:
 - optional `TELEGRAM_BOT_TOKEN` + `TELEGRAM_HOME_CHANNEL` for ready notifications
 - optional legacy fallback: `KOKORO_BASE_URL`
 
-The script can:
+The repo tools can:
 - ask Hermes to generate the transcript from local files, URLs, inline text, or a topic hint
-- call the shared `podcast-pipeline` skill wrappers
+- normalize dialogue into Podcastfy-compatible tags
 - write the MP3 into `/data/audiobookshelf/podcasts/ai-generated/<show-slug>/`
 - trigger an Audiobookshelf scan
 - send a Telegram notification when configured
