@@ -144,7 +144,8 @@ def create_silence(target: Path, duration_s: float) -> None:
 
 def assemble_master_track(manifest_path: Path, output_path: Path) -> Path:
     manifest = load_manifest(manifest_path)
-    workdir = output_path.parent / ".audio-work"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    workdir = (output_path.parent / ".audio-work").resolve()
     workdir.mkdir(parents=True, exist_ok=True)
     plan = build_concat_plan(workdir, manifest)
     if not any(item["type"] == "clip" for item in plan):
@@ -157,7 +158,7 @@ def assemble_master_track(manifest_path: Path, output_path: Path) -> Path:
         else:
             seg = workdir / f"segment-{idx:03d}-clip.wav"
             ensure_wav_from_clip((manifest_path.parent / item["source"]).resolve(), seg, float(manifest.get("audio", {}).get("target_lufs", -16)))
-        concat_entries.append(f"file '{seg.as_posix()}'")
+        concat_entries.append(f"file '{seg.resolve().as_posix()}'")
     concat_path = workdir / "concat.txt"
     concat_path.write_text("\n".join(concat_entries) + "\n", encoding="utf-8")
     proc = subprocess.run(
@@ -165,7 +166,7 @@ def assemble_master_track(manifest_path: Path, output_path: Path) -> Path:
             "ffmpeg", "-y", "-nostdin", "-hide_banner", "-loglevel", "error",
             "-f", "concat", "-safe", "0", "-i", str(concat_path),
             "-c:a", "libmp3lame", "-b:a", "192k",
-            str(output_path),
+            str(output_path.resolve() if not output_path.is_absolute() else output_path),
         ],
         text=True,
         capture_output=True,
@@ -180,6 +181,7 @@ def synthesize_openai_compatible(base_url: str, text: str, output_path: Path, vo
     url = base_url.rstrip("/") + "/audio/speech"
     payload = json.dumps({"input": text, "voice": voice, "response_format": "mp3"}).encode("utf-8")
     request = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     with urllib.request.urlopen(request) as response:
         output_path.write_bytes(response.read())
     return output_path

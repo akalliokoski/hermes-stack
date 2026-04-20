@@ -2,6 +2,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
@@ -79,6 +80,62 @@ class VideoAudioTimelineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             plan = vat.build_concat_plan(Path(tmp), manifest)
         self.assertEqual([item["type"] for item in plan], ["silence", "clip", "silence"])
+
+    def test_assemble_master_track_writes_absolute_concat_entries_when_output_is_relative(self):
+        manifest = {
+            "audio": {"target_lufs": -16},
+            "scenes": [
+                {
+                    "scene_id": "scene-1",
+                    "timeline_offset_s": 0.0,
+                    "speech_offset_s": 0.5,
+                    "audio_duration_s": 1.0,
+                    "audio_clip_path": "audio/scene-1.mp3",
+                    "scene_duration_s": 2.0,
+                }
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            manifest_path = root / "scene_manifest.json"
+            manifest_path.write_text("{}", encoding="utf-8")
+            output_path = Path("audio") / "master.mp3"
+            expected_workdir = (Path.cwd() / output_path.parent / ".audio-work").resolve()
+
+            def fake_run(cmd, text=True, capture_output=True, check=False):
+                concat_path = Path(cmd[cmd.index("-i") + 1])
+                concat_text = concat_path.read_text(encoding="utf-8")
+                self.assertIn((expected_workdir / "segment-001-silence.wav").as_posix(), concat_text)
+                self.assertIn((expected_workdir / "segment-002-clip.wav").as_posix(), concat_text)
+                return mock.Mock(returncode=0, stderr="", stdout="")
+
+            with mock.patch.object(vat, "load_manifest", return_value=manifest), \
+                mock.patch.object(vat, "create_silence"), \
+                mock.patch.object(vat, "ensure_wav_from_clip"), \
+                mock.patch.object(vat.subprocess, "run", side_effect=fake_run):
+                result = vat.assemble_master_track(manifest_path, output_path)
+
+            self.assertEqual(result, output_path)
+
+    def test_synthesize_openai_compatible_creates_output_parent(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_path = Path(tmp) / "nested" / "audio" / "clip.mp3"
+
+            class FakeResponse:
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, exc_type, exc, tb):
+                    return False
+
+                def read(self):
+                    return b"mp3-bytes"
+
+            with mock.patch.object(vat.urllib.request, "urlopen", return_value=FakeResponse()):
+                vat.synthesize_openai_compatible("https://example.com", "hello world", output_path, voice="Lucy")
+
+            self.assertTrue(output_path.exists())
+            self.assertEqual(output_path.read_bytes(), b"mp3-bytes")
 
 
 if __name__ == "__main__":
