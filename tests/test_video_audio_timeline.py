@@ -117,6 +117,28 @@ class VideoAudioTimelineTests(unittest.TestCase):
 
             self.assertEqual(result, output_path)
 
+    def test_ensure_wav_from_clip_forces_concat_safe_pcm_format(self):
+        calls = []
+
+        def fake_run(cmd, text=True, capture_output=True, check=False):
+            calls.append(cmd)
+            return mock.Mock(returncode=0, stderr="", stdout="")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "scene.mp3"
+            target = Path(tmp) / "scene.wav"
+            source.write_bytes(b"fake")
+            with mock.patch.object(vat.subprocess, "run", side_effect=fake_run):
+                vat.ensure_wav_from_clip(source, target, -16)
+
+        cmd = calls[0]
+        self.assertIn("-ar", cmd)
+        self.assertEqual(cmd[cmd.index("-ar") + 1], "44100")
+        self.assertIn("-ac", cmd)
+        self.assertEqual(cmd[cmd.index("-ac") + 1], "1")
+        self.assertIn("-c:a", cmd)
+        self.assertEqual(cmd[cmd.index("-c:a") + 1], "pcm_s16le")
+
     def test_synthesize_openai_compatible_creates_output_parent(self):
         with tempfile.TemporaryDirectory() as tmp:
             output_path = Path(tmp) / "nested" / "audio" / "clip.mp3"
