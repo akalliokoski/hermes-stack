@@ -186,7 +186,7 @@ def write_render_script(path: Path, project_dir: Path, title: str) -> None:
         cd "$PROJECT_DIR"
         if [[ ! -x "$MANIM_BIN" ]]; then
           echo "manim not found at $MANIM_BIN" >&2
-          echo "Create the venv first, for example: uv venv \"$VIDEO_VENV\" && uv pip install --python \"$PYTHON_BIN\" manim" >&2
+          echo "Bootstrap the local video pipeline first, for example: bash /opt/hermes/scripts/setup-video-pipeline.sh" >&2
           exit 1
         fi
 

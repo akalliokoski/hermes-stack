@@ -459,6 +459,7 @@ Required env/config for a real run:
 - `PODCASTFY_PYTHON` optional if the podcast venv lives somewhere non-default at runtime
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
 - `VIDEO_OUTPUT_DIR=/data/jellyfin/videos/ai-generated`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline` for the Manim/Jellyfin explainer workflow.
+- `scripts/remote-deploy.sh` now installs the required Ubuntu packages for local Manim rendering (`build-essential`, `python3-dev`, `pkg-config`, `libcairo2-dev`, `libpango1.0-dev`, `ffmpeg`) and bootstraps the dedicated venv via `/opt/hermes/scripts/setup-video-pipeline.sh`.
 - `WIKI_PATH=/home/hermes/sync/wiki` if you want transcript/brief archives written somewhere other than the shared synced wiki default.
 - `HF_TOKEN` if your Modal Chatterbox deploy needs Hugging Face auth (sync it into Modal with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py`)
 - `PODCASTFY_VENV` optional when bootstrapping the podcast helper venv somewhere else
@@ -494,6 +495,7 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 - optional Audiobookshelf library overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`.
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
 - `VIDEO_OUTPUT_DIR=/data/jellyfin/videos/ai-generated`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline`.
+- To bootstrap or repair the local Manim runtime manually, run `bash /opt/hermes/scripts/setup-video-pipeline.sh` on the VPS; it provisions `manim==0.20.1` into the dedicated video venv after the required system packages are present. The script expects `uv` on your `PATH` (for Hermes that is typically `~/.local/bin/uv`).
 - `WIKI_PATH=/home/hermes/sync/wiki` to override where podcast transcripts and explainer briefs are archived.
 - `HF_TOKEN` as the local source of truth for Modal's `hf-token` secret; sync it with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py` before deploys that need Hugging Face auth.
 - optional setup override: `PODCASTFY_VENV=/home/hermes/.venvs/podcast-pipeline` when bootstrapping the podcast venv somewhere else.

@@ -180,7 +180,7 @@ sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles
 log_step "install systemd units and helper executables"
 sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
 sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
-sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh
+sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh
 sudo systemctl daemon-reload
 sudo systemctl enable hermes-gateway hermes-dashboard
 
@@ -188,8 +188,12 @@ DEFAULT_GATEWAY_CONFIG_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_CONFIG_PAT
 DEFAULT_GATEWAY_UNIT_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_UNIT_PATH}")"
 capture_named_profile_state_after
 
-log_step "refresh hermes python deps and podcast tooling"
-sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 \"$(command -v hermes)\" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"; cd /opt/hermes && bash scripts/setup-podcast-pipeline.sh'
+log_step "install video pipeline system packages"
+sudo apt-get update -qq
+sudo apt-get install -y -qq build-essential python3-dev pkg-config libcairo2-dev libpango1.0-dev ffmpeg
+
+log_step "refresh hermes python deps and media tooling"
+sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 \"$(command -v hermes)\" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"; cd /opt/hermes && bash scripts/setup-podcast-pipeline.sh && bash scripts/setup-video-pipeline.sh'
 
 log_step "repair persisted service state"
 HERMES_UID="$HERMES_UID" HERMES_GID="$HERMES_GID" bash scripts/repair-syncthing-volume.sh
