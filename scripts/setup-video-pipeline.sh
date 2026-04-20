@@ -22,9 +22,9 @@ uv pip install --python "$PYTHON_BIN" --quiet --upgrade \
   'manim==0.20.1' >/dev/null
 
 "$PYTHON_BIN" - <<'PY'
-import importlib
+from importlib.util import find_spec
 modules = ["manim", "cairo"]
-missing = [name for name in modules if importlib.util.find_spec(name) is None]
+missing = [name for name in modules if find_spec(name) is None]
 if missing:
     raise SystemExit(f"Missing Python modules after setup: {', '.join(missing)}")
 PY
