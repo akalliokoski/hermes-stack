@@ -476,8 +476,11 @@ The repo tools can:
 - send a Telegram notification when configured
 - scaffold NotebookLM-style Manim explainer projects under `/data/jellyfin/videos/ai-generated/<series>/<date_slug>/`
 - archive each explainer brief into the shared wiki under `raw/transcripts/media/video-explainers/`
+- in narrated mode, also write `scene_manifest.json` and `narration-script.md` so narration timing becomes the authoritative spec
+- archive narrated explainer scripts into the shared wiki for later reuse/debugging
 - save `brief.md`, `source-packet.md`, `script.py`, and `render.sh` so Jellyfin-backed video work can start from a repeatable project layout
-- keep explainer videos silent by default unless you explicitly opt into adding narration later
+- keep explainer videos silent by default unless you explicitly opt into narration
+- for narrated explainers, synthesize one clip per scene, measure durations, normalize audio, and let Manim conform to the manifest-driven timing instead of trimming one monolithic voice track over a finished video
 
 Jellyfin serves the resulting MP4s from `/data/jellyfin/videos` on the host, mounted as `/media/videos` inside the container. After first launch, create a Jellyfin library that points at `/media/videos` so new explainer projects become browsable once renders are copied into place.
 
@@ -495,6 +498,8 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 - optional Audiobookshelf library overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`.
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
 - `VIDEO_OUTPUT_DIR=/data/jellyfin/videos/ai-generated`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline`.
+- optional narrated-explainer overrides: `VIDEO_NARRATION_VOICE=Lucy`, `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`.
+- narrated explainer scaffolds now create `scene_manifest.json` + `narration-script.md`; `render.sh` can synthesize per-scene clips, assemble a normalized master narration track, and emit `captions/final.srt` when a TTS base URL is configured.
 - To bootstrap or repair the local Manim runtime manually, run `bash /opt/hermes/scripts/setup-video-pipeline.sh` on the VPS; it provisions `manim==0.20.1` into the dedicated video venv after the required system packages are present. The script expects `uv` on your `PATH` (for Hermes that is typically `~/.local/bin/uv`).
 - `WIKI_PATH=/home/hermes/sync/wiki` to override where podcast transcripts and explainer briefs are archived.
 - `HF_TOKEN` as the local source of truth for Modal's `hf-token` secret; sync it with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py` before deploys that need Hugging Face auth.

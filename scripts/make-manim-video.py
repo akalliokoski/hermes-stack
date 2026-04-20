@@ -18,6 +18,7 @@ from podcast_pipeline_common import (
     load_env_defaults,
     slugify,
 )
+from video_scene_manifest import create_initial_manifest, extract_scene_specs_from_brief, save_manifest
 
 load_env_defaults(*DEFAULT_ENV_FILES)
 
@@ -148,7 +149,7 @@ def write_script_template(path: Path, title: str) -> None:
                 self.camera.background_color = BG
                 title = Text({title!r}, font=MONO, font_size=42, color=PRIMARY, weight=BOLD)
                 subtitle = Text(
-                    "Replace this scaffold with scenes from brief.md",
+                    "Replace this scaffold with scenes from brief.md or scene_manifest.json",
                     font=MONO,
                     font_size=24,
                     color=SECONDARY,
@@ -165,8 +166,38 @@ def write_script_template(path: Path, title: str) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def build_narration_script(scene_specs: list[dict[str, str]]) -> str:
+    lines = ["# Narration Script", "", "Narration is the timing authority for narrated explainers.", ""]
+    for spec in scene_specs:
+        lines.extend(
+            [
+                f"## {spec['scene_id']}",
+                "",
+                f"Goal: {spec['goal']}",
+                "",
+                "Narration:",
+                f"{spec.get('narration_text', '').strip()}",
+                "",
+            ]
+        )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_narrated_project_artifacts(project_dir: Path, title: str, brief_text: str) -> tuple[Path, Path]:
+    scene_specs = extract_scene_specs_from_brief(brief_text)
+    narration_script = build_narration_script(scene_specs)
+    narration_path = project_dir / "narration-script.md"
+    narration_path.write_text(narration_script, encoding="utf-8")
+
+    manifest = create_initial_manifest(title=title, narrated=True, scene_specs=scene_specs)
+    manifest_path = project_dir / "scene_manifest.json"
+    save_manifest(manifest_path, manifest)
+    return manifest_path, narration_path
+
+
 def write_render_script(path: Path, project_dir: Path, title: str) -> None:
     output_name = f"{dt.date.today().isoformat()}_{slugify(title)}.mp4"
+    narrated_name = f"{dt.date.today().isoformat()}_{slugify(title)}-narrated.mp4"
     content = textwrap.dedent(
         f"""
         #!/usr/bin/env bash
@@ -177,8 +208,12 @@ def write_render_script(path: Path, project_dir: Path, title: str) -> None:
         PYTHON_BIN="${{VIDEO_PIPELINE_PYTHON:-${{VIDEO_VENV}}/bin/python}}"
         MANIM_BIN="${{MANIM_BIN:-${{VIDEO_VENV}}/bin/manim}}"
         QUALITY="${{QUALITY:-ql}}"
+        TTS_BASE_URL="${{TTS_BASE_URL:-${{CHATTERBOX_BASE_URL:-}}}}"
+        VOICE="${{VIDEO_NARRATION_VOICE:-Lucy}}"
+        FINAL_OUTPUT="{project_dir / output_name}"
+        FINAL_NARRATED_OUTPUT="{project_dir / narrated_name}"
         if [[ "$#" -eq 0 ]]; then
-          SCENES=(Scene1_Introduction)
+          SCENES=()
         else
           SCENES=("$@")
         fi
@@ -190,10 +225,46 @@ def write_render_script(path: Path, project_dir: Path, title: str) -> None:
           exit 1
         fi
 
-        "$MANIM_BIN" -"$QUALITY" script.py "${{SCENES[@]}}"
+        HAS_MANIFEST=0
+        HAS_NARRATION=0
+        if [[ -f scene_manifest.json ]]; then
+          HAS_MANIFEST=1
+          HAS_NARRATION=$("$PYTHON_BIN" - <<'PY'
+import json
+from pathlib import Path
+manifest = json.loads(Path('scene_manifest.json').read_text(encoding='utf-8'))
+print(sum(1 for scene in manifest.get('scenes', []) if str(scene.get('narration_text', '')).strip()))
+PY
+)
+        fi
+
+        if [[ "$HAS_MANIFEST" -eq 1 && -n "$TTS_BASE_URL" && "$HAS_NARRATION" -gt 0 ]]; then
+          mkdir -p audio captions
+          "$PYTHON_BIN" /opt/hermes/scripts/video_audio_timeline.py synthesize --manifest scene_manifest.json --tts-base-url "$TTS_BASE_URL" --voice "$VOICE"
+          "$PYTHON_BIN" /opt/hermes/scripts/video_audio_timeline.py assemble --manifest scene_manifest.json --output audio/master-narration.mp3
+          "$PYTHON_BIN" /opt/hermes/scripts/video_audio_timeline.py srt --manifest scene_manifest.json --output captions/final.srt
+        elif [[ "$HAS_MANIFEST" -eq 1 && -n "$TTS_BASE_URL" && "$HAS_NARRATION" -eq 0 ]]; then
+          echo "scene_manifest.json exists but narration_text is empty; skipping TTS and assembly until narration-script.md is filled in." >&2
+        fi
+
+        if [[ "$HAS_MANIFEST" -eq 1 ]]; then
+          "$PYTHON_BIN" /opt/hermes/scripts/render_manim_from_manifest.py --manifest scene_manifest.json --output script.py
+        fi
+
+        if [[ "${{#SCENES[@]}}" -eq 0 ]]; then
+          "$MANIM_BIN" -"$QUALITY" script.py
+        else
+          "$MANIM_BIN" -"$QUALITY" script.py "${{SCENES[@]}}"
+        fi
         echo
         echo "Draft render complete. Copy or stitch final assets into:"
-        echo "  {project_dir / output_name}"
+        echo "  $FINAL_OUTPUT"
+
+        if [[ "$HAS_MANIFEST" -eq 1 && -n "$TTS_BASE_URL" && "$HAS_NARRATION" -gt 0 ]]; then
+          echo
+          echo "Narration assets prepared. Mux the final narrated MP4 into:"
+          echo "  $FINAL_NARRATED_OUTPUT"
+        fi
         """
     ).strip() + "\n"
     path.write_text(content, encoding="utf-8")
@@ -295,6 +366,19 @@ def main() -> int:
         inline_text=args.text,
     )
     write_script_template(project_dir / "script.py", args.title)
+    narration_archive_path: Path | None = None
+    manifest_path: Path | None = None
+    narration_path: Path | None = None
+    if args.with_audio:
+        manifest_path, narration_path = write_narrated_project_artifacts(project_dir, args.title, brief_text)
+        narration_archive_path = archive_generated_text(
+            category="video-explainers",
+            title=args.title,
+            content=narration_path.read_text(encoding="utf-8"),
+            artifact_label="narration-script",
+            purpose="Archive narrated explainer scripts in the shared wiki so timing-authoritative narration specs are easy to find and reuse.",
+            pipeline_name="video-explainer-pipeline",
+        )
     write_render_script(project_dir / "render.sh", project_dir, args.title)
 
     plan_path = project_dir / "plan.md"
@@ -304,10 +388,12 @@ def main() -> int:
             # {args.title}
 
             - Read `brief.md` first.
-            - Translate the Scene Plan into one Manim scene class per beat.
+            - Silent mode: translate the Scene Plan into Manim scene classes or refine `script.py`.
+            - Narrated mode: treat `scene_manifest.json` and `narration-script.md` as the timing authority.
+            - If narration is enabled, calibrate the production voice, synthesize one clip per scene, and let Manim conform to the measured scene timings.
             - Keep final renders under this project directory.
             - Default mode is silent video; add narration only if explicitly desired.
-            - Audio intent: {'optional narration planned later' if args.with_audio else 'no audio by default'}.
+            - Audio intent: {'narration-spec-first narrated explainer' if args.with_audio else 'no audio by default'}.
             - Publish the finished MP4 into this Jellyfin-backed library root:
               `{series_dir}`
             """
@@ -319,6 +405,12 @@ def main() -> int:
     print(f"Created Manim explainer project: {project_dir}")
     print(f"Brief: {project_dir / 'brief.md'}")
     print(f"Wiki brief archive: {wiki_brief_path}")
+    if manifest_path:
+        print(f"Scene manifest: {manifest_path}")
+    if narration_path:
+        print(f"Narration script: {narration_path}")
+    if narration_archive_path:
+        print(f"Wiki narration archive: {narration_archive_path}")
     print(f"Source packet: {project_dir / 'source-packet.md'}")
     print(f"Render helper: {project_dir / 'render.sh'}")
     print(f"Jellyfin library root: {output_dir}")
