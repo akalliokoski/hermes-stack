@@ -212,6 +212,8 @@ def write_render_script(path: Path, project_dir: Path, title: str) -> None:
         VOICE="${{VIDEO_NARRATION_VOICE:-Lucy}}"
         FINAL_OUTPUT="{project_dir / output_name}"
         FINAL_NARRATED_OUTPUT="{project_dir / narrated_name}"
+        STITCHED_OUTPUT=0
+        NARRATED_OUTPUT=0
         if [[ "$#" -eq 0 ]]; then
           SCENES=()
         else
@@ -256,13 +258,66 @@ PY
         else
           "$MANIM_BIN" -"$QUALITY" script.py "${{SCENES[@]}}"
         fi
-        echo
-        echo "Draft render complete. Copy or stitch final assets into:"
-        echo "  $FINAL_OUTPUT"
 
-        if [[ "$HAS_MANIFEST" -eq 1 && -n "$TTS_BASE_URL" && "$HAS_NARRATION" -gt 0 ]]; then
+        if [[ "$HAS_MANIFEST" -eq 1 ]]; then
+          case "$QUALITY" in
+            ql|l) QUALITY_SUBDIR="480p15" ;;
+            qm|m) QUALITY_SUBDIR="720p30" ;;
+            qh|h) QUALITY_SUBDIR="1080p60" ;;
+            qp|p) QUALITY_SUBDIR="1440p60" ;;
+            qk|k) QUALITY_SUBDIR="2160p60" ;;
+            *) QUALITY_SUBDIR="" ;;
+          esac
+          QUALITY_DIR="$PROJECT_DIR/media/videos/script"
+          if [[ -n "$QUALITY_SUBDIR" ]]; then
+            QUALITY_DIR="$QUALITY_DIR/$QUALITY_SUBDIR"
+          fi
+          if [[ -d "$QUALITY_DIR" ]]; then
+            CONCAT_LIST="$PROJECT_DIR/concat-scenes.txt"
+            "$PYTHON_BIN" - "$QUALITY_DIR" "${{SCENES[@]}}" <<'PY' > "$CONCAT_LIST"
+import json
+import sys
+from pathlib import Path
+
+quality_dir = Path(sys.argv[1])
+selected = sys.argv[2:]
+manifest = json.loads(Path('scene_manifest.json').read_text(encoding='utf-8'))
+
+def class_name(scene_id: str) -> str:
+    return ''.join(part.title() for part in scene_id.replace('_', '-').split('-')) or 'Scene'
+
+def normalized_name(value: str) -> str:
+    candidate = (quality_dir / f"{{value}}.mp4").resolve()
+    if candidate.exists():
+        return value
+    return class_name(value)
+
+scene_names = [normalized_name(value) for value in selected] if selected else [class_name(scene['scene_id']) for scene in manifest.get('scenes', [])]
+for scene_name in scene_names:
+    clip_path = (quality_dir / f"{{scene_name}}.mp4").resolve()
+    if not clip_path.exists():
+        raise SystemExit(f"missing rendered scene: {{clip_path}}")
+    print(f"file '{{clip_path.as_posix()}}'")
+PY
+            ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i "$CONCAT_LIST" -c copy "$FINAL_OUTPUT"
+            STITCHED_OUTPUT=1
+            if [[ "$HAS_NARRATION" -gt 0 && -f audio/master-narration.mp3 ]]; then
+              ffmpeg -y -hide_banner -loglevel error -i "$FINAL_OUTPUT" -i audio/master-narration.mp3 -c:v copy -c:a aac -b:a 192k -shortest "$FINAL_NARRATED_OUTPUT"
+              NARRATED_OUTPUT=1
+            fi
+          fi
+        fi
+        echo
+        if [[ "$STITCHED_OUTPUT" -eq 1 && -f "$FINAL_OUTPUT" ]]; then
+          echo "Final stitched MP4:"
+          echo "  $FINAL_OUTPUT"
+        else
+          echo "Rendered scene files are available under media/videos/script; no stitched MP4 was produced."
+        fi
+
+        if [[ "$NARRATED_OUTPUT" -eq 1 && -f "$FINAL_NARRATED_OUTPUT" ]]; then
           echo
-          echo "Narration assets prepared. Mux the final narrated MP4 into:"
+          echo "Narrated MP4:"
           echo "  $FINAL_NARRATED_OUTPUT"
         fi
         """

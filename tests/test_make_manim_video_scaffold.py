@@ -41,9 +41,17 @@ class MakeManimVideoScaffoldTests(unittest.TestCase):
             MODULE.write_render_script(render_path, project_dir, "Demo Title")
             render_text = render_path.read_text(encoding="utf-8")
             self.assertIn('SCENES=()', render_text)
+            self.assertIn('STITCHED_OUTPUT=0', render_text)
+            self.assertIn('NARRATED_OUTPUT=0', render_text)
             self.assertIn('"$MANIM_BIN" -"$QUALITY" -a script.py', render_text)
             self.assertIn('video_audio_timeline.py synthesize', render_text)
             self.assertIn('render_manim_from_manifest.py --manifest scene_manifest.json --output script.py', render_text)
+            self.assertIn('CONCAT_LIST="$PROJECT_DIR/concat-scenes.txt"', render_text)
+            self.assertIn('case "$QUALITY" in', render_text)
+            self.assertIn('QUALITY_SUBDIR="480p15"', render_text)
+            self.assertIn('def normalized_name(value: str) -> str:', render_text)
+            self.assertIn('ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i "$CONCAT_LIST" -c copy "$FINAL_OUTPUT"', render_text)
+            self.assertIn('ffmpeg -y -hide_banner -loglevel error -i "$FINAL_OUTPUT" -i audio/master-narration.mp3 -c:v copy -c:a aac -b:a 192k -shortest "$FINAL_NARRATED_OUTPUT"', render_text)
             self.assertLess(render_text.index('video_audio_timeline.py synthesize'), render_text.index('render_manim_from_manifest.py --manifest scene_manifest.json --output script.py'))
 
 
