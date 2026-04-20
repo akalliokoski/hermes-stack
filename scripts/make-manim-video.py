@@ -252,7 +252,7 @@ PY
         fi
 
         if [[ "${{#SCENES[@]}}" -eq 0 ]]; then
-          "$MANIM_BIN" -"$QUALITY" script.py
+          "$MANIM_BIN" -"$QUALITY" -a script.py
         else
           "$MANIM_BIN" -"$QUALITY" script.py "${{SCENES[@]}}"
         fi

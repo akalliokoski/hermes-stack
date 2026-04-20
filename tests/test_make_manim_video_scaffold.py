@@ -41,6 +41,7 @@ class MakeManimVideoScaffoldTests(unittest.TestCase):
             MODULE.write_render_script(render_path, project_dir, "Demo Title")
             render_text = render_path.read_text(encoding="utf-8")
             self.assertIn('SCENES=()', render_text)
+            self.assertIn('"$MANIM_BIN" -"$QUALITY" -a script.py', render_text)
             self.assertIn('video_audio_timeline.py synthesize', render_text)
             self.assertIn('render_manim_from_manifest.py --manifest scene_manifest.json --output script.py', render_text)
             self.assertLess(render_text.index('video_audio_timeline.py synthesize'), render_text.index('render_manim_from_manifest.py --manifest scene_manifest.json --output script.py'))
