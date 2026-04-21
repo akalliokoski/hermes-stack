@@ -14,6 +14,7 @@ from pathlib import Path
 from podcast_pipeline_common import (
     DEFAULT_ENV_FILES,
     archive_generated_text,
+    current_profile_slug,
     hermes_binary,
     load_env_defaults,
     slugify,
@@ -22,7 +23,8 @@ from video_scene_manifest import create_initial_manifest, extract_scene_specs_fr
 
 load_env_defaults(*DEFAULT_ENV_FILES)
 
-DEFAULT_VIDEO_OUTPUT_DIR = os.environ.get("VIDEO_OUTPUT_DIR", "/data/jellyfin/videos/ai-generated")
+DEFAULT_VIDEO_LIBRARY_ROOT = os.environ.get("VIDEO_LIBRARY_ROOT", "/data/jellyfin/videos/profiles")
+DEFAULT_VIDEO_PROJECTS_DIR = os.environ.get("VIDEO_PROJECTS_DIR", "/data/jellyfin/projects")
 DEFAULT_SERIES = os.environ.get("VIDEO_SERIES", "notebooklm-style-explainers")
 DEFAULT_VIDEO_VENV = os.environ.get("VIDEO_PIPELINE_VENV", "/home/hermes/.venvs/video-pipeline")
 
@@ -34,6 +36,20 @@ def run(cmd: list[str], *, cwd: Path | None = None) -> subprocess.CompletedProce
 def ensure_file(path: Path) -> None:
     if not path.exists():
         raise SystemExit(f"Required file not found: {path}")
+
+
+def profile_library_name(profile_slug: str) -> str:
+    if profile_slug == "default":
+        return "Default Videos"
+    return f"{profile_slug.replace('-', ' ').title()} Videos"
+
+
+def project_root_for_profile(base_root: Path, profile_slug: str) -> Path:
+    return base_root / profile_slug
+
+
+def library_root_for_profile(base_root: Path, profile_slug: str) -> Path:
+    return base_root / profile_slug
 
 
 def build_brief_prompt(title: str, files: list[Path], urls: list[str], topic: str | None, notes: str | None) -> str:
@@ -178,7 +194,7 @@ def write_narrated_project_artifacts(project_dir: Path, title: str, brief_text: 
     return manifest_path, narration_path
 
 
-def write_render_script(path: Path, project_dir: Path, title: str) -> None:
+def write_render_script(path: Path, project_dir: Path, publish_dir: Path, title: str) -> None:
     output_name = f"{dt.date.today().isoformat()}_{slugify(title)}.mp4"
     narrated_name = f"{dt.date.today().isoformat()}_{slugify(title)}-narrated.mp4"
     content = textwrap.dedent(
@@ -204,12 +220,14 @@ def write_render_script(path: Path, project_dir: Path, title: str) -> None:
         ARTIFACT_ARCHIVE_ROOT="${{VIDEO_RENDER_ARTIFACT_ARCHIVE_ROOT:-/home/hermes/archive/jellyfin-render-artifacts}}"
         RENDER_DIR="$PROJECT_DIR/render"
         CONCAT_LIST="$RENDER_DIR/concat-scenes.txt"
-        FINAL_OUTPUT="{project_dir / output_name}"
-        FINAL_NARRATED_OUTPUT="{project_dir / narrated_name}"
+        PUBLISH_DIR="{publish_dir}"
+        FINAL_OUTPUT="$PUBLISH_DIR/{output_name}"
+        FINAL_NARRATED_OUTPUT="$PUBLISH_DIR/{narrated_name}"
         STITCHED_OUTPUT=0
         NARRATED_OUTPUT=0
 
         cd "$PROJECT_DIR"
+        mkdir -p "$PUBLISH_DIR"
         if [[ ! -x "$PYTHON_BIN" ]]; then
           echo "video pipeline python not found at $PYTHON_BIN" >&2
           echo "Bootstrap the local video pipeline first, for example: bash /opt/hermes/scripts/setup-video-pipeline.sh" >&2
@@ -243,9 +261,15 @@ PY
         if [[ -s "$CONCAT_LIST" ]]; then
           ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i "$CONCAT_LIST" -c copy "$FINAL_OUTPUT"
           STITCHED_OUTPUT=1
+          if [[ -f captions/final.srt ]]; then
+            cp captions/final.srt "$PUBLISH_DIR/$(basename "$FINAL_OUTPUT" .mp4).srt"
+          fi
           if [[ "$HAS_NARRATION" -gt 0 && -f audio/master-narration.mp3 ]]; then
             ffmpeg -y -hide_banner -loglevel error -i "$FINAL_OUTPUT" -i audio/master-narration.mp3 -c:v copy -c:a aac -b:a 192k -shortest "$FINAL_NARRATED_OUTPUT"
             NARRATED_OUTPUT=1
+            if [[ -f captions/final.srt ]]; then
+              cp captions/final.srt "$PUBLISH_DIR/$(basename "$FINAL_NARRATED_OUTPUT" .mp4).srt"
+            fi
           fi
         fi
 
@@ -289,20 +313,29 @@ def main() -> int:
     parser.add_argument("--notes", help="Optional additional instructions")
     parser.add_argument("--text", help="Inline source text stored in source-packet.md")
     parser.add_argument("--series", default=DEFAULT_SERIES)
-    parser.add_argument("--output-dir", default=DEFAULT_VIDEO_OUTPUT_DIR)
+    parser.add_argument("--profile", default=current_profile_slug(), help="Hermes profile slug used to select the clean Jellyfin library root")
+    parser.add_argument("--project-root", default=DEFAULT_VIDEO_PROJECTS_DIR, help="Host directory for explainer project artifacts (briefs, manifests, renders)")
+    parser.add_argument("--library-root", default=os.environ.get("VIDEO_OUTPUT_DIR", DEFAULT_VIDEO_LIBRARY_ROOT), help="Host directory for clean Jellyfin-published outputs; profile and series folders are created underneath")
+    parser.add_argument("--output-dir", dest="library_root_legacy", help=argparse.SUPPRESS)
     parser.add_argument("--skip-brief", action="store_true", help="Do not call Hermes to generate brief.md")
     parser.add_argument("--with-audio", action="store_true", help="Mark the project as intending to add narration/audio later; silent video remains the default")
     args = parser.parse_args()
 
-    output_dir = Path(args.output_dir).expanduser().resolve()
+    project_root = Path(args.project_root).expanduser().resolve()
+    library_root = Path(args.library_root_legacy or args.library_root).expanduser().resolve()
+    profile_slug = slugify(args.profile)
     source_files = [Path(p).expanduser().resolve() for p in args.source_file]
     for path in source_files:
         ensure_file(path)
 
-    series_dir = output_dir / slugify(args.series)
+    series_slug = slugify(args.series)
     project_slug = f"{dt.date.today().isoformat()}_{slugify(args.title)}"
-    project_dir = series_dir / project_slug
+    profile_project_root = project_root_for_profile(project_root, profile_slug)
+    profile_library_root = library_root_for_profile(library_root, profile_slug)
+    project_dir = profile_project_root / series_slug / project_slug
+    publish_dir = profile_library_root / series_slug / project_slug
     project_dir.mkdir(parents=True, exist_ok=True)
+    publish_dir.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory(prefix="make-manim-video-") as tmp:
         if args.text:
@@ -385,7 +418,7 @@ def main() -> int:
             purpose="Archive narrated explainer scripts in the shared wiki so timing-authoritative narration specs are easy to find and reuse.",
             pipeline_name="video-explainer-pipeline",
         )
-    write_render_script(project_dir / "render.sh", project_dir, args.title)
+    write_render_script(project_dir / "render.sh", project_dir, publish_dir, args.title)
 
     plan_path = project_dir / "plan.md"
     plan_path.write_text(
@@ -397,11 +430,14 @@ def main() -> int:
             - Use `scene_manifest.json` as the source of truth for infographic-style slides and scene cards.
             - Narrated mode: treat `scene_manifest.json` and `narration-script.md` as the timing authority.
             - If narration is enabled, calibrate the production voice, synthesize one clip per scene, and let the infographic renderer conform to the measured scene timings.
-            - Keep final renders under this project directory.
+            - Keep project artifacts under this project directory.
+            - Publish only clean final media into the profile-specific Jellyfin library tree.
             - Default mode is silent video; add narration only if explicitly desired.
             - Audio intent: {'narration-spec-first narrated explainer' if args.with_audio else 'no audio by default'}.
-            - Publish the finished MP4 into this Jellyfin-backed library root:
-              `{series_dir}`
+            - Hermes profile: `{profile_slug}`
+            - Jellyfin library name: `{profile_library_name(profile_slug)}`
+            - Clean publish directory:
+              `{publish_dir}`
             """
         ).strip()
         + "\n",
@@ -420,7 +456,9 @@ def main() -> int:
     print(f"Source packet: {project_dir / 'source-packet.md'}")
     print(f"Slide notes: {project_dir / 'slides.md'}")
     print(f"Render helper: {project_dir / 'render.sh'}")
-    print(f"Jellyfin library root: {output_dir}")
+    print(f"Jellyfin library name: {profile_library_name(profile_slug)}")
+    print(f"Jellyfin publish root: {profile_library_root}")
+    print(f"Published media directory: {publish_dir}")
     return 0
 
 

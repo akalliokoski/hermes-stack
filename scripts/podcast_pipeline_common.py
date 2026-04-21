@@ -38,6 +38,18 @@ DEFAULT_AUDIOBOOKSHELF_BASE_URL = os.environ.get("AUDIOBOOKSHELF_BASE_URL", "htt
 DEFAULT_WIKI_PATH = os.environ.get("WIKI_PATH", "~/sync/wiki")
 
 
+def current_profile_slug() -> str:
+    explicit = os.environ.get("HERMES_PROFILE", "").strip()
+    if explicit:
+        return slugify(explicit)
+    hermes_home = os.environ.get("HERMES_HOME", "").strip()
+    if hermes_home:
+        path = Path(hermes_home).expanduser()
+        if path.parent.name == "profiles" and path.name:
+            return slugify(path.name)
+    return "default"
+
+
 def repo_script(name: str) -> Path:
     return SCRIPT_DIR / name
 

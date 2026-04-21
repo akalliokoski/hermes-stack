@@ -45,13 +45,17 @@ class MakeManimVideoScaffoldTests(unittest.TestCase):
     def test_render_script_uses_infographic_defaults(self):
         with tempfile.TemporaryDirectory() as tmp:
             project_dir = Path(tmp) / "project"
+            publish_dir = Path(tmp) / "published"
             project_dir.mkdir()
             render_path = project_dir / "render.sh"
-            MODULE.write_render_script(render_path, project_dir, "Demo Title")
+            MODULE.write_render_script(render_path, project_dir, publish_dir, "Demo Title")
             render_text = render_path.read_text(encoding="utf-8")
             self.assertIn('RENDER_FROM_MANIFEST_PY="${RENDER_FROM_MANIFEST_PY:-/home/hermes/work/hermes-stack/scripts/render_infographic_from_manifest.py}"', render_text)
             self.assertIn('RENDER_DIR="$PROJECT_DIR/render"', render_text)
             self.assertIn('CONCAT_LIST="$RENDER_DIR/concat-scenes.txt"', render_text)
+            self.assertIn(f'PUBLISH_DIR="{publish_dir}"', render_text)
+            self.assertIn('mkdir -p "$PUBLISH_DIR"', render_text)
+            self.assertIn('cp captions/final.srt "$PUBLISH_DIR/$(basename "$FINAL_OUTPUT" .mp4).srt"', render_text)
             self.assertIn('"$PYTHON_BIN" "$AUDIO_TIMELINE_PY" synthesize', render_text)
             self.assertIn('"$PYTHON_BIN" "$RENDER_FROM_MANIFEST_PY" --manifest scene_manifest.json --output-dir "$RENDER_DIR"', render_text)
             self.assertIn('Rendered scene clips are available under $RENDER_DIR/clips; no stitched MP4 was produced.', render_text)
@@ -63,6 +67,13 @@ class MakeManimVideoScaffoldTests(unittest.TestCase):
                 render_text.index('"$PYTHON_BIN" "$AUDIO_TIMELINE_PY" synthesize'),
                 render_text.index('"$PYTHON_BIN" "$RENDER_FROM_MANIFEST_PY" --manifest scene_manifest.json --output-dir "$RENDER_DIR"'),
             )
+
+    def test_profile_helpers(self):
+        self.assertEqual(MODULE.profile_library_name("default"), "Default Videos")
+        self.assertEqual(MODULE.profile_library_name("gemma"), "Gemma Videos")
+        root = Path("/tmp/video-root")
+        self.assertEqual(MODULE.project_root_for_profile(root, "gemma"), root / "gemma")
+        self.assertEqual(MODULE.library_root_for_profile(root, "default"), root / "default")
 
 
 if __name__ == "__main__":

@@ -526,7 +526,7 @@ Required env/config for a real run:
 - optional Audiobookshelf overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`
 - `PODCASTFY_PYTHON` optional if the podcast venv lives somewhere non-default at runtime
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
-- `VIDEO_OUTPUT_DIR=/data/jellyfin/videos/ai-generated`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline` for the Manim/Jellyfin explainer workflow.
+- `VIDEO_LIBRARY_ROOT=/data/jellyfin/videos/profiles`, `VIDEO_PROJECTS_DIR=/data/jellyfin/projects`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline` for the Jellyfin explainer workflow. The pipeline now keeps project artifacts out of the served library tree and publishes only clean final MP4/SRT outputs into profile-specific Jellyfin library roots.
 - `scripts/remote-deploy.sh` now installs the required Ubuntu packages for local Manim rendering (`build-essential`, `python3-dev`, `pkg-config`, `libcairo2-dev`, `libpango1.0-dev`, `ffmpeg`) and bootstraps the dedicated venv via `/opt/hermes/scripts/setup-video-pipeline.sh`.
 - `WIKI_PATH=/home/hermes/sync/wiki` if you want transcript/brief archives written somewhere other than the shared synced wiki default.
 - `HF_TOKEN` if your Modal Chatterbox deploy needs Hugging Face auth (sync it into Modal with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py`)
@@ -544,7 +544,7 @@ The repo tools can:
 - archive generated podcast transcript artifacts into the shared wiki under `raw/transcripts/media/podcasts/`, including structured transcript JSON, audit JSON, and rendered transcript markdown
 - trigger an Audiobookshelf scan
 - send a Telegram notification when configured
-- scaffold NotebookLM-style explainer projects under `/data/jellyfin/videos/ai-generated/<series>/<date_slug>/`
+- scaffold explainer projects under `/data/jellyfin/projects/<profile>/<series>/<date_slug>/`
 - archive each explainer brief into the shared wiki under `raw/transcripts/media/video-explainers/`
 - in narrated mode, also write `scene_manifest.json` and `narration-script.md` so narration timing becomes the authoritative spec
 - archive narrated explainer scripts into the shared wiki for later reuse/debugging
@@ -552,7 +552,7 @@ The repo tools can:
 - keep explainer videos silent by default unless you explicitly opt into narration
 - for narrated explainers, synthesize one clip per scene, measure durations, normalize audio, and let the infographic renderer conform to the manifest-driven timing instead of trimming one monolithic voice track over a finished video
 
-Jellyfin serves the resulting MP4s from `/data/jellyfin/videos` on the host, mounted as `/media/videos` inside the container. After first launch, create a Jellyfin library that points at `/media/videos` so new explainer projects become browsable once renders are copied into place.
+Jellyfin serves the resulting MP4s from `/data/jellyfin/videos` on the host, mounted as `/media/videos` inside the container. `scripts/bootstrap-jellyfin.py` now creates one home-video library per Hermes profile, enables realtime monitoring for each profile library, and points them at `/media/videos/profiles/<profile>`. The video pipeline keeps briefs/manifests/renders under `/data/jellyfin/projects/<profile>/...` and publishes only clean final MP4/SRT outputs into the served library tree.
 
 ---
 
@@ -567,7 +567,7 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 - on the VPS itself, `scripts/audiobookshelf_api.py` can also fall back to the local Audiobookshelf SQLite user token cache when explicit auth env vars are absent; explicit env vars are still preferred for portability.
 - optional Audiobookshelf library overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`.
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
-- `VIDEO_OUTPUT_DIR=/data/jellyfin/videos/ai-generated`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline`.
+- `VIDEO_LIBRARY_ROOT=/data/jellyfin/videos/profiles`, `VIDEO_PROJECTS_DIR=/data/jellyfin/projects`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline`.
 - optional narrated-explainer overrides: `VIDEO_NARRATION_VOICE=Lucy`, `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`.
 - narrated explainer scaffolds now create `scene_manifest.json` + `narration-script.md`; `render.sh` can synthesize per-scene clips, assemble a normalized master narration track, render infographic scene clips, and emit `captions/final.srt` when a TTS base URL is configured.
 - To bootstrap or repair the infographic video runtime manually, run `bash /opt/hermes/scripts/setup-video-pipeline.sh` on the VPS; it provisions the dedicated video venv and verifies the ffmpeg-backed renderer path. The script expects `uv` on your `PATH` (for Hermes that is typically `~/.local/bin/uv`).
