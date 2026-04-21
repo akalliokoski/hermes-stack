@@ -180,7 +180,7 @@ sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles
 log_step "install systemd units and helper executables"
 sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
 sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
-sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh
+sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py
 sudo systemctl daemon-reload
 sudo systemctl enable hermes-gateway hermes-dashboard
 
@@ -214,6 +214,9 @@ restart_named_profile_gateways
 sudo bash scripts/configure-tailscale-serve.sh
 
 log_step "validate live services"
+if [[ "${API_SERVER_ENABLED:-}" =~ ^(true|TRUE|1|yes|YES)$ || -n "${API_SERVER_KEY:-}" ]]; then
+  curl -fsS --max-time 10 http://127.0.0.1:8642/health >/dev/null
+fi
 systemctl is-active hermes-dashboard
 systemctl is-active hermes-gateway
 docker compose -f docker-compose.yml -f docker-compose.vps.yml ps

@@ -276,6 +276,20 @@ platform_toolsets:
   - tts
   - vision
   - web
+  api_server:
+  - browser
+  - code_execution
+  - cronjob
+  - delegation
+  - file
+  - image_gen
+  - memory
+  - session_search
+  - skills
+  - terminal
+  - todo
+  - vision
+  - web
   telegram:
   - hermes-telegram
   discord:
@@ -293,6 +307,15 @@ code_execution:
   max_tool_calls: 50
 web:
   backend: firecrawl
+
+# Optional Ollama strategy overlay
+# -------------------------------
+# scripts/apply-model-strategy.py can post-process the rendered config when either:
+#   - OLLAMA_API_KEY is set          -> use provider `ollama-cloud`
+#   - HERMES_OLLAMA_BASE_URL is set -> use provider `custom` against a local/OpenAI-compatible endpoint
+#
+# This keeps Codex/GPT-5.4 as the primary operator loop while moving delegation
+# and fallback onto a cheaper or local-compatible Ollama path when configured.
 
 # ── Fallback Model ────────────────────────────────────────────────────
 # Automatic provider failover when primary is unavailable.

@@ -78,8 +78,14 @@ done
 
 if [[ -f "${REPO_DIR}/scripts/render-config.py" ]]; then
   install -o hermes -g hermes -m 755 "${REPO_DIR}/scripts/render-config.py" "${HERMES_DATA}/render-config.py"
+  if [[ -f "${REPO_DIR}/scripts/apply-model-strategy.py" ]]; then
+    install -o hermes -g hermes -m 755 "${REPO_DIR}/scripts/apply-model-strategy.py" "${HERMES_DATA}/apply-model-strategy.py"
+  fi
   sudo -iu hermes python3 "${HERMES_DATA}/render-config.py" --repo-root "${REPO_DIR}" --env-id vps --target-home /home/hermes --profile default --output "${HERMES_DATA}/config.yaml"
-  rm -f "${HERMES_DATA}/render-config.py"
+  if [[ -f "${HERMES_DATA}/apply-model-strategy.py" ]]; then
+    sudo -iu hermes python3 "${HERMES_DATA}/apply-model-strategy.py" "${HERMES_DATA}/config.yaml"
+  fi
+  rm -f "${HERMES_DATA}/render-config.py" "${HERMES_DATA}/apply-model-strategy.py"
   echo "✓ Rendered VPS config → ${HERMES_DATA}/config.yaml"
 else
   echo "  (render-config.py not found — copy config.yaml manually if needed)"

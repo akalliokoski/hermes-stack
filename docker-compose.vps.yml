@@ -17,6 +17,23 @@ services:
       - ./web/landing:/usr/share/nginx/html:ro
 
   # ---------------------------------------------------------------------------
+  # Hermes Workspace V2 – optional mobile/PWA operator surface for the VPS.
+  # Talks to the Hermes API server exposed by the native gateway on 127.0.0.1:8642.
+  # Keep it localhost-only and publish it on the tailnet through Tailscale Serve.
+  # ---------------------------------------------------------------------------
+  hermes-workspace:
+    image: ghcr.io/outsourc-e/hermes-workspace:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      HERMES_API_URL: ${HERMES_API_URL:-http://127.0.0.1:8642}
+      HERMES_API_TOKEN: ${API_SERVER_KEY:-}
+      HERMES_PASSWORD: ${HERMES_WORKSPACE_PASSWORD:-}
+    depends_on:
+      - ui-landing
+
+  # ---------------------------------------------------------------------------
   # Syncthing – sync /home/hermes/sync → MacBook over Tailscale.
   # Runs over Tailscale – no public port exposure needed.
   # Web UI is exposed on the tailnet via https://<vps-tailnet-name>:9445/

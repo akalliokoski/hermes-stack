@@ -58,6 +58,7 @@ These are living documents. Keep `AGENTS.md` and `SETUP.md` actively updated whe
 - [scripts/provision-profile.sh](scripts/provision-profile.sh) — profile create/update/sync
 - [scripts/remote-deploy.sh](scripts/remote-deploy.sh) — VPS deploy/restart flow
 - [scripts/verify-environment.sh](scripts/verify-environment.sh) — verification
+- [docs/hermes-community-adoption.md](docs/hermes-community-adoption.md) — which third-party/community Hermes extensions this stack adopts
 
 ## Current architecture
 
@@ -69,6 +70,22 @@ These are living documents. Keep `AGENTS.md` and `SETUP.md` actively updated whe
 - Tailscale publishes internal web UIs to the tailnet
 - Syncthing syncs the shared root (`/home/hermes/sync`)
 - shared soul/skills live under `~/.hermes/shared/`
+
+## Community extensions we actively support
+
+Prefer thin, repo-auditable extensions around the native Hermes runtime instead of
+adding a second control plane.
+
+Approved additions:
+- Hermes Workspace V2 as a tailnet-only operator UI backed by Hermes's built-in API server
+- Ollama Cloud or a local/OpenAI-compatible Ollama endpoint for delegation/fallback economics
+- shared cross-profile skills under `~/.hermes/shared/skills/`, including house orchestration protocols
+- experimental plugins only when they are isolated behind a dedicated profile or documented pilot flow
+
+Not adopted by default:
+- alternate dashboards that duplicate the same role as Workspace V2
+- third-party multi-agent harnesses that replace Hermes as the primary orchestrator
+- shared-memory plugins that blur profile boundaries without an explicit design and docs update
 
 ## Working with `hermes-agent/`
 

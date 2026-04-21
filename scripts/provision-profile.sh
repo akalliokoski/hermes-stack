@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "${SCRIPT_DIR}")"
 CONFIG_RENDERER="${REPO_ROOT}/scripts/render-config.py"
+MODEL_STRATEGY_APPLIER="${REPO_ROOT}/scripts/apply-model-strategy.py"
 ENV_CONTEXT_RENDERER="${REPO_ROOT}/scripts/render-environment-context.py"
 TARGET_HOME="$(dirname "${HERMES_HOME:-/home/hermes/.hermes}")"
 
@@ -314,6 +315,10 @@ render_profile_config() {
     --target-home "${TARGET_HOME}" \
     --profile "${profile}" \
     --output "${config_path}"
+
+  if [[ -f "${MODEL_STRATEGY_APPLIER}" ]]; then
+    run_as_hermes python3 "${MODEL_STRATEGY_APPLIER}" "${config_path}"
+  fi
 
   log "✓ Rendered config.yaml for profile '${profile}' (env: ${ENV_ID}, workspace: ${WORK_ROOT}/${profile})"
 }

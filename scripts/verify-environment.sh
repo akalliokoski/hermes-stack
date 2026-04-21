@@ -136,6 +136,37 @@ for profile in profiles:
         if shared_skills_root not in [str(x) for x in external_dirs]:
             failures.append(f"shared skills path missing from {config_path}")
 
+        ollama_base_url = os.environ.get('HERMES_OLLAMA_BASE_URL', '').strip()
+        ollama_cloud_key = os.environ.get('OLLAMA_API_KEY', '').strip()
+        expected_mode = 'custom' if ollama_base_url else ('cloud' if ollama_cloud_key else '')
+        if expected_mode:
+            delegation = config.get('delegation') or {}
+            fallback_model = config.get('fallback_model') or {}
+            expected_provider = 'custom' if expected_mode == 'custom' else 'ollama-cloud'
+            if delegation.get('provider') != expected_provider:
+                failures.append(
+                    f"unexpected delegation.provider for {profile}: {delegation.get('provider')} != {expected_provider}"
+                )
+            if fallback_model.get('provider') != expected_provider:
+                failures.append(
+                    f"unexpected fallback_model.provider for {profile}: {fallback_model.get('provider')} != {expected_provider}"
+                )
+            expected_delegation_model = os.environ.get('HERMES_OLLAMA_DELEGATION_MODEL', '').strip()
+            expected_fallback_model = os.environ.get('HERMES_OLLAMA_FALLBACK_MODEL', '').strip()
+            shared_model = os.environ.get('HERMES_OLLAMA_MODEL', '').strip()
+            if not expected_delegation_model:
+                expected_delegation_model = shared_model or ('qwen3-coder:480b-cloud' if expected_mode == 'cloud' else '')
+            if not expected_fallback_model:
+                expected_fallback_model = shared_model or expected_delegation_model
+            if expected_delegation_model and delegation.get('model') != expected_delegation_model:
+                failures.append(
+                    f"unexpected delegation.model for {profile}: {delegation.get('model')} != {expected_delegation_model}"
+                )
+            if expected_fallback_model and fallback_model.get('model') != expected_fallback_model:
+                failures.append(
+                    f"unexpected fallback_model.model for {profile}: {fallback_model.get('model')} != {expected_fallback_model}"
+                )
+
     if hindsight_path.exists():
         payload = json.loads(hindsight_path.read_text())
         expected_bank = f"hermes-{profile}"
