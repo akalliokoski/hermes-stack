@@ -420,7 +420,7 @@ Hermes Workspace V2 is now wired as the preferred tailnet-only operator UI when 
 Stack shape:
 - Hermes itself still runs natively through `hermes-gateway.service`
 - the gateway's built-in API server stays bound to `127.0.0.1:8642`
-- `docker-compose.vps.yml` runs the `ghcr.io/outsourc-e/hermes-workspace:latest` image on `127.0.0.1:3000`
+- `docker-compose.vps.yml` runs the Hermes Workspace build from `https://github.com/outsourc-e/hermes-workspace.git#main` on `127.0.0.1:3000`
 - Tailscale Serve publishes Workspace on `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9446/`
 
 Required env in `/home/hermes/.hermes/.env` before deploy:
