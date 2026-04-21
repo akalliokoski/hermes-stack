@@ -32,7 +32,6 @@ echo "→ Configuring Tailscale Serve for ${CURRENT_TAILNET_DOMAIN}"
 "${TAILSCALE_CMD[@]}" serve --bg --https=443 http://127.0.0.1:8081
 "${TAILSCALE_CMD[@]}" serve --bg --https=9444 http://127.0.0.1:9119
 "${TAILSCALE_CMD[@]}" serve --bg --https=9445 http://127.0.0.1:8384
-"${TAILSCALE_CMD[@]}" serve --bg --https=9446 http://127.0.0.1:3000
 "${TAILSCALE_CMD[@]}" serve --bg --https=13378 http://127.0.0.1:13378
 "${TAILSCALE_CMD[@]}" serve --bg --https=8096 http://127.0.0.1:8096
 "${TAILSCALE_CMD[@]}" serve --bg --https=443 --set-path /memory/ http://127.0.0.1:8888
@@ -49,7 +48,7 @@ import json, os, sys
 domain = os.environ["CURRENT_TAILNET_DOMAIN"]
 status = json.loads(os.environ["SERVE_STATUS_JSON"])
 web = status.get("Web") or {}
-expected = {f"{domain}:443", f"{domain}:9443", f"{domain}:9444", f"{domain}:9445", f"{domain}:9446", f"{domain}:13378", f"{domain}:8096"}
+expected = {f"{domain}:443", f"{domain}:9443", f"{domain}:9444", f"{domain}:9445", f"{domain}:13378", f"{domain}:8096"}
 missing = sorted(expected - set(web))
 unexpected = sorted(k for k in web if not k.startswith(f"{domain}:"))
 if missing or unexpected:
@@ -64,7 +63,6 @@ echo "✓ Tailscale Serve now published at:"
 echo "  https://${CURRENT_TAILNET_DOMAIN}/"
 echo "  https://${CURRENT_TAILNET_DOMAIN}:9444/"
 echo "  https://${CURRENT_TAILNET_DOMAIN}:9445/"
-echo "  https://${CURRENT_TAILNET_DOMAIN}:9446/"
 echo "  https://${CURRENT_TAILNET_DOMAIN}:13378/"
 echo "  https://${CURRENT_TAILNET_DOMAIN}:8096/"
 echo "  https://${CURRENT_TAILNET_DOMAIN}/memory/"

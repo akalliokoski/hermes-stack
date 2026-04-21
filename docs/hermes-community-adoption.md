@@ -16,7 +16,7 @@ The rule is still:
 
 ### 1. Hermes Workspace V2
 
-Status: adopted as the preferred tailnet-only operator UI.
+Status: experimental/manual only; not deployed as always-on infrastructure.
 
 Why:
 - zero-fork with upstream `hermes-agent`
@@ -24,16 +24,16 @@ Why:
 - richer than the built-in dashboard for day-to-day operator work
 - fits the existing Tailscale-only remote access model
 
-How we run it:
-- `docker-compose.vps.yml` runs `ghcr.io/outsourc-e/hermes-workspace:latest`
-- bind: `127.0.0.1:3000`
-- Tailscale Serve publishes it on `:9446`
-- it talks to Hermes's built-in API server on `127.0.0.1:8642`
-- API auth comes from `API_SERVER_KEY`
+How we treat it for now:
+- keep Hermes's built-in API server support in the repo
+- do not run Workspace from `docker-compose.vps.yml`
+- do not reserve a permanent Tailscale Serve port for it yet
+- revisit once upstream packaging/release artifacts are stable and reproducible in unattended deploys
 
 Boundaries:
 - Workspace is a UI layer, not a second orchestrator
 - Hermes itself still runs natively under systemd
+- upstream packaging must be reproducible before Workspace can be promoted back into always-on deploys
 
 ### 2. Ollama strategy for delegation/fallback
 

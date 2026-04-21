@@ -4,7 +4,7 @@ This document covers the deployment layer: local dev, VPS setup, configuration, 
 
 This is a living document. Keep it actively updated when deploy flow, runtime architecture, profile behavior, verification steps, or recovery procedures change.
 
-**Topology.** `hermes-agent` runs natively on the VPS under systemd (user: `hermes`), installed via the upstream [install.sh](https://hermes-agent.nousresearch.com/docs/getting-started/installation). On the VPS, the default and always-on gateway profiles use Hermes's local terminal backend so CLI and mobile/gateway sessions share the same profile behavior and workspaces. Docker Compose runs the auxiliary services: firecrawl, hindsight, litestream, backup, and on the VPS the tailnet-facing support apps such as Syncthing, Audiobookshelf, Jellyfin, and Hermes Workspace V2. Hermes Workspace is an optional web control surface; Hermes itself still runs natively and remains the source of truth.
+**Topology.** `hermes-agent` runs natively on the VPS under systemd (user: `hermes`), installed via the upstream [install.sh](https://hermes-agent.nousresearch.com/docs/getting-started/installation). On the VPS, the default and always-on gateway profiles use Hermes's local terminal backend so CLI and mobile/gateway sessions share the same profile behavior and workspaces. Docker Compose runs the auxiliary services: firecrawl, hindsight, litestream, backup, and on the VPS the tailnet-facing support apps such as Syncthing, Audiobookshelf, and Jellyfin. Hermes's built-in dashboard/API remain the canonical web control surfaces; third-party UIs like Hermes Workspace should be treated as optional experiments until their packaging is stable.
 
 ---
 
@@ -24,7 +24,6 @@ VPS host
       ├── backup                             daily /home/hermes/.hermes tarball
       ├── syncthing (VPS only)               sync /home/hermes/sync → MacBook
       │                                      over Tailscale
-      ├── hermes-workspace (VPS only)        127.0.0.1:3000 web/PWA workspace
       ├── audiobookshelf (VPS only)          127.0.0.1:13378 podcast delivery
       └── jellyfin (VPS only)                127.0.0.1:8096 video delivery
 ```
@@ -35,7 +34,7 @@ VPS host
 |---|---|
 | `docker-compose.yml` | Base — auxiliary services only |
 | `docker-compose.override.yml` | Local dev overrides (auto-applied) |
-| `docker-compose.vps.yml` | VPS additions: syncthing, Hermes Workspace V2, Audiobookshelf, Jellyfin, and host data bind-mounts |
+| `docker-compose.vps.yml` | VPS additions: syncthing, Audiobookshelf, Jellyfin, and host data bind-mounts |
 
 ---
 
@@ -378,10 +377,9 @@ Open the Hermes stack landing page from any tailnet device:
 https://<current-tailscale-node-name>.<your-tailnet>.ts.net/
 ```
 
-That landing page links to the Hermes dashboard, Hermes Workspace V2, Syncthing UI, Hindsight UI/API, Firecrawl API, Audiobookshelf, and Jellyfin. Direct paths are also available:
+That landing page links to the Hermes dashboard, Syncthing UI, Hindsight UI/API, Firecrawl API, Audiobookshelf, and Jellyfin. Direct paths are also available:
 
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9444/` (Hermes Dashboard)
-- `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9446/` (Hermes Workspace V2)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9445/` (Syncthing UI)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:13378/` (Audiobookshelf UI/API)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:8096/` (Jellyfin UI/API)
@@ -413,15 +411,14 @@ Because the shared root now lives directly at `/home/hermes/sync`, do the follow
 sudo bash scripts/configure-tailscale-serve.sh
 ```
 
-#### Hermes Workspace V2 and the built-in Hermes API server
+#### Built-in Hermes API server
 
-Hermes Workspace V2 is now wired as the preferred tailnet-only operator UI when you want a richer browser/mobile surface than the built-in dashboard.
+The built-in Hermes API server remains available for local integrations and future UI experiments, but Hermes Workspace V2 is not currently deployed as always-on infrastructure in this stack.
 
-Stack shape:
+Current shape:
 - Hermes itself still runs natively through `hermes-gateway.service`
 - the gateway's built-in API server stays bound to `127.0.0.1:8642`
-- `docker-compose.vps.yml` runs the Hermes Workspace build from `https://github.com/outsourc-e/hermes-workspace.git#main` on `127.0.0.1:3000`
-- Tailscale Serve publishes Workspace on `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9446/`
+- no third-party Workspace container is deployed by default
 
 Required env in `/home/hermes/.hermes/.env` before deploy:
 
@@ -430,16 +427,15 @@ API_SERVER_ENABLED=true
 API_SERVER_HOST=127.0.0.1
 API_SERVER_PORT=8642
 API_SERVER_KEY=<long-random-secret>
-HERMES_WORKSPACE_PASSWORD=<optional-ui-password>
 ```
 
 Recommended hardening:
 - generate `API_SERVER_KEY` with `openssl rand -hex 32`
-- keep both the API server and Workspace bound to localhost only
-- publish them outward only through Tailscale Serve
-- if you want explicit CORS narrowing, set `API_SERVER_CORS_ORIGINS=https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9446`
+- keep the API server bound to localhost only
+- publish outward-facing interfaces only through Tailscale Serve
+- if you later add a browser client that needs CORS, set `API_SERVER_CORS_ORIGINS` to that exact origin
 
-The deploy flow now validates `http://127.0.0.1:8642/health` whenever the API server is enabled, verifies that Workspace is listening on localhost port `3000`, and checks that Tailscale Serve has the expected `:9446 -> 127.0.0.1:3000` mapping.
+The deploy flow now validates `http://127.0.0.1:8642/health` whenever the API server is enabled. Workspace V2 should only be reintroduced after upstream packaging proves stable enough for unattended deploys.
 
 ### Podcast and video pipeline helpers
 

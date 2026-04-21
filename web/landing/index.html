@@ -148,12 +148,6 @@
           <div class="meta">Tailnet URL: <code>:9444</code> → local <code>127.0.0.1:9119</code></div>
         </a>
 
-        <a class="card" id="workspace-link" href="#">
-          <div class="title"><span>Hermes Workspace V2</span><span>↗</span></div>
-          <div class="description">Optional zero-fork mobile/PWA workspace for Hermes Agent. It talks to the gateway's localhost-only API server, so you get chat, files, memory, and task views from a tailnet browser without exposing Hermes directly to the public Internet.</div>
-          <div class="meta">Tailnet URL: <code>:9446</code> → local <code>127.0.0.1:3000</code></div>
-        </a>
-
         <a class="card" id="syncthing-link" href="#">
           <div class="title"><span>Syncthing UI</span><span>↗</span></div>
           <div class="description">Manage folder sync, approve devices, and inspect sync health for the shared Hermes workspace. It is exposed on its own Tailnet HTTPS port because Syncthing rejects the proxied Tailnet hostname when served under the landing page path.</div>
@@ -206,13 +200,11 @@
       const hindsightUi = `${protocol}//${hostname}:9443/`;
       const dashboardUi = `${protocol}//${hostname}:9444/`;
       const syncthingUi = `${protocol}//${hostname}:9445/`;
-      const workspaceUi = `${protocol}//${hostname}:9446/`;
       const audiobookshelfUi = `${protocol}//${hostname}:13378/`;
       const jellyfinUi = `${protocol}//${hostname}:8096/`;
       document.getElementById("canonical-entrypoint").textContent = canonical;
       document.getElementById("hindsight-ui-link").href = hindsightUi;
       document.getElementById("dashboard-link").href = dashboardUi;
-      document.getElementById("workspace-link").href = workspaceUi;
       document.getElementById("syncthing-link").href = syncthingUi;
       document.getElementById("audiobookshelf-link").href = audiobookshelfUi;
       document.getElementById("jellyfin-link").href = jellyfinUi;
