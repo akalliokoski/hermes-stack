@@ -1,3 +1,4 @@
+import datetime as dt
 import importlib.util
 import json
 import sys
@@ -94,21 +95,26 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
 
     def test_main_dry_run_generates_artifacts_and_skips_tts(self):
         with tempfile.TemporaryDirectory() as tmp:
-            output_dir = Path(tmp) / "podcasts"
+            project_root = Path(tmp) / "projects"
+            library_root = Path(tmp) / "podcasts"
             podcastfy_python = Path(tmp) / "python"
             podcastfy_python.write_text("#!/bin/sh\n", encoding="utf-8")
-            expected_episode_dir = output_dir / "upgrade-dry-run"
+            staging_dir = Path(tmp) / "staging"
+            staging_dir.mkdir(parents=True)
 
+            transcript = self.make_valid_transcript(title="Upgrade Dry Run")
             fake_artifacts = {
-                "draft_path": expected_episode_dir / "transcript-draft.json",
-                "transcript_path": expected_episode_dir / "transcript.json",
-                "audit_path": expected_episode_dir / "transcript-audit.json",
-                "rendered_path": expected_episode_dir / "transcript.txt",
+                "draft_path": staging_dir / "transcript-draft.json",
+                "transcript_path": staging_dir / "transcript.json",
+                "audit_path": staging_dir / "transcript-audit.json",
+                "rendered_path": staging_dir / "transcript.txt",
                 "audit": {"ok": True, "issues": [{"severity": "info", "code": "audit_clean", "message": "ok"}]},
             }
-            expected_episode_dir.mkdir(parents=True)
+            fake_artifacts["draft_path"].write_text(json.dumps(transcript), encoding="utf-8")
+            fake_artifacts["transcript_path"].write_text(json.dumps(transcript), encoding="utf-8")
+            fake_artifacts["audit_path"].write_text(json.dumps(fake_artifacts["audit"]), encoding="utf-8")
             fake_artifacts["rendered_path"].write_text("<Person1>Hello</Person1>\n", encoding="utf-8")
-            fake_artifacts["transcript_path"].write_text("{}\n", encoding="utf-8")
+            expected_project_dir = project_root / "default" / "ai-research-weekly" / "ai-research-weekly"
 
             argv = [
                 "make-podcast.py",
@@ -117,8 +123,10 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
                 "--topic",
                 "Why agent memory matters",
                 "--dry-run",
+                "--project-root",
+                str(project_root),
                 "--output-dir",
-                str(output_dir),
+                str(library_root),
                 "--podcastfy-python",
                 str(podcastfy_python),
             ]
@@ -127,10 +135,12 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
                 MODULE, "run_pipeline"
             ) as run_pipeline_mock, mock.patch.object(MODULE.sys, "argv", argv):
                 result = MODULE.main()
+                relocated_exists = (expected_project_dir / "transcript.json").exists()
 
         self.assertEqual(result, 0)
         generate_mock.assert_called_once()
         run_pipeline_mock.assert_not_called()
+        self.assertTrue(relocated_exists)
 
     def test_main_with_canonical_transcript_archives_rendered_text(self):
         transcript = self.make_valid_transcript(title="Canonical Input Test")
@@ -138,6 +148,7 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             output_dir = Path(tmp) / "podcasts"
             output_dir.mkdir()
+            project_root = Path(tmp) / "projects"
             podcastfy_python = Path(tmp) / "python"
             podcastfy_python.write_text("#!/bin/sh\n", encoding="utf-8")
             transcript_path = Path(tmp) / "transcript.json"
@@ -150,6 +161,8 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
                 "--transcript",
                 str(transcript_path),
                 "--dry-run",
+                "--project-root",
+                str(project_root),
                 "--output-dir",
                 str(output_dir),
                 "--podcastfy-python",
@@ -172,6 +185,7 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             output_dir = Path(tmp) / "podcasts"
             output_dir.mkdir()
+            project_root = Path(tmp) / "projects"
             podcastfy_python = Path(tmp) / "python"
             podcastfy_python.write_text("#!/bin/sh\n", encoding="utf-8")
             transcript_path = Path(tmp) / "transcript.txt"
@@ -184,6 +198,8 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
                 "--transcript",
                 str(transcript_path),
                 "--dry-run",
+                "--project-root",
+                str(project_root),
                 "--output-dir",
                 str(output_dir),
                 "--podcastfy-python",
@@ -199,6 +215,27 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
         archive_text.assert_called_once()
         self.assertIn("HOST_A: Hello there.", archive_text.call_args.kwargs["content"])
         run_pipeline_mock.assert_not_called()
+
+    def test_path_helpers_use_profile_show_and_episode_slugs(self):
+        project_dir = MODULE.project_dir_for_episode(
+            projects_root=Path("/tmp/projects"),
+            profile_slug="gemma",
+            show_slug="ai-research-weekly",
+            episode_slug="2026-04-21_ai-research-weekly",
+        )
+        publish_dir = MODULE.publish_dir_for_show(
+            library_root=Path("/tmp/podcasts"),
+            profile_slug="gemma",
+            show_slug="ai-research-weekly",
+        )
+        final_path = MODULE.final_episode_audio_path(
+            publish_dir=publish_dir,
+            episode_slug="ai-research-weekly",
+        )
+
+        self.assertEqual(project_dir, Path("/tmp/projects") / "gemma" / "ai-research-weekly" / "2026-04-21_ai-research-weekly")
+        self.assertEqual(publish_dir, Path("/tmp/podcasts") / "gemma" / "ai-research-weekly")
+        self.assertEqual(final_path, publish_dir / f"{dt.date.today().isoformat()}_ai-research-weekly.mp3")
 
 
 if __name__ == "__main__":

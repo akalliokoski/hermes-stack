@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -14,16 +15,21 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from audiobookshelf_api import ensure_library_and_scan
+from audiobookshelf_api import ensure_profile_library_and_scan
 from podcast_pipeline_common import (
-    DEFAULT_OUTPUT_DIR,
     DEFAULT_PODCASTFY_PYTHON,
+    DEFAULT_PODCAST_LIBRARY_ROOT,
+    DEFAULT_PODCAST_PROJECTS_DIR,
     archive_generated_json,
     archive_generated_text,
-    final_output_path,
+    current_profile_slug,
+    dated_slug,
     hermes_binary,
+    podcast_library_name,
+    podcast_library_root_for_profile,
+    podcast_project_root_for_profile,
     resolve_tts_base_url,
-    show_output_dir,
+    slugify,
 )
 from podcast_transcript_audit import audit_transcript
 from podcast_transcript_prompting import build_draft_prompt, build_revision_prompt, build_source_packet
@@ -40,6 +46,28 @@ def run(cmd: list[str], *, env: dict[str, str] | None = None, cwd: str | None = 
 def ensure_file(path: Path) -> None:
     if not path.exists():
         raise SystemExit(f"Required file not found: {path}")
+
+
+def transcript_identity(*, title: str, transcript: dict[str, object] | None = None) -> tuple[str, str]:
+    if transcript:
+        show_slug = str(transcript.get("show_slug") or "").strip() or slugify(title)
+        episode_slug = str(transcript.get("episode_slug") or "").strip() or dated_slug(title)
+        return show_slug, episode_slug
+    fallback_slug = slugify(title)
+    return fallback_slug, dated_slug(title)
+
+
+def project_dir_for_episode(*, projects_root: Path, profile_slug: str, show_slug: str, episode_slug: str) -> Path:
+    return podcast_project_root_for_profile(projects_root, profile_slug) / show_slug / episode_slug
+
+
+def publish_dir_for_show(*, library_root: Path, profile_slug: str, show_slug: str) -> Path:
+    return podcast_library_root_for_profile(library_root, profile_slug) / show_slug
+
+
+def final_episode_audio_path(*, publish_dir: Path, episode_slug: str) -> Path:
+    published_slug = episode_slug if re.match(r"^\d{4}-\d{2}-\d{2}_", episode_slug) else dated_slug(episode_slug)
+    return publish_dir / f"{published_slug}.mp3"
 
 
 
@@ -217,9 +245,9 @@ def generate_structured_transcript_artifacts(
 
 
 
-def scan_audiobookshelf() -> bool:
+def scan_audiobookshelf(profile_slug: str) -> bool:
     try:
-        ensure_library_and_scan()
+        ensure_profile_library_and_scan(profile_slug)
         return True
     except Exception as exc:  # pragma: no cover - best effort operational helper
         print(f"warning: Audiobookshelf scan skipped: {exc}", file=sys.stderr)
@@ -243,7 +271,10 @@ def main() -> int:
     )
     parser.add_argument("--kokoro-base-url", dest="legacy_kokoro_base_url", default="", help=argparse.SUPPRESS)
     parser.add_argument("--podcastfy-python", default=DEFAULT_PODCASTFY_PYTHON)
-    parser.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--profile", default=current_profile_slug(), help="Hermes profile slug used to select the Audiobookshelf library root")
+    parser.add_argument("--project-root", default=DEFAULT_PODCAST_PROJECTS_DIR, help="Host directory for podcast transcript and audit artifacts")
+    parser.add_argument("--library-root", default=DEFAULT_PODCAST_LIBRARY_ROOT, help="Host directory for clean Audiobookshelf-published podcast outputs; profile and show folders are created underneath")
+    parser.add_argument("--output-dir", dest="library_root_legacy", help=argparse.SUPPRESS)
     parser.add_argument("--dry-run", action="store_true", help="Generate transcript and show planned audio command without running TTS")
     parser.add_argument("--skip-notify", action="store_true")
     args = parser.parse_args()
@@ -253,10 +284,9 @@ def main() -> int:
     if not Path(podcastfy_python).exists():
         raise SystemExit(f"podcastfy python not found: {podcastfy_python}. Run scripts/setup-podcast-pipeline.sh first.")
 
-    output_dir = Path(args.output_dir).expanduser().resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    episode_output_dir = show_output_dir(args.title, output_dir)
-    episode_output_dir.mkdir(parents=True, exist_ok=True)
+    profile_slug = slugify(args.profile)
+    projects_root = Path(args.project_root).expanduser().resolve()
+    library_root = Path(args.library_root_legacy or args.library_root).expanduser().resolve()
 
     source_files = [Path(p).expanduser().resolve() for p in args.source_file]
     for path in source_files:
@@ -270,11 +300,21 @@ def main() -> int:
             source_files.append(inline_path)
 
         generated_artifacts: dict[str, object] | None = None
+        canonical_transcript: dict[str, object] | None = None
+        wiki_transcript_path: Path | None = None
+        staging_artifact_dir = tmpdir / "generated-artifacts"
 
         if args.transcript:
             transcript_path = Path(args.transcript).expanduser().resolve()
             ensure_file(transcript_path)
-            transcript_text = maybe_render_canonical_transcript_text(transcript_path.read_text(encoding="utf-8"))
+            raw_transcript = transcript_path.read_text(encoding="utf-8")
+            transcript_text = maybe_render_canonical_transcript_text(raw_transcript)
+            try:
+                payload = json.loads(_strip_code_fences(raw_transcript))
+                if isinstance(payload, dict) and "turns" in payload:
+                    canonical_transcript = validate_transcript(payload)
+            except (json.JSONDecodeError, ValueError):
+                canonical_transcript = None
         else:
             if not source_files and not args.url and not args.topic:
                 raise SystemExit("Provide --transcript or at least one source via --source-file, --url, --topic, or --text")
@@ -284,11 +324,38 @@ def main() -> int:
                 urls=args.url,
                 topic=args.topic,
                 notes=args.notes,
-                artifact_dir=episode_output_dir,
+                artifact_dir=staging_artifact_dir,
             )
             transcript_path = Path(generated_artifacts["transcript_path"])
+            canonical_transcript = validate_transcript(json.loads(transcript_path.read_text(encoding="utf-8")))
             transcript_text = Path(generated_artifacts["rendered_path"]).read_text(encoding="utf-8").strip()
-            wiki_transcript_path = None
+
+        show_slug, episode_slug = transcript_identity(title=args.title, transcript=canonical_transcript)
+        project_dir = project_dir_for_episode(
+            projects_root=projects_root,
+            profile_slug=profile_slug,
+            show_slug=show_slug,
+            episode_slug=episode_slug,
+        )
+        publish_dir = publish_dir_for_show(
+            library_root=library_root,
+            profile_slug=profile_slug,
+            show_slug=show_slug,
+        )
+        project_dir.mkdir(parents=True, exist_ok=True)
+        publish_dir.mkdir(parents=True, exist_ok=True)
+
+        if generated_artifacts is not None:
+            relocated_artifacts: dict[str, object] = {"audit": generated_artifacts["audit"]}
+            for key in ("draft_path", "transcript_path", "audit_path", "rendered_path"):
+                src = Path(generated_artifacts[key])
+                dest = project_dir / src.name
+                if src.resolve() != dest.resolve():
+                    shutil.move(str(src), str(dest))
+                relocated_artifacts[key] = dest
+            generated_artifacts = relocated_artifacts
+            transcript_path = Path(generated_artifacts["transcript_path"])
+            transcript_text = Path(generated_artifacts["rendered_path"]).read_text(encoding="utf-8").strip()
 
         if generated_artifacts is None:
             wiki_transcript_path = archive_generated_text(
@@ -301,6 +368,9 @@ def main() -> int:
             )
 
         print(f"Transcript ready: {transcript_path}")
+        print(f"Audiobookshelf library name: {podcast_library_name(profile_slug)}")
+        print(f"Podcast project directory: {project_dir}")
+        print(f"Podcast publish directory: {publish_dir}")
         if wiki_transcript_path is not None:
             print(f"Wiki transcript archive: {wiki_transcript_path}")
         if generated_artifacts is not None:
@@ -320,6 +390,8 @@ def main() -> int:
         if not tts_base_url:
             raise SystemExit("TTS_BASE_URL/CHATTERBOX_BASE_URL or --tts-base-url is required")
 
+        expected_mp3 = final_episode_audio_path(publish_dir=publish_dir, episode_slug=episode_slug)
+
         print("Running audio pipeline:")
         print(
             " ".join(
@@ -332,7 +404,7 @@ def main() -> int:
                     "--transcript",
                     str(transcript_path),
                     "--output-dir",
-                    str(episode_output_dir),
+                    str(publish_dir),
                     "--tts-base-url",
                     tts_base_url,
                     "--python",
@@ -345,23 +417,24 @@ def main() -> int:
             final_mp3 = run_pipeline(
                 title=args.title,
                 transcript_path=transcript_path,
-                output_dir=episode_output_dir,
+                output_dir=publish_dir,
                 tts_base_url=tts_base_url,
                 python_executable=podcastfy_python,
                 dry_run=args.dry_run,
+                output_filename=expected_mp3.name,
             )
         except (FileNotFoundError, RuntimeError) as exc:
             raise SystemExit(f"Audio pipeline failed: {exc}") from exc
 
-        expected_mp3 = final_output_path(args.title, output_dir)
         if final_mp3 != expected_mp3 or not expected_mp3.exists():
             raise SystemExit(f"Expected output not found: {expected_mp3}")
 
-        scan_audiobookshelf()
+        scan_audiobookshelf(profile_slug)
         duration = duration_minutes_seconds(final_mp3, podcastfy_python)
         msg = f"🎙️ Podcast ready: {args.title}"
         if duration:
             msg += f" ({duration})"
+        msg += f"\nLibrary: {podcast_library_name(profile_slug)}"
         msg += "\nOpen Plappa or Audiobookshelf to listen."
         if not args.skip_notify:
             send_telegram_notification(msg)

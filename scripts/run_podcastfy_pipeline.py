@@ -81,13 +81,14 @@ def run_pipeline(
     tts_base_url: str,
     python_executable: str = sys.executable,
     dry_run: bool = False,
+    output_filename: str | None = None,
 ) -> Path:
     transcript_path = transcript_path.expanduser().resolve()
     if not transcript_path.exists():
         raise FileNotFoundError(f"Transcript not found: {transcript_path}")
     output_dir = output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    final_output = output_dir / f"{dt.date.today().isoformat()}_{slugify(title)}.mp3"
+    final_output = output_dir / (output_filename or f"{dt.date.today().isoformat()}_{slugify(title)}.mp3")
 
     normalized = normalize_transcript(transcript_path.read_text(encoding="utf-8"))
 

@@ -166,7 +166,7 @@ HERMES_GID="$(id -g hermes)"
 sudo install -d -o hermes -g hermes -m 755 /home/hermes/sync /home/hermes/sync/wiki /home/hermes/sync/backups /home/hermes/sync/backups/hindsight
 sudo chown -R hermes:hermes /home/hermes/sync
 sudo install -d -m 755 /data /data/audiobookshelf
-sudo install -d -o hermes -g hermes -m 755 /data/audiobookshelf/config /data/audiobookshelf/metadata /data/audiobookshelf/audiobooks /data/audiobookshelf/podcasts /data/audiobookshelf/podcasts/ai-generated
+sudo install -d -o hermes -g hermes -m 755 /data/audiobookshelf/config /data/audiobookshelf/metadata /data/audiobookshelf/audiobooks /data/audiobookshelf/podcasts /data/audiobookshelf/podcasts/ai-generated /data/audiobookshelf/podcasts/profiles /data/audiobookshelf/projects
 sudo install -d -m 755 /data/jellyfin
 sudo install -d -o hermes -g hermes -m 755 /data/jellyfin/config /data/jellyfin/cache /data/jellyfin/videos /data/jellyfin/videos/profiles /data/jellyfin/projects
 

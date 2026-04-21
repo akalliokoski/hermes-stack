@@ -14,7 +14,12 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from podcast_pipeline_common import DEFAULT_AUDIOBOOKSHELF_BASE_URL
+from podcast_pipeline_common import (
+    DEFAULT_AUDIOBOOKSHELF_BASE_URL,
+    current_profile_slug,
+    podcast_library_name,
+    slugify,
+)
 
 BASE_URL = os.environ.get("AUDIOBOOKSHELF_BASE_URL", DEFAULT_AUDIOBOOKSHELF_BASE_URL).rstrip("/")
 TOKEN = os.environ.get("AUDIOBOOKSHELF_TOKEN", "")
@@ -22,6 +27,7 @@ USERNAME = os.environ.get("AUDIOBOOKSHELF_ADMIN_USERNAME", "")
 PASSWORD = os.environ.get("AUDIOBOOKSHELF_ADMIN_PASSWORD", "")
 LIBRARY_NAME = os.environ.get("AUDIOBOOKSHELF_LIBRARY_NAME", "AI Generated Podcasts")
 PODCASTS_PATH = os.environ.get("AUDIOBOOKSHELF_PODCASTS_PATH", "/podcasts")
+PROFILE_PODCASTS_PATH_ROOT = os.environ.get("AUDIOBOOKSHELF_PROFILE_PODCASTS_PATH_ROOT", "/podcasts/profiles")
 LOCAL_DB_PATH = Path(os.environ.get("AUDIOBOOKSHELF_DB_PATH", "/data/audiobookshelf/config/absdatabase.sqlite"))
 
 
@@ -116,6 +122,20 @@ def login() -> str:
     )
 
 
+def discover_profiles() -> list[str]:
+    profiles = {"default"}
+    root = Path("/home/hermes/.hermes/profiles")
+    if root.exists():
+        for child in root.iterdir():
+            if child.is_dir():
+                profiles.add(slugify(child.name))
+    return sorted(profiles)
+
+
+def profile_library_path(profile_slug: str) -> str:
+    return f"{PROFILE_PODCASTS_PATH_ROOT.rstrip('/')}/{profile_slug}"
+
+
 def libraries(token: str) -> dict[str, Any]:
     payload = request("/api/libraries", token=token)
     if not isinstance(payload, dict):
@@ -123,18 +143,25 @@ def libraries(token: str) -> dict[str, Any]:
     return payload
 
 
-def ensure_library(token: str) -> dict[str, Any]:
+def find_library(token: str, *, name: str) -> dict[str, Any] | None:
     current = libraries(token).get("libraries", [])
     for library in current:
-        if library.get("name") == LIBRARY_NAME:
+        if library.get("name") == name:
             return library
+    return None
+
+
+def ensure_library(token: str, *, name: str = LIBRARY_NAME, podcasts_path: str = PODCASTS_PATH) -> dict[str, Any]:
+    existing = find_library(token, name=name)
+    if existing:
+        return existing
     payload = request(
         "/api/libraries",
         method="POST",
         token=token,
         data={
-            "name": LIBRARY_NAME,
-            "folders": [{"fullPath": PODCASTS_PATH}],
+            "name": name,
+            "folders": [{"fullPath": podcasts_path}],
             "mediaType": "podcast",
             "icon": "podcast",
         },
@@ -142,6 +169,15 @@ def ensure_library(token: str) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise RuntimeError(f"Unexpected library creation payload: {payload!r}")
     return payload
+
+
+def ensure_profile_library(token: str, profile_slug: str) -> dict[str, Any]:
+    normalized = slugify(profile_slug)
+    return ensure_library(
+        token,
+        name=podcast_library_name(normalized),
+        podcasts_path=profile_library_path(normalized),
+    )
 
 
 def scan_library(token: str, library_id: str) -> dict[str, Any] | str:
@@ -160,11 +196,32 @@ def library_stats(token: str, library_id: str) -> dict[str, Any] | str:
     return request(f"/api/libraries/{library_id}/stats", token=token)
 
 
-def ensure_library_and_scan() -> tuple[dict[str, Any], dict[str, Any] | str]:
+def ensure_library_and_scan(*, name: str = LIBRARY_NAME, podcasts_path: str = PODCASTS_PATH) -> tuple[dict[str, Any], dict[str, Any] | str]:
     token = login()
-    library = ensure_library(token)
+    library = ensure_library(token, name=name, podcasts_path=podcasts_path)
     scan_payload = scan_library(token, library["id"])
     return library, scan_payload
+
+
+def ensure_profile_library_and_scan(profile_slug: str) -> tuple[dict[str, Any], dict[str, Any] | str]:
+    token = login()
+    library = ensure_profile_library(token, profile_slug)
+    scan_payload = scan_library(token, library["id"])
+    return library, scan_payload
+
+
+def ensure_profile_libraries_and_scan(profiles: list[str] | None = None) -> list[dict[str, Any]]:
+    token = login()
+    summaries: list[dict[str, Any]] = []
+    for profile_slug in profiles or discover_profiles():
+        library = ensure_profile_library(token, profile_slug)
+        scan_payload = scan_library(token, library["id"])
+        summaries.append({
+            "profile": slugify(profile_slug),
+            "library": library,
+            "scan": scan_payload,
+        })
+    return summaries
 
 
 def _print(payload: dict[str, Any] | list[Any] | str) -> None:
@@ -181,16 +238,32 @@ def main() -> int:
     sub.add_parser("status")
     sub.add_parser("login")
     sub.add_parser("libraries")
-    sub.add_parser("ensure-library")
-    sub.add_parser("bootstrap")
+
+    ensure_library_parser = sub.add_parser("ensure-library")
+    ensure_library_parser.add_argument("--name", default=LIBRARY_NAME)
+    ensure_library_parser.add_argument("--path", dest="podcasts_path", default=PODCASTS_PATH)
+    ensure_library_parser.add_argument("--profile")
+
+    bootstrap = sub.add_parser("bootstrap")
+    bootstrap.add_argument("--all-profiles", action="store_true")
+    bootstrap.add_argument("--profile")
+
     scan = sub.add_parser("scan")
     scan.add_argument("--library-id")
+    scan.add_argument("--profile")
+
     recent = sub.add_parser("recent")
     recent.add_argument("--library-id")
+    recent.add_argument("--profile")
+
     items = sub.add_parser("items")
     items.add_argument("--library-id")
+    items.add_argument("--profile")
+
     stats = sub.add_parser("stats")
     stats.add_argument("--library-id")
+    stats.add_argument("--profile")
+
     args = parser.parse_args()
 
     try:
@@ -204,33 +277,40 @@ def main() -> int:
             _print(libraries(login()))
             return 0
         if args.cmd == "ensure-library":
-            _print(ensure_library(login()))
+            token = login()
+            if args.profile:
+                _print(ensure_profile_library(token, args.profile))
+            else:
+                _print(ensure_library(token, name=args.name, podcasts_path=args.podcasts_path))
             return 0
         if args.cmd == "bootstrap":
             status = wait_for_server()
             ensure_initialized(status)
-            library, payload = ensure_library_and_scan()
-            _print({"library": library, "scan": payload})
+            if args.all_profiles:
+                _print(ensure_profile_libraries_and_scan())
+            elif args.profile:
+                library, payload = ensure_profile_library_and_scan(args.profile)
+                _print({"library": library, "scan": payload})
+            else:
+                library, payload = ensure_library_and_scan()
+                _print({"library": library, "scan": payload})
             return 0
-        if args.cmd == "scan":
+        if args.cmd in {"scan", "recent", "items", "stats"}:
             token = login()
-            library = ensure_library(token) if not args.library_id else {"id": args.library_id}
-            _print(scan_library(token, library["id"]))
-            return 0
-        if args.cmd == "recent":
-            token = login()
-            library = ensure_library(token) if not args.library_id else {"id": args.library_id}
-            _print(recent_episodes(token, library["id"]))
-            return 0
-        if args.cmd == "items":
-            token = login()
-            library = ensure_library(token) if not args.library_id else {"id": args.library_id}
-            _print(library_items(token, library["id"]))
-            return 0
-        if args.cmd == "stats":
-            token = login()
-            library = ensure_library(token) if not args.library_id else {"id": args.library_id}
-            _print(library_stats(token, library["id"]))
+            if args.library_id:
+                library_id = args.library_id
+            elif args.profile:
+                library_id = ensure_profile_library(token, args.profile)["id"]
+            else:
+                library_id = ensure_profile_library(token, current_profile_slug())["id"]
+            if args.cmd == "scan":
+                _print(scan_library(token, library_id))
+            elif args.cmd == "recent":
+                _print(recent_episodes(token, library_id))
+            elif args.cmd == "items":
+                _print(library_items(token, library_id))
+            else:
+                _print(library_stats(token, library_id))
             return 0
     except RuntimeError as exc:
         raise SystemExit(str(exc)) from exc

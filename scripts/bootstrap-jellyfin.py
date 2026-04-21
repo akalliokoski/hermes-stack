@@ -18,6 +18,8 @@ JELLYFIN_DB_PATH = Path(os.environ.get("JELLYFIN_DB_PATH", "/data/jellyfin/confi
 JELLYFIN_CONFIG_ROOT = Path(os.environ.get("JELLYFIN_CONFIG_ROOT", "/data/jellyfin/config/root/default"))
 JELLYFIN_HOST_PROFILE_VIDEOS_ROOT = Path(os.environ.get("VIDEO_LIBRARY_ROOT", "/data/jellyfin/videos/profiles"))
 JELLYFIN_CONTAINER_PROFILE_VIDEOS_ROOT = os.environ.get("JELLYFIN_PROFILE_VIDEOS_PATH_ROOT", "/media/videos/profiles")
+JELLYFIN_HOST_LEGACY_VIDEOS_ROOT = Path(os.environ.get("JELLYFIN_LEGACY_VIDEO_ROOT", "/data/jellyfin/videos/ai-generated"))
+JELLYFIN_CONTAINER_LEGACY_VIDEOS_ROOT = os.environ.get("JELLYFIN_LEGACY_VIDEOS_PATH", "/media/videos/ai-generated")
 JELLYFIN_BOOTSTRAP_WAIT_SECONDS = float(os.environ.get("JELLYFIN_BOOTSTRAP_WAIT_SECONDS", "30"))
 
 
@@ -84,8 +86,10 @@ def get_virtual_folders(token: str) -> list[dict[str, Any]]:
 
 def ensure_virtual_folder(*, token: str, name: str, container_path: str) -> bool:
     existing = get_virtual_folders(token)
-    if any(item.get("Name") == name for item in existing):
+    if any(item.get("Name") == name and container_path in item.get("Locations", []) for item in existing):
         return False
+    if any(item.get("Name") == name for item in existing):
+        remove_virtual_folder(token=token, name=name)
     params = urllib.parse.urlencode(
         [
             ("name", name),
@@ -96,6 +100,11 @@ def ensure_virtual_folder(*, token: str, name: str, container_path: str) -> bool
     )
     request(f"/Library/VirtualFolders?{params}", method="POST", token=token, data=b"")
     return True
+
+
+def remove_virtual_folder(*, token: str, name: str) -> None:
+    params = urllib.parse.urlencode([("name", name), ("refreshLibrary", "true")])
+    request(f"/Library/VirtualFolders?{params}", method="DELETE", token=token, data=b"")
 
 
 def set_realtime_monitor(name: str, enabled: bool = True) -> bool:
@@ -126,6 +135,8 @@ def ensure_profile_video_roots(profiles: list[str]) -> list[str]:
         path = JELLYFIN_HOST_PROFILE_VIDEOS_ROOT / profile
         path.mkdir(parents=True, exist_ok=True)
         created.append(str(path))
+    JELLYFIN_HOST_LEGACY_VIDEOS_ROOT.mkdir(parents=True, exist_ok=True)
+    created.append(str(JELLYFIN_HOST_LEGACY_VIDEOS_ROOT))
     return created
 
 
@@ -154,7 +165,7 @@ def main() -> int:
         token = auth_token()
 
         target_library_names = {library_name_for_profile(profile) for profile in profiles}
-        legacy_library_names = {"AI Generated Videos"}
+        legacy_library_specs = {"AI Generated Videos": JELLYFIN_CONTAINER_LEGACY_VIDEOS_ROOT}
         created: list[str] = []
         realtime_changed: list[str] = []
 
@@ -166,7 +177,9 @@ def main() -> int:
             if set_realtime_monitor(name, enabled=True):
                 realtime_changed.append(name)
 
-        for legacy_name in legacy_library_names:
+        for legacy_name, legacy_container_path in legacy_library_specs.items():
+            if ensure_virtual_folder(token=token, name=legacy_name, container_path=legacy_container_path):
+                created.append(legacy_name)
             if set_realtime_monitor(legacy_name, enabled=True):
                 realtime_changed.append(legacy_name)
 
@@ -174,7 +187,7 @@ def main() -> int:
         if args.refresh:
             for item in get_virtual_folders(token):
                 name = item.get("Name", "")
-                if name in target_library_names | legacy_library_names:
+                if name in target_library_names | set(legacy_library_specs):
                     item_id = item.get("ItemId", "")
                     if item_id:
                         refresh_library(token, item_id)

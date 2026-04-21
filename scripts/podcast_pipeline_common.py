@@ -34,6 +34,8 @@ load_env_defaults(*DEFAULT_ENV_FILES)
 
 DEFAULT_PODCASTFY_PYTHON = os.environ.get("PODCASTFY_PYTHON", "/home/hermes/.venvs/podcast-pipeline/bin/python")
 DEFAULT_OUTPUT_DIR = os.environ.get("PODCAST_OUTPUT_DIR", "/data/audiobookshelf/podcasts/ai-generated")
+DEFAULT_PODCAST_LIBRARY_ROOT = os.environ.get("PODCAST_LIBRARY_ROOT", "/data/audiobookshelf/podcasts/profiles")
+DEFAULT_PODCAST_PROJECTS_DIR = os.environ.get("PODCAST_PROJECTS_DIR", "/data/audiobookshelf/projects")
 DEFAULT_AUDIOBOOKSHELF_BASE_URL = os.environ.get("AUDIOBOOKSHELF_BASE_URL", "http://127.0.0.1:13378")
 DEFAULT_WIKI_PATH = os.environ.get("WIKI_PATH", "~/sync/wiki")
 
@@ -48,6 +50,24 @@ def current_profile_slug() -> str:
         if path.parent.name == "profiles" and path.name:
             return slugify(path.name)
     return "default"
+
+
+def podcast_library_name(profile_slug: str) -> str:
+    if profile_slug == "default":
+        return "Default Podcasts"
+    return f"{profile_slug.replace('-', ' ').title()} Podcasts"
+
+
+def podcast_project_root_for_profile(base_root: Path, profile_slug: str) -> Path:
+    return base_root / profile_slug
+
+
+def podcast_library_root_for_profile(base_root: Path, profile_slug: str) -> Path:
+    return base_root / profile_slug
+
+
+def dated_slug(value: str) -> str:
+    return f"{dt.date.today().isoformat()}_{slugify(value)}"
 
 
 def repo_script(name: str) -> Path:

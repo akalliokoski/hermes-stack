@@ -85,6 +85,13 @@ class PodcastPipelineCommonArchiveTests(unittest.TestCase):
         self.assertIn("- Pipeline: `podcast-pipeline`", archived_text)
         self.assertIn("- Title: `AI Research Weekly`", archived_text)
 
+    def test_profile_helpers_return_expected_roots_and_names(self):
+        self.assertEqual(ppc.podcast_library_name("default"), "Default Podcasts")
+        self.assertEqual(ppc.podcast_library_name("gemma"), "Gemma Podcasts")
+        self.assertEqual(ppc.podcast_project_root_for_profile(Path("/tmp/projects"), "gemma"), Path("/tmp/projects") / "gemma")
+        self.assertEqual(ppc.podcast_library_root_for_profile(Path("/tmp/podcasts"), "default"), Path("/tmp/podcasts") / "default")
+        self.assertEqual(ppc.dated_slug("AI Research Weekly"), f"{dt.date.today().isoformat()}_ai-research-weekly")
+
 
 if __name__ == "__main__":
     unittest.main()

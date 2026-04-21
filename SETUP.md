@@ -525,7 +525,7 @@ Required env/config for a real run:
 - bootstrap/login fallback: `AUDIOBOOKSHELF_ADMIN_USERNAME`, `AUDIOBOOKSHELF_ADMIN_PASSWORD`
 - optional Audiobookshelf overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`
 - `PODCASTFY_PYTHON` optional if the podcast venv lives somewhere non-default at runtime
-- `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
+- `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_LIBRARY_ROOT=/data/audiobookshelf/podcasts/profiles`, `PODCAST_PROJECTS_DIR=/data/audiobookshelf/projects`.
 - `VIDEO_LIBRARY_ROOT=/data/jellyfin/videos/profiles`, `VIDEO_PROJECTS_DIR=/data/jellyfin/projects`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline` for the Jellyfin explainer workflow. The pipeline now keeps project artifacts out of the served library tree and publishes only clean final MP4/SRT outputs into profile-specific Jellyfin library roots.
 - `scripts/remote-deploy.sh` now installs the required Ubuntu packages for local Manim rendering (`build-essential`, `python3-dev`, `pkg-config`, `libcairo2-dev`, `libpango1.0-dev`, `ffmpeg`) and bootstraps the dedicated venv via `/opt/hermes/scripts/setup-video-pipeline.sh`.
 - `WIKI_PATH=/home/hermes/sync/wiki` if you want transcript/brief archives written somewhere other than the shared synced wiki default.
@@ -540,9 +540,10 @@ The repo tools can:
 - run a two-pass transcript flow (draft JSON -> revision JSON -> local audit)
 - render canonical transcript JSON into Podcastfy-compatible tags
 - still accept existing raw transcript text for backward-compatible runs
-- write the MP3 into `/data/audiobookshelf/podcasts/ai-generated/<episode-title-slug>/`
+- write clean published podcast MP3s into `/data/audiobookshelf/podcasts/profiles/<profile>/<show-slug>/<episode-slug>.mp3`
+- keep transcript/audit/source artifacts under `/data/audiobookshelf/projects/<profile>/<show-slug>/<episode-slug>/`
 - archive generated podcast transcript artifacts into the shared wiki under `raw/transcripts/media/podcasts/`, including structured transcript JSON, audit JSON, and rendered transcript markdown
-- trigger an Audiobookshelf scan
+- trigger an Audiobookshelf scan for the active profile library
 - send a Telegram notification when configured
 - scaffold explainer projects under `/data/jellyfin/projects/<profile>/<series>/<date_slug>/`
 - archive each explainer brief into the shared wiki under `raw/transcripts/media/video-explainers/`
@@ -552,7 +553,7 @@ The repo tools can:
 - keep explainer videos silent by default unless you explicitly opt into narration
 - for narrated explainers, synthesize one clip per scene, measure durations, normalize audio, and let the infographic renderer conform to the manifest-driven timing instead of trimming one monolithic voice track over a finished video
 
-Jellyfin serves the resulting MP4s from `/data/jellyfin/videos` on the host, mounted as `/media/videos` inside the container. `scripts/bootstrap-jellyfin.py` now creates one home-video library per Hermes profile, enables realtime monitoring for each profile library, and points them at `/media/videos/profiles/<profile>`. The video pipeline keeps briefs/manifests/renders under `/data/jellyfin/projects/<profile>/...` and publishes only clean final MP4/SRT outputs into the served library tree.
+Jellyfin serves the resulting MP4s from `/data/jellyfin/videos` on the host, mounted as `/media/videos` inside the container. `scripts/bootstrap-jellyfin.py` now creates one home-video library per Hermes profile, enables realtime monitoring for each profile library, and points them at `/media/videos/profiles/<profile>`. The legacy `AI Generated Videos` library is kept on `/media/videos/ai-generated` so profile libraries do not duplicate those items. The video pipeline keeps briefs/manifests/renders under `/data/jellyfin/projects/<profile>/...` and publishes only clean final MP4/SRT outputs into the served library tree.
 
 ---
 
@@ -566,7 +567,7 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 - `AUDIOBOOKSHELF_TOKEN` for non-interactive scans/verification, or `AUDIOBOOKSHELF_ADMIN_USERNAME` + `AUDIOBOOKSHELF_ADMIN_PASSWORD` as a login/bootstrap fallback.
 - on the VPS itself, `scripts/audiobookshelf_api.py` can also fall back to the local Audiobookshelf SQLite user token cache when explicit auth env vars are absent; explicit env vars are still preferred for portability.
 - optional Audiobookshelf library overrides: `AUDIOBOOKSHELF_LIBRARY_NAME`, `AUDIOBOOKSHELF_PODCASTS_PATH`.
-- `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
+- `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_LIBRARY_ROOT=/data/audiobookshelf/podcasts/profiles`, `PODCAST_PROJECTS_DIR=/data/audiobookshelf/projects`.
 - `VIDEO_LIBRARY_ROOT=/data/jellyfin/videos/profiles`, `VIDEO_PROJECTS_DIR=/data/jellyfin/projects`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline`.
 - optional narrated-explainer overrides: `VIDEO_NARRATION_VOICE=Lucy`, `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`.
 - narrated explainer scaffolds now create `scene_manifest.json` + `narration-script.md`; `render.sh` can synthesize per-scene clips, assemble a normalized master narration track, render infographic scene clips, and emit `captions/final.srt` when a TTS base URL is configured.
