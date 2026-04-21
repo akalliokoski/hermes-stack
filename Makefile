@@ -12,6 +12,8 @@
 #   make logs                         tail hermes-gateway logs via ssh
 #   make logs-all                     tail all compose service logs
 #   make restart                      restart hermes-gateway on the VPS
+#   make restart-gemma                restart hermes-gateway-gemma on the VPS
+#   make restart-both                 restart both default and gemma gateway services on the VPS
 #   make chat                         interactive hermes chat on the VPS
 #   make shell                        bash shell on the VPS as the hermes user
 #   make hermes ARGS="skills"         run a hermes subcommand
@@ -43,7 +45,7 @@
 #   make backup-hindsight             trigger a logical Hindsight SQL dump on the VPS
 #   make restore-hindsight ARGS="..." restore or validate Hindsight dumps on the VPS
 
-.PHONY: up down deploy status logs logs-all restart chat shell hermes \
+.PHONY: up down deploy status logs logs-all restart restart-gemma restart-both chat shell hermes \
         update-agent backup-now snapshots restore clean add-profile sync-souls sync-profiles setup-hindsight \
         detect-env sync-env sync-profiles-local machine-bootstrap verify-env verify-env-local local-up local-down local-chat local-status local-logs \
         local-backup-now local-snapshots local-update-agent local-setup-hindsight export-profile import-profile backup-hindsight restore-hindsight portability-smoke
@@ -82,6 +84,12 @@ logs-all:
 
 restart:
 	ssh $(VPS_HOST) 'sudo systemctl restart hermes-gateway'
+
+restart-gemma:
+	ssh $(VPS_HOST) 'sudo systemctl restart hermes-gateway-gemma'
+
+restart-both:
+	ssh $(VPS_HOST) 'sudo systemctl restart hermes-gateway hermes-gateway-gemma'
 
 chat:
 	ssh -t $(VPS_HOST) 'sudo -iu hermes hermes chat $(ARGS)'
