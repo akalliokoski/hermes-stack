@@ -193,7 +193,7 @@ sudo apt-get update -qq
 sudo apt-get install -y -qq build-essential python3-dev pkg-config libcairo2-dev libpango1.0-dev ffmpeg
 
 log_step "refresh hermes python deps and media tooling"
-sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 \"$(command -v hermes)\" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"; cd /opt/hermes && bash scripts/setup-podcast-pipeline.sh && bash scripts/setup-video-pipeline.sh'
+sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 "$(command -v hermes)" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"; cd /opt/hermes && bash scripts/setup-podcast-pipeline.sh && bash scripts/setup-video-pipeline.sh'
 
 log_step "repair persisted service state"
 HERMES_UID="$HERMES_UID" HERMES_GID="$HERMES_GID" bash scripts/repair-syncthing-volume.sh
