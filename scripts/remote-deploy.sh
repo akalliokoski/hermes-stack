@@ -190,7 +190,7 @@ capture_named_profile_state_after
 
 log_step "install video pipeline system packages"
 sudo apt-get update -qq
-sudo apt-get install -y -qq build-essential python3-dev pkg-config libcairo2-dev libpango1.0-dev ffmpeg
+sudo apt-get install -y -qq ffmpeg
 
 log_step "refresh hermes python deps and media tooling"
 sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 "$(command -v hermes)" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"; cd /opt/hermes && bash scripts/setup-podcast-pipeline.sh && bash scripts/setup-video-pipeline.sh'

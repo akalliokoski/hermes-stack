@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shlex
@@ -17,12 +18,17 @@ from audiobookshelf_api import ensure_library_and_scan
 from podcast_pipeline_common import (
     DEFAULT_OUTPUT_DIR,
     DEFAULT_PODCASTFY_PYTHON,
+    archive_generated_json,
     archive_generated_text,
     final_output_path,
     hermes_binary,
     resolve_tts_base_url,
     show_output_dir,
 )
+from podcast_transcript_audit import audit_transcript
+from podcast_transcript_prompting import build_draft_prompt, build_revision_prompt, build_source_packet
+from podcast_transcript_schema import save_transcript_json, validate_transcript
+from render_podcast_transcript import render_for_podcastfy
 from run_podcastfy_pipeline import run_pipeline
 
 
@@ -79,46 +85,14 @@ def send_telegram_notification(text: str) -> None:
 
 
 
-def build_generation_prompt(title: str, files: list[Path], urls: list[str], topic: str | None, notes: str | None) -> str:
-    file_lines = "\n".join(f"- {path}" for path in files) or "- none"
-    url_lines = "\n".join(f"- {url}" for url in urls) or "- none"
-    topic_line = topic or "none"
-    notes_line = notes or "none"
-    return textwrap.dedent(
-        f"""
-        Create a podcast dialogue transcript for the episode titled: {title}
-
-        Use Hermes tools to read the listed local files and fetch any URLs if needed.
-
-        Local files:
-        {file_lines}
-
-        URLs:
-        {url_lines}
-
-        Topic hint:
-        {topic_line}
-
-        Extra instructions:
-        {notes_line}
-
-        Requirements:
-        - Return ONLY the transcript.
-        - No markdown fences.
-        - No preamble or commentary.
-        - Format as alternating XML-like blocks only:
-          <Person1>...</Person1>
-          <Person2>...</Person2>
-        - Make it sound like a polished two-host podcast.
-        - Keep factual claims grounded in the provided sources.
-        - Target roughly 6 to 12 minutes of spoken audio unless the source volume clearly justifies more.
-        """
-    ).strip()
+def _strip_code_fences(output: str) -> str:
+    cleaned = output.strip()
+    cleaned = re.sub(r"^```(?:json|xml|text)?\s*", "", cleaned)
+    cleaned = re.sub(r"\s*```$", "", cleaned)
+    return cleaned.strip()
 
 
-
-def generate_transcript(title: str, files: list[Path], urls: list[str], topic: str | None, notes: str | None) -> str:
-    prompt = build_generation_prompt(title, files, urls, topic, notes)
+def run_hermes_prompt(prompt: str) -> str:
     cmd = [
         hermes_binary(),
         "chat",
@@ -132,13 +106,114 @@ def generate_transcript(title: str, files: list[Path], urls: list[str], topic: s
     ]
     proc = run(cmd)
     if proc.returncode != 0:
-        raise SystemExit(f"Transcript generation failed:\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}")
-    output = proc.stdout.strip()
-    output = re.sub(r"^```(?:xml|text)?\s*", "", output)
-    output = re.sub(r"\s*```$", "", output)
-    if "<Person1>" not in output or "<Person2>" not in output:
-        raise SystemExit(f"Transcript generation returned unexpected output:\n{output[:2000]}")
-    return output.strip()
+        raise SystemExit(f"Hermes generation failed:\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}")
+    return _strip_code_fences(proc.stdout)
+
+
+def _load_canonical_transcript(raw_output: str, *, artifact_path: Path | None = None) -> dict[str, object]:
+    cleaned = _strip_code_fences(raw_output)
+    if artifact_path is not None:
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_path.write_text(cleaned + "\n", encoding="utf-8")
+    try:
+        payload = json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Hermes returned invalid transcript JSON: {exc}") from exc
+    try:
+        transcript = validate_transcript(payload)
+    except ValueError as exc:
+        raise SystemExit(f"Hermes returned invalid transcript structure: {exc}") from exc
+    return transcript
+
+
+def maybe_render_canonical_transcript_text(raw_text: str) -> str:
+    cleaned = _strip_code_fences(raw_text)
+    if not cleaned.startswith("{"):
+        return raw_text.strip()
+    try:
+        payload = json.loads(cleaned)
+    except json.JSONDecodeError:
+        return raw_text.strip()
+    if not isinstance(payload, dict) or "turns" not in payload:
+        return raw_text.strip()
+    validated = validate_transcript(payload)
+    return render_for_podcastfy(validated)
+
+
+def generate_structured_transcript_artifacts(
+    *,
+    title: str,
+    files: list[Path],
+    urls: list[str],
+    topic: str | None,
+    notes: str | None,
+    artifact_dir: Path,
+    hermes_runner=None,
+) -> dict[str, object]:
+    runner = hermes_runner or run_hermes_prompt
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    source_packet = build_source_packet(files=files, urls=urls, topic=topic, notes=notes)
+    draft_prompt = build_draft_prompt(title=title, source_packet=source_packet)
+    draft_raw = runner(draft_prompt)
+    draft_debug_path = artifact_dir / "transcript-draft-response.txt"
+    draft = _load_canonical_transcript(draft_raw, artifact_path=draft_debug_path)
+
+    draft_path = artifact_dir / "transcript-draft.json"
+    save_transcript_json(draft_path, draft)
+
+    revision_prompt = build_revision_prompt(
+        title=title,
+        source_packet=source_packet,
+        draft_transcript=draft,
+    )
+    final_raw = runner(revision_prompt)
+    final_debug_path = artifact_dir / "transcript-response.txt"
+    transcript = _load_canonical_transcript(final_raw, artifact_path=final_debug_path)
+
+    transcript_path = artifact_dir / "transcript.json"
+    save_transcript_json(transcript_path, transcript)
+
+    audit = audit_transcript(transcript)
+    audit_path = artifact_dir / "transcript-audit.json"
+    audit_path.write_text(json.dumps(audit, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    rendered_text = render_for_podcastfy(transcript)
+    rendered_path = artifact_dir / "transcript.txt"
+    rendered_path.write_text(rendered_text + "\n", encoding="utf-8")
+
+    archive_generated_json(
+        category="podcasts",
+        title=title,
+        data=transcript,
+        artifact_label="transcript-structured",
+        purpose="Archive canonical structured podcast transcript JSON.",
+        pipeline_name="podcast-pipeline",
+    )
+    archive_generated_json(
+        category="podcasts",
+        title=title,
+        data=audit,
+        artifact_label="transcript-audit",
+        purpose="Archive transcript audit results.",
+        pipeline_name="podcast-pipeline",
+    )
+    archive_generated_text(
+        category="podcasts",
+        title=title,
+        content=rendered_text,
+        artifact_label="transcript-rendered",
+        purpose="Archive rendered podcast transcripts in the shared wiki so they are easy to find and reuse.",
+        pipeline_name="podcast-pipeline",
+    )
+
+    return {
+        "draft_path": draft_path,
+        "transcript_path": transcript_path,
+        "audit_path": audit_path,
+        "rendered_path": rendered_path,
+        "audit": audit,
+    }
 
 
 
@@ -194,28 +269,53 @@ def main() -> int:
             inline_path.write_text(args.text, encoding="utf-8")
             source_files.append(inline_path)
 
+        generated_artifacts: dict[str, object] | None = None
+
         if args.transcript:
             transcript_path = Path(args.transcript).expanduser().resolve()
             ensure_file(transcript_path)
-            transcript_text = transcript_path.read_text(encoding="utf-8")
+            transcript_text = maybe_render_canonical_transcript_text(transcript_path.read_text(encoding="utf-8"))
         else:
             if not source_files and not args.url and not args.topic:
                 raise SystemExit("Provide --transcript or at least one source via --source-file, --url, --topic, or --text")
-            transcript_text = generate_transcript(args.title, source_files, args.url, args.topic, args.notes)
-            transcript_path = tmpdir / "generated-transcript.txt"
-            transcript_path.write_text(transcript_text, encoding="utf-8")
+            generated_artifacts = generate_structured_transcript_artifacts(
+                title=args.title,
+                files=source_files,
+                urls=args.url,
+                topic=args.topic,
+                notes=args.notes,
+                artifact_dir=episode_output_dir,
+            )
+            transcript_path = Path(generated_artifacts["transcript_path"])
+            transcript_text = Path(generated_artifacts["rendered_path"]).read_text(encoding="utf-8").strip()
+            wiki_transcript_path = None
 
-        wiki_transcript_path = archive_generated_text(
-            category="podcasts",
-            title=args.title,
-            content=transcript_text,
-            artifact_label="transcript",
-            purpose="Archive podcast transcripts in the shared wiki so they are easy to find and reuse.",
-            pipeline_name="podcast-pipeline",
-        )
+        if generated_artifacts is None:
+            wiki_transcript_path = archive_generated_text(
+                category="podcasts",
+                title=args.title,
+                content=transcript_text,
+                artifact_label="transcript-rendered",
+                purpose="Archive rendered podcast transcripts in the shared wiki so they are easy to find and reuse.",
+                pipeline_name="podcast-pipeline",
+            )
 
         print(f"Transcript ready: {transcript_path}")
-        print(f"Wiki transcript archive: {wiki_transcript_path}")
+        if wiki_transcript_path is not None:
+            print(f"Wiki transcript archive: {wiki_transcript_path}")
+        if generated_artifacts is not None:
+            print(f"Draft transcript: {generated_artifacts['draft_path']}")
+            print(f"Structured transcript: {generated_artifacts['transcript_path']}")
+            print(f"Transcript audit: {generated_artifacts['audit_path']}")
+            print(f"Rendered transcript: {generated_artifacts['rendered_path']}")
+            audit = generated_artifacts["audit"]
+            if isinstance(audit, dict):
+                issue_count = len(audit.get("issues", [])) if isinstance(audit.get("issues"), list) else 0
+                print(f"Audit ok: {audit.get('ok')} ({issue_count} issues)")
+
+        if args.dry_run:
+            print("Dry run complete; skipped audio synthesis.")
+            return 0
 
         if not tts_base_url:
             raise SystemExit("TTS_BASE_URL/CHATTERBOX_BASE_URL or --tts-base-url is required")
@@ -252,9 +352,6 @@ def main() -> int:
             )
         except (FileNotFoundError, RuntimeError) as exc:
             raise SystemExit(f"Audio pipeline failed: {exc}") from exc
-
-        if args.dry_run:
-            return 0
 
         expected_mp3 = final_output_path(args.title, output_dir)
         if final_mp3 != expected_mp3 or not expected_mp3.exists():

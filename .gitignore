@@ -30,3 +30,5 @@ __pycache__/
 # Local scratch artifacts
 /tmp/
 tmp/
+.hermes/plans/
+audio/.audio-work/

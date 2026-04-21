@@ -460,6 +460,10 @@ Canonical repo tools:
 
 ```text
 /opt/hermes/scripts/make-podcast.py
+/opt/hermes/scripts/podcast_transcript_schema.py
+/opt/hermes/scripts/podcast_transcript_prompting.py
+/opt/hermes/scripts/podcast_transcript_audit.py
+/opt/hermes/scripts/render_podcast_transcript.py
 /opt/hermes/scripts/make-manim-video.py
 /opt/hermes/scripts/run_podcastfy_pipeline.py
 /opt/hermes/scripts/audiobookshelf_api.py
@@ -497,6 +501,23 @@ The main orchestration entrypoint is:
 python3 /opt/hermes/scripts/make-podcast.py --title "AI Research Weekly" --source-file /path/to/notes.md --tts-base-url https://<workspace>--hermes-chatterbox-openai.modal.run --dry-run
 ```
 
+The transcript path is now structured-first:
+- `make-podcast.py` builds a source packet from files/URLs/topic/notes
+- Hermes is called twice when generating from sources:
+  - draft pass -> canonical `transcript-draft.json`
+  - revision pass -> canonical `transcript.json`
+- local helpers validate the JSON schema and run a transcript audit, writing `transcript-audit.json`
+- the canonical JSON is rendered to Podcastfy-compatible `<Person1>/<Person2>` dialogue as `transcript.txt`
+- `run_podcastfy_pipeline.py` can consume either old raw transcript text or the canonical JSON transcript directly
+- for generated episodes, the shared wiki now archives:
+  - `*-transcript-structured.json`
+  - `*-transcript-audit.json`
+  - `*-transcript-rendered.md`
+
+Dry-run behavior:
+- `--dry-run` still produces transcript artifacts and audit output
+- `--dry-run` skips TTS/audio synthesis and therefore does not require a TTS base URL
+
 Required env/config for a real run:
 - `TTS_BASE_URL` or `CHATTERBOX_BASE_URL`
 - `AUDIOBOOKSHELF_BASE_URL` optional (defaults to `http://127.0.0.1:13378`)
@@ -515,19 +536,21 @@ Required env/config for a real run:
 - during `scripts/remote-deploy.sh`, repo/runtime env values from `/opt/hermes/.env` (and matching GitHub Actions env/secrets when provided) are loaded before `provision-profile.sh`, then synced into each profile env file such as `/home/hermes/.hermes/.env`. This keeps chat-triggered helpers like `make-podcast.py` able to reuse Audiobookshelf/TTS/Telegram settings non-interactively after deploy.
 
 The repo tools can:
-- ask Hermes to generate the transcript from local files, URLs, inline text, or a topic hint
-- normalize dialogue into Podcastfy-compatible tags
-- write the MP3 into `/data/audiobookshelf/podcasts/ai-generated/<show-slug>/`
-- archive each podcast transcript into the shared wiki under `raw/transcripts/media/podcasts/`
+- ask Hermes to generate a structured transcript from local files, URLs, inline text, or a topic hint
+- run a two-pass transcript flow (draft JSON -> revision JSON -> local audit)
+- render canonical transcript JSON into Podcastfy-compatible tags
+- still accept existing raw transcript text for backward-compatible runs
+- write the MP3 into `/data/audiobookshelf/podcasts/ai-generated/<episode-title-slug>/`
+- archive generated podcast transcript artifacts into the shared wiki under `raw/transcripts/media/podcasts/`, including structured transcript JSON, audit JSON, and rendered transcript markdown
 - trigger an Audiobookshelf scan
 - send a Telegram notification when configured
-- scaffold NotebookLM-style Manim explainer projects under `/data/jellyfin/videos/ai-generated/<series>/<date_slug>/`
+- scaffold NotebookLM-style explainer projects under `/data/jellyfin/videos/ai-generated/<series>/<date_slug>/`
 - archive each explainer brief into the shared wiki under `raw/transcripts/media/video-explainers/`
 - in narrated mode, also write `scene_manifest.json` and `narration-script.md` so narration timing becomes the authoritative spec
 - archive narrated explainer scripts into the shared wiki for later reuse/debugging
-- save `brief.md`, `source-packet.md`, `script.py`, and `render.sh` so Jellyfin-backed video work can start from a repeatable project layout
+- save `brief.md`, `source-packet.md`, `slides.md`, and `render.sh` so Jellyfin-backed video work can start from a repeatable project layout
 - keep explainer videos silent by default unless you explicitly opt into narration
-- for narrated explainers, synthesize one clip per scene, measure durations, normalize audio, and let Manim conform to the manifest-driven timing instead of trimming one monolithic voice track over a finished video
+- for narrated explainers, synthesize one clip per scene, measure durations, normalize audio, and let the infographic renderer conform to the manifest-driven timing instead of trimming one monolithic voice track over a finished video
 
 Jellyfin serves the resulting MP4s from `/data/jellyfin/videos` on the host, mounted as `/media/videos` inside the container. After first launch, create a Jellyfin library that points at `/media/videos` so new explainer projects become browsable once renders are copied into place.
 
@@ -546,8 +569,8 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_OUTPUT_DIR=/data/audiobookshelf/podcasts/ai-generated`.
 - `VIDEO_OUTPUT_DIR=/data/jellyfin/videos/ai-generated`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline`.
 - optional narrated-explainer overrides: `VIDEO_NARRATION_VOICE=Lucy`, `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`.
-- narrated explainer scaffolds now create `scene_manifest.json` + `narration-script.md`; `render.sh` can synthesize per-scene clips, assemble a normalized master narration track, and emit `captions/final.srt` when a TTS base URL is configured.
-- To bootstrap or repair the local Manim runtime manually, run `bash /opt/hermes/scripts/setup-video-pipeline.sh` on the VPS; it provisions `manim==0.20.1` into the dedicated video venv after the required system packages are present. The script expects `uv` on your `PATH` (for Hermes that is typically `~/.local/bin/uv`).
+- narrated explainer scaffolds now create `scene_manifest.json` + `narration-script.md`; `render.sh` can synthesize per-scene clips, assemble a normalized master narration track, render infographic scene clips, and emit `captions/final.srt` when a TTS base URL is configured.
+- To bootstrap or repair the infographic video runtime manually, run `bash /opt/hermes/scripts/setup-video-pipeline.sh` on the VPS; it provisions the dedicated video venv and verifies the ffmpeg-backed renderer path. The script expects `uv` on your `PATH` (for Hermes that is typically `~/.local/bin/uv`).
 - `WIKI_PATH=/home/hermes/sync/wiki` to override where podcast transcripts and explainer briefs are archived.
 - `HF_TOKEN` as the local source of truth for Modal's `hf-token` secret; sync it with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py` before deploys that need Hugging Face auth.
 - optional setup override: `PODCASTFY_VENV=/home/hermes/.venvs/podcast-pipeline` when bootstrapping the podcast venv somewhere else.

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import os
 import re
 import shutil
@@ -83,10 +84,53 @@ def append_wiki_log(subject: str, file_path: Path) -> None:
         )
 
 
-def archive_generated_text(*, category: str, title: str, content: str, artifact_label: str, purpose: str, pipeline_name: str) -> Path:
+def archive_artifact_path(*, category: str, title: str, artifact_label: str, extension: str) -> Path:
     target_dir = wiki_root() / "raw" / "transcripts" / "media" / category
     target_dir.mkdir(parents=True, exist_ok=True)
-    file_path = target_dir / f"{dt.date.today().isoformat()}_{slugify(title)}-{slugify(artifact_label)}.md"
+    normalized_extension = extension if extension.startswith(".") else f".{extension}"
+    return target_dir / f"{dt.date.today().isoformat()}_{slugify(title)}-{slugify(artifact_label)}{normalized_extension}"
+
+
+def build_archive_provenance(*, title: str, artifact_label: str, purpose: str, pipeline_name: str) -> dict[str, str]:
+    return {
+        "captured_on": dt.date.today().isoformat(),
+        "artifact_label": artifact_label,
+        "pipeline_name": pipeline_name,
+        "purpose": purpose,
+        "title": title,
+    }
+
+
+def archive_generated_json(*, category: str, title: str, data: object, artifact_label: str, purpose: str, pipeline_name: str) -> Path:
+    file_path = archive_artifact_path(
+        category=category,
+        title=title,
+        artifact_label=artifact_label,
+        extension=".json",
+    )
+    payload = data if isinstance(data, dict) else {"content": data}
+    archived_payload = dict(payload)
+    archived_payload["provenance"] = build_archive_provenance(
+        title=title,
+        artifact_label=artifact_label,
+        purpose=purpose,
+        pipeline_name=pipeline_name,
+    )
+    file_path.write_text(
+        json.dumps(archived_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    append_wiki_log(f"Generated {artifact_label} | {title}", file_path)
+    return file_path
+
+
+def archive_generated_text(*, category: str, title: str, content: str, artifact_label: str, purpose: str, pipeline_name: str) -> Path:
+    file_path = archive_artifact_path(
+        category=category,
+        title=title,
+        artifact_label=artifact_label,
+        extension=".md",
+    )
     file_path.write_text(
         "\n".join(
             [

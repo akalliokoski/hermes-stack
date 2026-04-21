@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import os
 import re
 import shutil
@@ -16,9 +17,11 @@ from pathlib import Path
 import yaml
 
 from podcast_pipeline_common import DEFAULT_OUTPUT_DIR, resolve_tts_base_url, slugify
+from podcast_transcript_schema import validate_transcript
+from render_podcast_transcript import render_for_podcastfy
 
 
-def normalize_transcript(text: str) -> str:
+def _normalize_raw_transcript(text: str) -> str:
     if "<Person1>" in text or "<Person2>" in text:
         return text
 
@@ -32,6 +35,21 @@ def normalize_transcript(text: str) -> str:
         else:
             converted.append(line)
     return "\n".join(converted)
+
+
+def normalize_transcript(text: str) -> str:
+    stripped = text.strip()
+    if not stripped:
+        return ""
+    if stripped.startswith("{"):
+        try:
+            data = json.loads(stripped)
+        except json.JSONDecodeError:
+            return _normalize_raw_transcript(text)
+        if isinstance(data, dict) and "turns" in data:
+            validated = validate_transcript(data)
+            return render_for_podcastfy(validated)
+    return _normalize_raw_transcript(text)
 
 
 def newest_mp3(output_dir: Path) -> Path:

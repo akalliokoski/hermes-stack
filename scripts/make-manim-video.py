@@ -62,7 +62,7 @@ def build_brief_prompt(title: str, files: list[Path], urls: list[str], topic: st
         Requirements:
         - Return ONLY markdown.
         - No preamble or commentary.
-        - Target a polished, conversational explainer pacing inspired by NotebookLM, but intended for visual execution in Manim.
+        - Target a polished, conversational explainer pacing inspired by NotebookLM, but intended for infographic-style slides and scene cards rather than Manim animation.
         - Ground all claims in the provided sources.
         - Prefer one clear narrative thread over exhaustive coverage.
         - Include these sections exactly:
@@ -80,7 +80,7 @@ def build_brief_prompt(title: str, files: list[Path], urls: list[str], topic: st
         - For each scene, prefer one hero object plus 2 to 3 supporting nodes or states, with explicit arrows, containment, or left-to-right flow where appropriate.
         - For high-density scenes, simplify into compact diagrams instead of stacking many text bullets.
         - In Visual Language, specify palette, typography, pacing, and reusable visual motifs.
-        - In Build Notes, include practical instructions for a Manim implementation and mention where pauses should happen.
+        - In Build Notes, include practical instructions for infographic slide generation and mention where pauses should happen.
         """
     ).strip()
 
@@ -94,7 +94,7 @@ def generate_brief(title: str, files: list[Path], urls: list[str], topic: str | 
         "--source",
         "tool",
         "-s",
-        "manim-video",
+        "video-explainer-pipeline",
         "-q",
         prompt,
     ]
@@ -134,36 +134,16 @@ def write_sources_packet(path: Path, *, source_files: list[Path], urls: list[str
     path.write_text("\n".join(blocks), encoding="utf-8")
 
 
-def write_script_template(path: Path, title: str) -> None:
-    class_name = "Scene1_Introduction"
+def write_slide_notes(path: Path, title: str) -> None:
     content = textwrap.dedent(
         f"""
-        from manim import *
+        # Slide Notes
 
-        BG = "#1C1C1C"
-        PRIMARY = "#58C4DD"
-        SECONDARY = "#83C167"
-        ACCENT = "#FFFF00"
-        MONO = "DejaVu Sans Mono"
+        Title: {title}
 
-
-        class {class_name}(Scene):
-            def construct(self):
-                self.camera.background_color = BG
-                title = Text({title!r}, font=MONO, font_size=42, color=PRIMARY, weight=BOLD)
-                subtitle = Text(
-                    "Replace this scaffold with scenes from brief.md or scene_manifest.json",
-                    font=MONO,
-                    font_size=24,
-                    color=SECONDARY,
-                ).next_to(title, DOWN, buff=0.6)
-                self.add_subcaption({title!r}, duration=2)
-                self.play(Write(title), run_time=1.5)
-                self.wait(1.0)
-                self.play(FadeIn(subtitle, shift=UP * 0.2), run_time=0.8)
-                self.wait(1.5)
-                self.play(FadeOut(VGroup(title, subtitle)), run_time=0.5)
-                self.wait(0.5)
+        Use `scene_manifest.json` as the source of truth for infographic-style slides.
+        Refine the scene goals, motifs, and visual bullets there if the auto-generated slide cards need improvement.
+        `render.sh` will turn the manifest into still slides and scene clips without Manim.
         """
     ).strip() + "\n"
     path.write_text(content, encoding="utf-8")
@@ -186,13 +166,13 @@ def build_narration_script(scene_specs: list[dict[str, str]]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def write_narrated_project_artifacts(project_dir: Path, title: str, brief_text: str) -> tuple[Path, Path]:
+def write_narrated_project_artifacts(project_dir: Path, title: str, brief_text: str, *, narrated: bool = True) -> tuple[Path, Path]:
     scene_specs = extract_scene_specs_from_brief(brief_text)
     narration_script = build_narration_script(scene_specs)
     narration_path = project_dir / "narration-script.md"
     narration_path.write_text(narration_script, encoding="utf-8")
 
-    manifest = create_initial_manifest(title=title, narrated=True, scene_specs=scene_specs)
+    manifest = create_initial_manifest(title=title, narrated=narrated, scene_specs=scene_specs)
     manifest_path = project_dir / "scene_manifest.json"
     save_manifest(manifest_path, manifest)
     return manifest_path, narration_path
@@ -209,7 +189,6 @@ def write_render_script(path: Path, project_dir: Path, title: str) -> None:
         PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
         VIDEO_VENV="${{VIDEO_PIPELINE_VENV:-{DEFAULT_VIDEO_VENV}}}"
         PYTHON_BIN="${{VIDEO_PIPELINE_PYTHON:-${{VIDEO_VENV}}/bin/python}}"
-        MANIM_BIN="${{MANIM_BIN:-${{VIDEO_VENV}}/bin/manim}}"
         QUALITY="${{QUALITY:-ql}}"
         TTS_BASE_URL="${{TTS_BASE_URL:-${{CHATTERBOX_BASE_URL:-}}}}"
         VOICE="${{VIDEO_NARRATION_VOICE:-Lucy}}"
@@ -217,130 +196,76 @@ def write_render_script(path: Path, project_dir: Path, title: str) -> None:
         if [[ ! -f "$AUDIO_TIMELINE_PY" ]]; then
           AUDIO_TIMELINE_PY="/opt/hermes/scripts/video_audio_timeline.py"
         fi
-        RENDER_FROM_MANIFEST_PY="${{RENDER_FROM_MANIFEST_PY:-/home/hermes/work/hermes-stack/scripts/render_manim_from_manifest.py}}"
+        RENDER_FROM_MANIFEST_PY="${{RENDER_FROM_MANIFEST_PY:-/home/hermes/work/hermes-stack/scripts/render_infographic_from_manifest.py}}"
         if [[ ! -f "$RENDER_FROM_MANIFEST_PY" ]]; then
-          RENDER_FROM_MANIFEST_PY="/opt/hermes/scripts/render_manim_from_manifest.py"
+          RENDER_FROM_MANIFEST_PY="/opt/hermes/scripts/render_infographic_from_manifest.py"
         fi
         CLEAN_INTERMEDIATES="${{VIDEO_CLEAN_INTERMEDIATES:-1}}"
         ARTIFACT_ARCHIVE_ROOT="${{VIDEO_RENDER_ARTIFACT_ARCHIVE_ROOT:-/home/hermes/archive/jellyfin-render-artifacts}}"
+        RENDER_DIR="$PROJECT_DIR/render"
+        CONCAT_LIST="$RENDER_DIR/concat-scenes.txt"
         FINAL_OUTPUT="{project_dir / output_name}"
         FINAL_NARRATED_OUTPUT="{project_dir / narrated_name}"
         STITCHED_OUTPUT=0
         NARRATED_OUTPUT=0
-        if [[ "$#" -eq 0 ]]; then
-          SCENES=()
-        else
-          SCENES=("$@")
-        fi
 
         cd "$PROJECT_DIR"
-        if [[ ! -x "$MANIM_BIN" ]]; then
-          echo "manim not found at $MANIM_BIN" >&2
+        if [[ ! -x "$PYTHON_BIN" ]]; then
+          echo "video pipeline python not found at $PYTHON_BIN" >&2
           echo "Bootstrap the local video pipeline first, for example: bash /opt/hermes/scripts/setup-video-pipeline.sh" >&2
           exit 1
         fi
 
-        HAS_MANIFEST=0
-        HAS_NARRATION=0
-        if [[ -f scene_manifest.json ]]; then
-          HAS_MANIFEST=1
-          HAS_NARRATION=$("$PYTHON_BIN" - <<'PY'
+        if [[ ! -f scene_manifest.json ]]; then
+          echo "scene_manifest.json not found in $PROJECT_DIR" >&2
+          exit 1
+        fi
+
+        HAS_NARRATION=$("$PYTHON_BIN" - <<'PY'
 import json
 from pathlib import Path
 manifest = json.loads(Path('scene_manifest.json').read_text(encoding='utf-8'))
 print(sum(1 for scene in manifest.get('scenes', []) if str(scene.get('narration_text', '')).strip()))
 PY
 )
-        fi
 
-        if [[ "$HAS_MANIFEST" -eq 1 && -n "$TTS_BASE_URL" && "$HAS_NARRATION" -gt 0 ]]; then
+        if [[ -n "$TTS_BASE_URL" && "$HAS_NARRATION" -gt 0 ]]; then
           mkdir -p audio captions
           "$PYTHON_BIN" "$AUDIO_TIMELINE_PY" synthesize --manifest scene_manifest.json --tts-base-url "$TTS_BASE_URL" --voice "$VOICE"
           "$PYTHON_BIN" "$AUDIO_TIMELINE_PY" assemble --manifest scene_manifest.json --output audio/master-narration.mp3
           "$PYTHON_BIN" "$AUDIO_TIMELINE_PY" srt --manifest scene_manifest.json --output captions/final.srt
-        elif [[ "$HAS_MANIFEST" -eq 1 && -n "$TTS_BASE_URL" && "$HAS_NARRATION" -eq 0 ]]; then
+        elif [[ -n "$TTS_BASE_URL" && "$HAS_NARRATION" -eq 0 ]]; then
           echo "scene_manifest.json exists but narration_text is empty; skipping TTS and assembly until narration-script.md is filled in." >&2
         fi
 
-        if [[ "$HAS_MANIFEST" -eq 1 ]]; then
-          "$PYTHON_BIN" "$RENDER_FROM_MANIFEST_PY" --manifest scene_manifest.json --output script.py
-        fi
+        "$PYTHON_BIN" "$RENDER_FROM_MANIFEST_PY" --manifest scene_manifest.json --output-dir "$RENDER_DIR"
 
-        if [[ "${{#SCENES[@]}}" -eq 0 ]]; then
-          "$MANIM_BIN" -"$QUALITY" -a script.py
-        else
-          "$MANIM_BIN" -"$QUALITY" script.py "${{SCENES[@]}}"
-        fi
-
-        if [[ "$HAS_MANIFEST" -eq 1 ]]; then
-          case "$QUALITY" in
-            ql|l) QUALITY_SUBDIR="480p15" ;;
-            qm|m) QUALITY_SUBDIR="720p30" ;;
-            qh|h) QUALITY_SUBDIR="1080p60" ;;
-            qp|p) QUALITY_SUBDIR="1440p60" ;;
-            qk|k) QUALITY_SUBDIR="2160p60" ;;
-            *) QUALITY_SUBDIR="" ;;
-          esac
-          QUALITY_DIR="$PROJECT_DIR/media/videos/script"
-          if [[ -n "$QUALITY_SUBDIR" ]]; then
-            QUALITY_DIR="$QUALITY_DIR/$QUALITY_SUBDIR"
-          fi
-          if [[ -d "$QUALITY_DIR" ]]; then
-            CONCAT_LIST="$PROJECT_DIR/concat-scenes.txt"
-            "$PYTHON_BIN" - "$QUALITY_DIR" "${{SCENES[@]}}" <<'PY' > "$CONCAT_LIST"
-import json
-import re
-import sys
-from pathlib import Path
-
-quality_dir = Path(sys.argv[1])
-selected = sys.argv[2:]
-manifest = json.loads(Path('scene_manifest.json').read_text(encoding='utf-8'))
-
-def class_name(scene_id: str) -> str:
-    parts = [part for part in re.split(r'[^A-Za-z0-9]+', scene_id) if part]
-    name = ''.join(part.title() for part in parts) or 'Scene'
-    if name and name[0].isdigit():
-        name = f'Scene{{name}}'
-    return name
-
-def normalized_name(value: str) -> str:
-    candidate = (quality_dir / f"{{value}}.mp4").resolve()
-    if candidate.exists():
-        return value
-    return class_name(value)
-
-scene_names = [normalized_name(value) for value in selected] if selected else [class_name(scene['scene_id']) for scene in manifest.get('scenes', [])]
-for scene_name in scene_names:
-    clip_path = (quality_dir / f"{{scene_name}}.mp4").resolve()
-    if not clip_path.exists():
-        raise SystemExit(f"missing rendered scene: {{clip_path}}")
-    print(f"file '{{clip_path.as_posix()}}'")
-PY
-            ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i "$CONCAT_LIST" -c copy "$FINAL_OUTPUT"
-            STITCHED_OUTPUT=1
-            if [[ "$HAS_NARRATION" -gt 0 && -f audio/master-narration.mp3 ]]; then
-              ffmpeg -y -hide_banner -loglevel error -i "$FINAL_OUTPUT" -i audio/master-narration.mp3 -c:v copy -c:a aac -b:a 192k -shortest "$FINAL_NARRATED_OUTPUT"
-              NARRATED_OUTPUT=1
-            fi
-            if [[ "$CLEAN_INTERMEDIATES" == "1" ]]; then
-              ARCHIVE_TARGET="$ARTIFACT_ARCHIVE_ROOT/$(basename "$PROJECT_DIR")"
-              mkdir -p "$ARCHIVE_TARGET"
-              for artifact in media __pycache__; do
-                if [[ -e "$PROJECT_DIR/$artifact" ]]; then
-                  rm -rf "$ARCHIVE_TARGET/$artifact"
-                  mv "$PROJECT_DIR/$artifact" "$ARCHIVE_TARGET/$artifact"
-                fi
-              done
-            fi
+        if [[ -s "$CONCAT_LIST" ]]; then
+          ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i "$CONCAT_LIST" -c copy "$FINAL_OUTPUT"
+          STITCHED_OUTPUT=1
+          if [[ "$HAS_NARRATION" -gt 0 && -f audio/master-narration.mp3 ]]; then
+            ffmpeg -y -hide_banner -loglevel error -i "$FINAL_OUTPUT" -i audio/master-narration.mp3 -c:v copy -c:a aac -b:a 192k -shortest "$FINAL_NARRATED_OUTPUT"
+            NARRATED_OUTPUT=1
           fi
         fi
+
+        if [[ "$CLEAN_INTERMEDIATES" == "1" ]]; then
+          ARCHIVE_TARGET="$ARTIFACT_ARCHIVE_ROOT/$(basename "$PROJECT_DIR")"
+          mkdir -p "$ARCHIVE_TARGET"
+          for artifact in __pycache__; do
+            if [[ -e "$PROJECT_DIR/$artifact" ]]; then
+              rm -rf "$ARCHIVE_TARGET/$artifact"
+              mv "$PROJECT_DIR/$artifact" "$ARCHIVE_TARGET/$artifact"
+            fi
+          done
+        fi
+
         echo
         if [[ "$STITCHED_OUTPUT" -eq 1 && -f "$FINAL_OUTPUT" ]]; then
           echo "Final stitched MP4:"
           echo "  $FINAL_OUTPUT"
         else
-          echo "Rendered scene files are available under media/videos/script; no stitched MP4 was produced."
+          echo "Rendered scene clips are available under $RENDER_DIR/clips; no stitched MP4 was produced."
         fi
 
         if [[ "$NARRATED_OUTPUT" -eq 1 && -f "$FINAL_NARRATED_OUTPUT" ]]; then
@@ -355,7 +280,7 @@ PY
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Create a NotebookLM-style Manim explainer project scaffold for Jellyfin")
+    parser = argparse.ArgumentParser(description="Create a NotebookLM-style explainer project scaffold for infographic-style scenes and Jellyfin delivery")
     parser.add_argument("--title", required=True)
     parser.add_argument("--brief-file", help="Existing markdown brief to copy into the project")
     parser.add_argument("--source-file", action="append", default=[], help="Local source text/markdown files")
@@ -448,12 +373,10 @@ def main() -> int:
         notes=args.notes,
         inline_text=args.text,
     )
-    write_script_template(project_dir / "script.py", args.title)
+    write_slide_notes(project_dir / "slides.md", args.title)
     narration_archive_path: Path | None = None
-    manifest_path: Path | None = None
-    narration_path: Path | None = None
+    manifest_path, narration_path = write_narrated_project_artifacts(project_dir, args.title, brief_text, narrated=args.with_audio)
     if args.with_audio:
-        manifest_path, narration_path = write_narrated_project_artifacts(project_dir, args.title, brief_text)
         narration_archive_path = archive_generated_text(
             category="video-explainers",
             title=args.title,
@@ -471,9 +394,9 @@ def main() -> int:
             # {args.title}
 
             - Read `brief.md` first.
-            - Silent mode: translate the Scene Plan into Manim scene classes or refine `script.py`.
+            - Use `scene_manifest.json` as the source of truth for infographic-style slides and scene cards.
             - Narrated mode: treat `scene_manifest.json` and `narration-script.md` as the timing authority.
-            - If narration is enabled, calibrate the production voice, synthesize one clip per scene, and let Manim conform to the measured scene timings.
+            - If narration is enabled, calibrate the production voice, synthesize one clip per scene, and let the infographic renderer conform to the measured scene timings.
             - Keep final renders under this project directory.
             - Default mode is silent video; add narration only if explicitly desired.
             - Audio intent: {'narration-spec-first narrated explainer' if args.with_audio else 'no audio by default'}.
@@ -485,7 +408,7 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    print(f"Created Manim explainer project: {project_dir}")
+    print(f"Created explainer project: {project_dir}")
     print(f"Brief: {project_dir / 'brief.md'}")
     print(f"Wiki brief archive: {wiki_brief_path}")
     if manifest_path:
@@ -495,6 +418,7 @@ def main() -> int:
     if narration_archive_path:
         print(f"Wiki narration archive: {narration_archive_path}")
     print(f"Source packet: {project_dir / 'source-packet.md'}")
+    print(f"Slide notes: {project_dir / 'slides.md'}")
     print(f"Render helper: {project_dir / 'render.sh'}")
     print(f"Jellyfin library root: {output_dir}")
     return 0
