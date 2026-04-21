@@ -68,6 +68,72 @@ class VideoSceneManifestTests(unittest.TestCase):
         specs = vsm.extract_scene_specs_from_brief(brief)
         self.assertEqual([spec["scene_id"] for spec in specs], ["scene-01-intro", "scene-02-outro"])
 
+    def test_extract_scene_specs_from_structured_scene_sections(self):
+        brief = """# Overview
+
+Demo.
+
+# Scene Plan
+
+## Scene `S1_request_to_pipeline`
+- Goal: Introduce the user-facing promise.
+- On-screen visuals:
+  - A single prompt card labeled \"How Hermes Builds Video Explainers\"
+  - Four stage tiles: Brief, Scaffold, Render, Deliver
+- Narration beats:
+  - Hermes treats the request as a pipeline.
+  - Each stage lights up in order.
+
+## Scene `S2_sources_become_brief`
+- Goal: Show sources condensing into a brief.
+- On-screen visuals:
+  - Source cards collapse into `brief.md`
+- Narration beats:
+  - Hermes reads the files first.
+
+# Build Notes
+
+Done.
+"""
+        specs = vsm.extract_scene_specs_from_brief(brief)
+        self.assertEqual([spec["scene_id"] for spec in specs], ["S1_request_to_pipeline", "S2_sources_become_brief"])
+        self.assertEqual(specs[0]["goal"], "Introduce the user-facing promise.")
+        self.assertEqual(
+            specs[0]["visual_motif"],
+            'A single prompt card labeled "How Hermes Builds Video Explainers"',
+        )
+        self.assertEqual(
+            specs[0]["visual_bullets"],
+            [
+                'A single prompt card labeled "How Hermes Builds Video Explainers"',
+                "Four stage tiles: Brief, Scaffold, Render, Deliver",
+            ],
+        )
+        self.assertEqual(
+            specs[0]["narration_text"],
+            "Hermes treats the request as a pipeline. Each stage lights up in order.",
+        )
+
+    def test_extract_scene_specs_from_plain_scene_sections(self):
+        brief = """# Scene Plan
+
+## Scene S1_request_to_pipeline: Request becomes pipeline
+- Goal: Show the prompt becoming a flow.
+- On-screen visuals:
+  - Prompt card
+  - Stage rail
+
+## Scene S2_sources_become_brief - Sources collapse into brief
+- Goal: Compress sources.
+- On-screen visuals:
+  - Source cards
+  - brief.md card
+"""
+        specs = vsm.extract_scene_specs_from_brief(brief)
+        self.assertEqual([spec["scene_id"] for spec in specs], ["S1_request_to_pipeline", "S2_sources_become_brief"])
+        self.assertEqual(specs[0]["goal"], "Show the prompt becoming a flow.")
+        self.assertEqual(specs[1]["visual_bullets"], ["Source cards", "brief.md card"])
+
 
 if __name__ == "__main__":
     unittest.main()

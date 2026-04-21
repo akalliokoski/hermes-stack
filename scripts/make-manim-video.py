@@ -76,6 +76,9 @@ def build_brief_prompt(title: str, files: list[Path], urls: list[str], topic: st
           # Optional Narration Draft
           # Build Notes
         - In Scene Plan, provide 5 to 9 scenes with scene ids, goals, on-screen visuals, and narration beats.
+        - In on-screen visuals, prefer short visual labels and noun phrases over long prose.
+        - For each scene, prefer one hero object plus 2 to 3 supporting nodes or states, with explicit arrows, containment, or left-to-right flow where appropriate.
+        - For high-density scenes, simplify into compact diagrams instead of stacking many text bullets.
         - In Visual Language, specify palette, typography, pacing, and reusable visual motifs.
         - In Build Notes, include practical instructions for a Manim implementation and mention where pauses should happen.
         """
@@ -141,7 +144,7 @@ def write_script_template(path: Path, title: str) -> None:
         PRIMARY = "#58C4DD"
         SECONDARY = "#83C167"
         ACCENT = "#FFFF00"
-        MONO = "Menlo"
+        MONO = "DejaVu Sans Mono"
 
 
         class {class_name}(Scene):
@@ -210,6 +213,16 @@ def write_render_script(path: Path, project_dir: Path, title: str) -> None:
         QUALITY="${{QUALITY:-ql}}"
         TTS_BASE_URL="${{TTS_BASE_URL:-${{CHATTERBOX_BASE_URL:-}}}}"
         VOICE="${{VIDEO_NARRATION_VOICE:-Lucy}}"
+        AUDIO_TIMELINE_PY="${{VIDEO_AUDIO_TIMELINE_PY:-/home/hermes/work/hermes-stack/scripts/video_audio_timeline.py}}"
+        if [[ ! -f "$AUDIO_TIMELINE_PY" ]]; then
+          AUDIO_TIMELINE_PY="/opt/hermes/scripts/video_audio_timeline.py"
+        fi
+        RENDER_FROM_MANIFEST_PY="${{RENDER_FROM_MANIFEST_PY:-/home/hermes/work/hermes-stack/scripts/render_manim_from_manifest.py}}"
+        if [[ ! -f "$RENDER_FROM_MANIFEST_PY" ]]; then
+          RENDER_FROM_MANIFEST_PY="/opt/hermes/scripts/render_manim_from_manifest.py"
+        fi
+        CLEAN_INTERMEDIATES="${{VIDEO_CLEAN_INTERMEDIATES:-1}}"
+        ARTIFACT_ARCHIVE_ROOT="${{VIDEO_RENDER_ARTIFACT_ARCHIVE_ROOT:-/home/hermes/archive/jellyfin-render-artifacts}}"
         FINAL_OUTPUT="{project_dir / output_name}"
         FINAL_NARRATED_OUTPUT="{project_dir / narrated_name}"
         STITCHED_OUTPUT=0
@@ -242,15 +255,15 @@ PY
 
         if [[ "$HAS_MANIFEST" -eq 1 && -n "$TTS_BASE_URL" && "$HAS_NARRATION" -gt 0 ]]; then
           mkdir -p audio captions
-          "$PYTHON_BIN" /opt/hermes/scripts/video_audio_timeline.py synthesize --manifest scene_manifest.json --tts-base-url "$TTS_BASE_URL" --voice "$VOICE"
-          "$PYTHON_BIN" /opt/hermes/scripts/video_audio_timeline.py assemble --manifest scene_manifest.json --output audio/master-narration.mp3
-          "$PYTHON_BIN" /opt/hermes/scripts/video_audio_timeline.py srt --manifest scene_manifest.json --output captions/final.srt
+          "$PYTHON_BIN" "$AUDIO_TIMELINE_PY" synthesize --manifest scene_manifest.json --tts-base-url "$TTS_BASE_URL" --voice "$VOICE"
+          "$PYTHON_BIN" "$AUDIO_TIMELINE_PY" assemble --manifest scene_manifest.json --output audio/master-narration.mp3
+          "$PYTHON_BIN" "$AUDIO_TIMELINE_PY" srt --manifest scene_manifest.json --output captions/final.srt
         elif [[ "$HAS_MANIFEST" -eq 1 && -n "$TTS_BASE_URL" && "$HAS_NARRATION" -eq 0 ]]; then
           echo "scene_manifest.json exists but narration_text is empty; skipping TTS and assembly until narration-script.md is filled in." >&2
         fi
 
         if [[ "$HAS_MANIFEST" -eq 1 ]]; then
-          "$PYTHON_BIN" /opt/hermes/scripts/render_manim_from_manifest.py --manifest scene_manifest.json --output script.py
+          "$PYTHON_BIN" "$RENDER_FROM_MANIFEST_PY" --manifest scene_manifest.json --output script.py
         fi
 
         if [[ "${{#SCENES[@]}}" -eq 0 ]]; then
@@ -276,6 +289,7 @@ PY
             CONCAT_LIST="$PROJECT_DIR/concat-scenes.txt"
             "$PYTHON_BIN" - "$QUALITY_DIR" "${{SCENES[@]}}" <<'PY' > "$CONCAT_LIST"
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -284,7 +298,11 @@ selected = sys.argv[2:]
 manifest = json.loads(Path('scene_manifest.json').read_text(encoding='utf-8'))
 
 def class_name(scene_id: str) -> str:
-    return ''.join(part.title() for part in scene_id.replace('_', '-').split('-')) or 'Scene'
+    parts = [part for part in re.split(r'[^A-Za-z0-9]+', scene_id) if part]
+    name = ''.join(part.title() for part in parts) or 'Scene'
+    if name and name[0].isdigit():
+        name = f'Scene{{name}}'
+    return name
 
 def normalized_name(value: str) -> str:
     candidate = (quality_dir / f"{{value}}.mp4").resolve()
@@ -304,6 +322,16 @@ PY
             if [[ "$HAS_NARRATION" -gt 0 && -f audio/master-narration.mp3 ]]; then
               ffmpeg -y -hide_banner -loglevel error -i "$FINAL_OUTPUT" -i audio/master-narration.mp3 -c:v copy -c:a aac -b:a 192k -shortest "$FINAL_NARRATED_OUTPUT"
               NARRATED_OUTPUT=1
+            fi
+            if [[ "$CLEAN_INTERMEDIATES" == "1" ]]; then
+              ARCHIVE_TARGET="$ARTIFACT_ARCHIVE_ROOT/$(basename "$PROJECT_DIR")"
+              mkdir -p "$ARCHIVE_TARGET"
+              for artifact in media __pycache__; do
+                if [[ -e "$PROJECT_DIR/$artifact" ]]; then
+                  rm -rf "$ARCHIVE_TARGET/$artifact"
+                  mv "$PROJECT_DIR/$artifact" "$ARCHIVE_TARGET/$artifact"
+                fi
+              done
             fi
           fi
         fi

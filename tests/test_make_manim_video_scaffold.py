@@ -44,15 +44,22 @@ class MakeManimVideoScaffoldTests(unittest.TestCase):
             self.assertIn('STITCHED_OUTPUT=0', render_text)
             self.assertIn('NARRATED_OUTPUT=0', render_text)
             self.assertIn('"$MANIM_BIN" -"$QUALITY" -a script.py', render_text)
-            self.assertIn('video_audio_timeline.py synthesize', render_text)
-            self.assertIn('render_manim_from_manifest.py --manifest scene_manifest.json --output script.py', render_text)
+            self.assertIn('AUDIO_TIMELINE_PY="${VIDEO_AUDIO_TIMELINE_PY:-/home/hermes/work/hermes-stack/scripts/video_audio_timeline.py}"', render_text)
+            self.assertIn('"$PYTHON_BIN" "$AUDIO_TIMELINE_PY" synthesize', render_text)
+            self.assertIn('RENDER_FROM_MANIFEST_PY="${RENDER_FROM_MANIFEST_PY:-/home/hermes/work/hermes-stack/scripts/render_manim_from_manifest.py}"', render_text)
+            self.assertIn('import re', render_text)
+            self.assertIn("parts = [part for part in re.split(r'[^A-Za-z0-9]+', scene_id) if part]", render_text)
+            self.assertIn('"$PYTHON_BIN" "$RENDER_FROM_MANIFEST_PY" --manifest scene_manifest.json --output script.py', render_text)
             self.assertIn('CONCAT_LIST="$PROJECT_DIR/concat-scenes.txt"', render_text)
             self.assertIn('case "$QUALITY" in', render_text)
             self.assertIn('QUALITY_SUBDIR="480p15"', render_text)
             self.assertIn('def normalized_name(value: str) -> str:', render_text)
             self.assertIn('ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i "$CONCAT_LIST" -c copy "$FINAL_OUTPUT"', render_text)
             self.assertIn('ffmpeg -y -hide_banner -loglevel error -i "$FINAL_OUTPUT" -i audio/master-narration.mp3 -c:v copy -c:a aac -b:a 192k -shortest "$FINAL_NARRATED_OUTPUT"', render_text)
-            self.assertLess(render_text.index('video_audio_timeline.py synthesize'), render_text.index('render_manim_from_manifest.py --manifest scene_manifest.json --output script.py'))
+            self.assertLess(
+                render_text.index('"$PYTHON_BIN" "$AUDIO_TIMELINE_PY" synthesize'),
+                render_text.index('"$PYTHON_BIN" "$RENDER_FROM_MANIFEST_PY" --manifest scene_manifest.json --output script.py'),
+            )
 
 
 if __name__ == "__main__":
