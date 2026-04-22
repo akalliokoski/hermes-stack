@@ -23,7 +23,6 @@ from podcast_pipeline_common import (
     archive_generated_json,
     archive_generated_text,
     current_profile_slug,
-    dated_slug,
     hermes_binary,
     podcast_library_name,
     podcast_library_root_for_profile,
@@ -51,10 +50,10 @@ def ensure_file(path: Path) -> None:
 def transcript_identity(*, title: str, transcript: dict[str, object] | None = None) -> tuple[str, str]:
     if transcript:
         show_slug = str(transcript.get("show_slug") or "").strip() or slugify(title)
-        episode_slug = str(transcript.get("episode_slug") or "").strip() or dated_slug(title)
+        episode_slug = str(transcript.get("episode_slug") or "").strip() or slugify(title)
         return show_slug, episode_slug
     fallback_slug = slugify(title)
-    return fallback_slug, dated_slug(title)
+    return fallback_slug, fallback_slug
 
 
 def project_dir_for_episode(*, projects_root: Path, profile_slug: str, show_slug: str, episode_slug: str) -> Path:
@@ -66,7 +65,9 @@ def publish_dir_for_show(*, library_root: Path, profile_slug: str, show_slug: st
 
 
 def final_episode_audio_path(*, publish_dir: Path, episode_slug: str) -> Path:
-    published_slug = episode_slug if re.match(r"^\d{4}-\d{2}-\d{2}_", episode_slug) else dated_slug(episode_slug)
+    published_slug = re.sub(r"[^a-zA-Z0-9._-]+", "-", episode_slug.strip()).strip("-._")
+    if not published_slug:
+        raise SystemExit("episode_slug resolved to an empty filename stem")
     return publish_dir / f"{published_slug}.mp3"
 
 
@@ -120,9 +121,17 @@ def _strip_code_fences(output: str) -> str:
     return cleaned.strip()
 
 
+def hermes_profile_args() -> list[str]:
+    profile_slug = current_profile_slug()
+    if not profile_slug or profile_slug == "default":
+        return []
+    return ["--profile", profile_slug]
+
+
 def run_hermes_prompt(prompt: str) -> str:
     cmd = [
         hermes_binary(),
+        *hermes_profile_args(),
         "chat",
         "-Q",
         "--source",
@@ -154,18 +163,16 @@ def _load_canonical_transcript(raw_output: str, *, artifact_path: Path | None = 
     return transcript
 
 
-def maybe_render_canonical_transcript_text(raw_text: str) -> str:
+def load_and_render_canonical_transcript_text(raw_text: str) -> tuple[dict[str, object], str]:
     cleaned = _strip_code_fences(raw_text)
-    if not cleaned.startswith("{"):
-        return raw_text.strip()
     try:
         payload = json.loads(cleaned)
-    except json.JSONDecodeError:
-        return raw_text.strip()
+    except json.JSONDecodeError as exc:
+        raise SystemExit("Legacy raw podcast transcripts are no longer supported. Provide canonical transcript JSON only.") from exc
     if not isinstance(payload, dict) or "turns" not in payload:
-        return raw_text.strip()
+        raise SystemExit("Transcript input must be canonical podcast transcript JSON with a turns array.")
     validated = validate_transcript(payload)
-    return render_for_podcastfy(validated)
+    return validated, render_for_podcastfy(validated)
 
 
 def generate_structured_transcript_artifacts(
@@ -258,7 +265,7 @@ def scan_audiobookshelf(profile_slug: str) -> bool:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Generate a podcast episode and publish it to Audiobookshelf")
     parser.add_argument("--title", required=True)
-    parser.add_argument("--transcript", help="Existing transcript file with <Person1>/<Person2> tags or HOST_A/HOST_B lines")
+    parser.add_argument("--transcript", help="Existing canonical transcript JSON file")
     parser.add_argument("--source-file", action="append", default=[], help="Local source text/markdown files for Hermes to read")
     parser.add_argument("--url", action="append", default=[], help="Source URLs for Hermes to fetch")
     parser.add_argument("--topic", help="Optional topic hint for transcript generation")
@@ -308,13 +315,7 @@ def main() -> int:
             transcript_path = Path(args.transcript).expanduser().resolve()
             ensure_file(transcript_path)
             raw_transcript = transcript_path.read_text(encoding="utf-8")
-            transcript_text = maybe_render_canonical_transcript_text(raw_transcript)
-            try:
-                payload = json.loads(_strip_code_fences(raw_transcript))
-                if isinstance(payload, dict) and "turns" in payload:
-                    canonical_transcript = validate_transcript(payload)
-            except (json.JSONDecodeError, ValueError):
-                canonical_transcript = None
+            canonical_transcript, transcript_text = load_and_render_canonical_transcript_text(raw_transcript)
         else:
             if not source_files and not args.url and not args.topic:
                 raise SystemExit("Provide --transcript or at least one source via --source-file, --url, --topic, or --text")

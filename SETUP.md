@@ -486,6 +486,19 @@ python3 /opt/hermes/scripts/sync-modal-hf-secret.py
 
 That keeps `HF_TOKEN` in the main Hermes `.env` as the local source of truth while still copying it into Modal's required remote secret.
 
+For distinct two-host production voices, the Modal volume must contain real prompt WAVs for both host aliases. The canonical shape is:
+
+```text
+/voices/chatterbox-tts-voices/prompts/female.wav
+/voices/chatterbox-tts-voices/prompts/male.wav
+```
+
+The deployed helper resolves aliases deterministically as:
+- `female` / `shimmer` / `nova` -> `female.wav`
+- `male` / `echo` / `alloy` -> `male.wav`
+
+If one of those canonical alias groups is requested but the corresponding prompt file is missing, the API now returns an explicit error instead of silently collapsing both speakers onto `Lucy.wav`.
+
 Deploy the Modal app from the VPS after authenticating with Modal (`modal setup`), for example:
 
 ```bash
@@ -508,7 +521,7 @@ The transcript path is now structured-first:
   - revision pass -> canonical `transcript.json`
 - local helpers validate the JSON schema and run a transcript audit, writing `transcript-audit.json`
 - the canonical JSON is rendered to Podcastfy-compatible `<Person1>/<Person2>` dialogue as `transcript.txt`
-- `run_podcastfy_pipeline.py` can consume either old raw transcript text or the canonical JSON transcript directly
+- `run_podcastfy_pipeline.py` accepts canonical transcript JSON only; legacy raw `HOST_A:` / `HOST_B:` transcript text now hard-fails
 - for generated episodes, the shared wiki now archives:
   - `*-transcript-structured.json`
   - `*-transcript-audit.json`
@@ -532,14 +545,16 @@ Required env/config for a real run:
 - `HF_TOKEN` if your Modal Chatterbox deploy needs Hugging Face auth (sync it into Modal with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py`)
 - `PODCASTFY_VENV` optional when bootstrapping the podcast helper venv somewhere else
 - optional `TELEGRAM_BOT_TOKEN` + `TELEGRAM_HOME_CHANNEL` for ready notifications
-- optional legacy fallback: `KOKORO_BASE_URL`
+- `PODCAST_VOICE_PERSON1=shimmer` and `PODCAST_VOICE_PERSON2=echo` keep Person1/HOST_A on the female alias and Person2/HOST_B on the male alias end-to-end
+- optional legacy/local fallback transport only: `KOKORO_BASE_URL`
 - during `scripts/remote-deploy.sh`, repo/runtime env values from `/opt/hermes/.env` (and matching GitHub Actions env/secrets when provided) are loaded before `provision-profile.sh`, then synced into each profile env file such as `/home/hermes/.hermes/.env`. This keeps chat-triggered helpers like `make-podcast.py` able to reuse Audiobookshelf/TTS/Telegram settings non-interactively after deploy.
 
 The repo tools can:
 - ask Hermes to generate a structured transcript from local files, URLs, inline text, or a topic hint
 - run a two-pass transcript flow (draft JSON -> revision JSON -> local audit)
 - render canonical transcript JSON into Podcastfy-compatible tags
-- still accept existing raw transcript text for backward-compatible runs
+- require canonical transcript JSON for all transcript inputs
+- publish order-first filenames directly from `episode_slug` without auto-prepending a date
 - write clean published podcast MP3s into `/data/audiobookshelf/podcasts/profiles/<profile>/<show-slug>/<episode-slug>.mp3`
 - keep transcript/audit/source artifacts under `/data/audiobookshelf/projects/<profile>/<show-slug>/<episode-slug>/`
 - archive generated podcast transcript artifacts into the shared wiki under `raw/transcripts/media/podcasts/`, including structured transcript JSON, audit JSON, and rendered transcript markdown

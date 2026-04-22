@@ -30,8 +30,11 @@ This keeps podcastfy's merge step compatible with the Modal backend.
 
 from __future__ import annotations
 
+import hashlib
 import io
+import os
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 import modal
@@ -39,6 +42,15 @@ import modal
 APP_NAME = "hermes-chatterbox-openai"
 VOICE_ROOT = "/voices"
 DEFAULT_VOICE_FILE = "Lucy.wav"
+STRICT_ALIAS_GROUPS = {"female", "male", "shimmer", "nova", "echo", "alloy"}
+VOICE_ALIAS_CANDIDATES = {
+    "female": ["female.wav", "Female.wav", "Lucy.wav"],
+    "shimmer": ["female.wav", "Female.wav", "Lucy.wav", "shimmer.wav", "Shimmer.wav"],
+    "nova": ["female.wav", "Female.wav", "Lucy.wav", "nova.wav", "Nova.wav"],
+    "male": ["male.wav", "Male.wav", "Adam.wav", "adam.wav"],
+    "echo": ["male.wav", "Male.wav", "Adam.wav", "adam.wav", "echo.wav", "Echo.wav"],
+    "alloy": ["male.wav", "Male.wav", "Adam.wav", "adam.wav", "alloy.wav", "Alloy.wav"],
+}
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -63,28 +75,158 @@ with image.imports():
     MODEL = None
 
 
-def resolve_voice_prompt(voice_name: str | None) -> str | None:
-    if not voice_name:
-        voice_name = "Lucy"
+def voice_search_roots() -> list[Path]:
+    return [
+        Path(VOICE_ROOT),
+        Path(VOICE_ROOT) / "chatterbox-tts-voices" / "prompts",
+    ]
 
-    requested = voice_name.strip()
-    if not requested:
-        requested = "Lucy"
-    filename = requested if requested.lower().endswith(".wav") else f"{requested}.wav"
 
-    direct = Path(VOICE_ROOT) / filename
-    if direct.exists():
-        return str(direct)
+def available_prompt_files() -> list[str]:
+    prompts: list[str] = []
+    seen: set[str] = set()
+    for root in voice_search_roots():
+        if not root.exists():
+            continue
+        for candidate in sorted(root.glob("*.wav")):
+            if candidate.name in seen:
+                continue
+            prompts.append(str(candidate))
+            seen.add(candidate.name)
+    return prompts
 
-    nested = Path(VOICE_ROOT) / "chatterbox-tts-voices" / "prompts" / filename
-    if nested.exists():
-        return str(nested)
 
-    fallback = Path(VOICE_ROOT) / "chatterbox-tts-voices" / "prompts" / DEFAULT_VOICE_FILE
-    if fallback.exists():
-        return str(fallback)
+def resolve_voice_prompt(voice_name: str | None) -> dict[str, object]:
+    requested = (voice_name or "Lucy").strip() or "Lucy"
+    requested_lower = requested.lower()
 
-    return None
+    filename_candidates = VOICE_ALIAS_CANDIDATES.get(requested_lower)
+    resolution = "exact"
+    if filename_candidates:
+        resolution = requested_lower
+    else:
+        filename_candidates = [requested if requested_lower.endswith(".wav") else f"{requested}.wav"]
+
+    for filename in filename_candidates:
+        for root in voice_search_roots():
+            candidate = root / filename
+            if candidate.exists():
+                return {
+                    "requested_voice": requested,
+                    "resolution": resolution,
+                    "candidate_files": filename_candidates,
+                    "resolved_prompt": str(candidate),
+                    "used_fallback": False,
+                    "error": None,
+                }
+
+    if requested_lower in STRICT_ALIAS_GROUPS:
+        canonical_target = "female.wav" if requested_lower in {"female", "shimmer", "nova"} else "male.wav"
+        return {
+            "requested_voice": requested,
+            "resolution": resolution,
+            "candidate_files": filename_candidates,
+            "resolved_prompt": None,
+            "used_fallback": False,
+            "error": (
+                f"Voice alias '{requested}' requires a distinct prompt file. "
+                f"Upload one of {filename_candidates} to the Modal volume (canonical target: {canonical_target})."
+            ),
+        }
+
+    for root in voice_search_roots():
+        fallback = root / DEFAULT_VOICE_FILE
+        if fallback.exists():
+            return {
+                "requested_voice": requested,
+                "resolution": "fallback",
+                "candidate_files": filename_candidates,
+                "resolved_prompt": str(fallback),
+                "used_fallback": True,
+                "error": None,
+            }
+
+    return {
+        "requested_voice": requested,
+        "resolution": resolution,
+        "candidate_files": filename_candidates,
+        "resolved_prompt": None,
+        "used_fallback": False,
+        "error": f"No voice prompt files found under {VOICE_ROOT}",
+    }
+
+
+def file_sha256(path: Path, chunk_size: int = 1024 * 1024) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(chunk_size)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def inspect_prompt_file(path_str: str | None, target_sr: int | None = None) -> dict[str, object]:
+    info: dict[str, object] = {
+        "path": path_str,
+        "exists": False,
+        "size_bytes": None,
+        "sha256": None,
+        "target_sr": target_sr,
+        "librosa_native": None,
+        "librosa_target": None,
+        "soundfile": None,
+        "error": None,
+    }
+    if not path_str:
+        info["error"] = "No prompt path provided"
+        return info
+
+    path = Path(path_str)
+    if not path.exists():
+        info["error"] = "Prompt path does not exist"
+        return info
+
+    info["exists"] = True
+    info["size_bytes"] = path.stat().st_size
+    info["sha256"] = file_sha256(path)
+
+    try:
+        import soundfile as sf
+
+        sf_info = sf.info(str(path))
+        info["soundfile"] = {
+            "samplerate": sf_info.samplerate,
+            "frames": sf_info.frames,
+            "channels": sf_info.channels,
+            "duration_seconds": sf_info.duration,
+            "format": sf_info.format,
+            "subtype": sf_info.subtype,
+        }
+    except Exception as exc:
+        info["soundfile"] = {"error": repr(exc)}
+
+    try:
+        import librosa
+
+        native_wav, native_sr = librosa.load(str(path), sr=None)
+        info["librosa_native"] = {
+            "sr": native_sr,
+            "num_samples": int(len(native_wav)),
+            "duration_seconds": float(len(native_wav) / native_sr) if native_sr else None,
+        }
+        if target_sr:
+            target_wav, actual_sr = librosa.load(str(path), sr=target_sr)
+            info["librosa_target"] = {
+                "sr": actual_sr,
+                "num_samples": int(len(target_wav)),
+                "duration_seconds": float(len(target_wav) / actual_sr) if actual_sr else None,
+            }
+    except Exception as exc:
+        info["error"] = repr(exc)
+
+    return info
 
 
 def render_audio_bytes(samples, sample_rate: int, response_format: str) -> tuple[bytes, str]:
@@ -149,6 +291,9 @@ def render_audio_bytes(samples, sample_rate: int, response_format: str) -> tuple
 )
 @modal.asgi_app()
 def fastapi_app():
+    startup_time = datetime.now(timezone.utc).isoformat()
+    app_version = os.getenv("HERMES_CHATTERBOX_APP_VERSION", "dev")
+
     web_app = FastAPI(
         title="Hermes Chatterbox OpenAI API",
         description="OpenAI-compatible text-to-speech API backed by Chatterbox Turbo on Modal.",
@@ -164,14 +309,49 @@ def fastapi_app():
     @web_app.get("/health")
     def health() -> JSONResponse:
         global MODEL
+        voice_debug = {
+            alias: resolve_voice_prompt(alias)
+            for alias in ["female", "male", "shimmer", "nova", "echo", "alloy", "Lucy", "Adam"]
+        }
+        prompt_inspection = {
+            alias: inspect_prompt_file(
+                str(details.get("resolved_prompt") or ""),
+                getattr(MODEL, "sr", None),
+            )
+            for alias, details in voice_debug.items()
+        }
         return JSONResponse(
             {
                 "ok": True,
                 "model_loaded": MODEL is not None,
-                "default_voice_prompt": resolve_voice_prompt("Lucy"),
+                "app_version": app_version,
+                "startup_time": startup_time,
+                "default_voice_prompt": resolve_voice_prompt("Lucy").get("resolved_prompt"),
                 "speech_endpoints": ["/audio/speech", "/v1/audio/speech"],
                 "default_response_format": "mp3",
                 "supported_response_formats": ["mp3", "wav", "pcm"],
+                "available_prompt_files": available_prompt_files(),
+                "voice_alias_candidates": VOICE_ALIAS_CANDIDATES,
+                "voice_debug": voice_debug,
+                "prompt_inspection": prompt_inspection,
+            }
+        )
+
+    @web_app.get("/debug/prompt/{voice_name}")
+    def debug_prompt(voice_name: str) -> JSONResponse:
+        global MODEL
+        resolution = resolve_voice_prompt(voice_name)
+        prompt_path = str(resolution.get("resolved_prompt") or "")
+        return JSONResponse(
+            {
+                "ok": True,
+                "app_version": app_version,
+                "startup_time": startup_time,
+                "model_loaded": MODEL is not None,
+                "requested_voice": voice_name,
+                "resolution": resolution,
+                "available_prompt_files": available_prompt_files(),
+                "prompt_inspection": inspect_prompt_file(prompt_path, getattr(MODEL, "sr", None)),
             }
         )
 
@@ -188,8 +368,36 @@ def fastapi_app():
         if response_format not in {"wav", "pcm", "mp3"}:
             raise HTTPException(status_code=400, detail="Supported response_format values: wav, pcm, mp3")
 
-        voice_prompt = resolve_voice_prompt(payload.get("voice", "Lucy"))
-        waveform = MODEL.generate(input_text, audio_prompt_path=voice_prompt)
+        resolution = resolve_voice_prompt(payload.get("voice", "Lucy"))
+        if resolution.get("error"):
+            raise HTTPException(status_code=503, detail=str(resolution["error"]))
+        voice_prompt = str(resolution.get("resolved_prompt") or "")
+        prompt_debug = inspect_prompt_file(voice_prompt, getattr(MODEL, "sr", None))
+        print(
+            "speech_request_debug",
+            {
+                "app_version": app_version,
+                "requested_voice": resolution.get("requested_voice"),
+                "resolution": resolution.get("resolution"),
+                "voice_prompt": voice_prompt,
+                "prompt_debug": prompt_debug,
+            },
+            flush=True,
+        )
+        try:
+            waveform = MODEL.generate(input_text, audio_prompt_path=voice_prompt)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": repr(exc),
+                    "app_version": app_version,
+                    "requested_voice": resolution.get("requested_voice"),
+                    "resolution": resolution.get("resolution"),
+                    "voice_prompt": voice_prompt,
+                    "prompt_debug": prompt_debug,
+                },
+            ) from exc
         samples = waveform.squeeze().detach().cpu().numpy()
 
         try:
@@ -202,7 +410,10 @@ def fastapi_app():
             media_type=media_type,
             headers={
                 "x-tts-backend": "chatterbox-turbo",
+                "x-voice-requested": str(resolution.get("requested_voice") or ""),
+                "x-voice-resolution": str(resolution.get("resolution") or ""),
                 "x-voice-prompt": voice_prompt or "none",
+                "x-voice-fallback": str(bool(resolution.get("used_fallback"))).lower(),
                 "x-response-format": response_format,
             },
         )

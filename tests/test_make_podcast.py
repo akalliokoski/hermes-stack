@@ -181,7 +181,7 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
         self.assertNotIn('"hosts"', archive_text.call_args.kwargs["content"])
         run_pipeline_mock.assert_not_called()
 
-    def test_main_with_legacy_transcript_archives_original_rendered_text(self):
+    def test_main_rejects_legacy_raw_transcript_input(self):
         with tempfile.TemporaryDirectory() as tmp:
             output_dir = Path(tmp) / "podcasts"
             output_dir.mkdir()
@@ -209,11 +209,14 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
             with mock.patch.object(MODULE, "archive_generated_text") as archive_text, mock.patch.object(
                 MODULE, "run_pipeline"
             ) as run_pipeline_mock, mock.patch.object(MODULE.sys, "argv", argv):
-                result = MODULE.main()
+                with self.assertRaises(SystemExit) as exc:
+                    MODULE.main()
 
-        self.assertEqual(result, 0)
-        archive_text.assert_called_once()
-        self.assertIn("HOST_A: Hello there.", archive_text.call_args.kwargs["content"])
+        self.assertEqual(
+            str(exc.exception),
+            "Legacy raw podcast transcripts are no longer supported. Provide canonical transcript JSON only.",
+        )
+        archive_text.assert_not_called()
         run_pipeline_mock.assert_not_called()
 
     def test_path_helpers_use_profile_show_and_episode_slugs(self):
@@ -221,7 +224,7 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
             projects_root=Path("/tmp/projects"),
             profile_slug="gemma",
             show_slug="ai-research-weekly",
-            episode_slug="2026-04-21_ai-research-weekly",
+            episode_slug="phase-00.1-01trajectory-anomaly-detection",
         )
         publish_dir = MODULE.publish_dir_for_show(
             library_root=Path("/tmp/podcasts"),
@@ -230,12 +233,19 @@ class MakePodcastStructuredTranscriptTests(unittest.TestCase):
         )
         final_path = MODULE.final_episode_audio_path(
             publish_dir=publish_dir,
-            episode_slug="ai-research-weekly",
+            episode_slug="phase-00.1-01trajectory-anomaly-detection",
         )
 
-        self.assertEqual(project_dir, Path("/tmp/projects") / "gemma" / "ai-research-weekly" / "2026-04-21_ai-research-weekly")
+        self.assertEqual(project_dir, Path("/tmp/projects") / "gemma" / "ai-research-weekly" / "phase-00.1-01trajectory-anomaly-detection")
         self.assertEqual(publish_dir, Path("/tmp/podcasts") / "gemma" / "ai-research-weekly")
-        self.assertEqual(final_path, publish_dir / f"{dt.date.today().isoformat()}_ai-research-weekly.mp3")
+        self.assertEqual(final_path, publish_dir / "phase-00.1-01trajectory-anomaly-detection.mp3")
+
+    def test_hermes_profile_args_are_empty_for_default_and_explicit_for_named_profiles(self):
+        with mock.patch.object(MODULE, "current_profile_slug", return_value="default"):
+            self.assertEqual(MODULE.hermes_profile_args(), [])
+
+        with mock.patch.object(MODULE, "current_profile_slug", return_value="gemma"):
+            self.assertEqual(MODULE.hermes_profile_args(), ["--profile", "gemma"])
 
 
 if __name__ == "__main__":

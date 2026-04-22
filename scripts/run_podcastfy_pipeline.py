@@ -21,35 +21,17 @@ from podcast_transcript_schema import validate_transcript
 from render_podcast_transcript import render_for_podcastfy
 
 
-def _normalize_raw_transcript(text: str) -> str:
-    if "<Person1>" in text or "<Person2>" in text:
-        return text
-
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    converted: list[str] = []
-    for line in lines:
-        if line.startswith("HOST_A:"):
-            converted.append(f"<Person1>{line[len('HOST_A:'):].strip()}</Person1>")
-        elif line.startswith("HOST_B:"):
-            converted.append(f"<Person2>{line[len('HOST_B:'):].strip()}</Person2>")
-        else:
-            converted.append(line)
-    return "\n".join(converted)
-
-
 def normalize_transcript(text: str) -> str:
     stripped = text.strip()
     if not stripped:
-        return ""
-    if stripped.startswith("{"):
-        try:
-            data = json.loads(stripped)
-        except json.JSONDecodeError:
-            return _normalize_raw_transcript(text)
-        if isinstance(data, dict) and "turns" in data:
-            validated = validate_transcript(data)
-            return render_for_podcastfy(validated)
-    return _normalize_raw_transcript(text)
+        raise ValueError("Transcript file is empty")
+    if not stripped.startswith("{"):
+        raise ValueError("Legacy raw podcast transcripts are no longer supported. Provide canonical transcript JSON only.")
+    data = json.loads(stripped)
+    if not isinstance(data, dict) or "turns" not in data:
+        raise ValueError("Transcript input must be canonical podcast transcript JSON with a turns array.")
+    validated = validate_transcript(data)
+    return render_for_podcastfy(validated)
 
 
 def newest_mp3(output_dir: Path) -> Path:
@@ -71,6 +53,31 @@ def build_command(*, python_executable: str, normalized_path: Path, conversation
         "--conversation-config",
         str(conversation_config_path),
     ]
+
+
+def set_mp3_title(*, mp3_path: Path, title: str, python_executable: str) -> None:
+    completed = subprocess.run(
+        [
+            python_executable,
+            "-c",
+            (
+                "from pathlib import Path; "
+                "from mutagen.easyid3 import EasyID3; "
+                "from mutagen.mp3 import MP3; "
+                "path = Path(r'''%s'''); "
+                "audio = MP3(path, ID3=EasyID3); "
+                "audio['title'] = [r'''%s''']; "
+                "audio.save()"
+            )
+            % (mp3_path, title),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or completed.stdout.strip() or "unknown mutagen failure"
+        print(f"warning: failed to set mp3 title metadata: {detail}", file=sys.stderr)
 
 
 def run_pipeline(
@@ -97,9 +104,19 @@ def run_pipeline(
         normalized_path = tmpdir / "transcript.txt"
         normalized_path.write_text(normalized, encoding="utf-8")
 
+        person1_voice = os.environ.get("PODCAST_VOICE_PERSON1", "shimmer")
+        person2_voice = os.environ.get("PODCAST_VOICE_PERSON2", "echo")
+
         conv_cfg = {
             "text_to_speech": {
                 "default_tts_model": "openai",
+                "openai": {
+                    "default_voices": {
+                        "question": person1_voice,
+                        "answer": person2_voice,
+                    },
+                    "model": "tts-1-hd",
+                },
                 "output_directories": {
                     "audio": str(output_dir),
                     "transcripts": str(tmpdir / "transcripts"),
@@ -139,6 +156,12 @@ def run_pipeline(
             if final_output.exists():
                 final_output.unlink()
             shutil.move(str(generated_path), str(final_output))
+
+        set_mp3_title(
+            mp3_path=final_output,
+            title=Path(final_output.name).stem,
+            python_executable=python_executable,
+        )
 
     print(f"Podcast ready: {final_output}")
     return final_output

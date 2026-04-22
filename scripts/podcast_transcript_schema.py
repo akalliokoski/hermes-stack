@@ -71,6 +71,8 @@ def validate_transcript(data: Any) -> dict[str, Any]:
         raise ValueError("transcript must include a non-empty turns list")
 
     hosts = _require_mapping("hosts", transcript.get("hosts"))
+    if set(hosts.keys()) != CANONICAL_SPEAKERS:
+        raise ValueError(f"hosts must contain exactly {sorted(CANONICAL_SPEAKERS)}")
     for speaker in CANONICAL_SPEAKERS:
         if speaker not in hosts:
             raise ValueError(f"hosts must include {speaker}")
@@ -78,17 +80,21 @@ def validate_transcript(data: Any) -> dict[str, Any]:
         if "default_emotion" in host:
             _validate_emotion(host["default_emotion"], field_name=f"hosts.{speaker}.default_emotion")
 
+    seen_speakers: set[str] = set()
     for index, turn in enumerate(turns):
         turn_obj = _require_mapping(f"turns[{index}]", turn)
         speaker = turn_obj.get("speaker")
         if speaker not in CANONICAL_SPEAKERS:
             raise ValueError(f"turns[{index}].speaker must be one of {sorted(CANONICAL_SPEAKERS)}")
+        seen_speakers.add(speaker)
         text = turn_obj.get("text")
         if not isinstance(text, str) or not text.strip():
             raise ValueError(f"turns[{index}].text must be a non-empty string")
         emotion = turn_obj.get("emotion")
         _validate_emotion(emotion, field_name=f"turns[{index}].emotion")
-        tags = turn_obj.get("tags", [])
+        if "tags" not in turn_obj:
+            raise ValueError(f"turns[{index}].tags is required")
+        tags = turn_obj.get("tags")
         if not isinstance(tags, list):
             raise ValueError(f"turns[{index}].tags must be a list")
         for tag in tags:
@@ -104,6 +110,9 @@ def validate_transcript(data: Any) -> dict[str, Any]:
                 raise ValueError(f"turns[{index}].text contains unsupported tag: {tag}")
         if tags != inline_tags:
             raise ValueError(f"turns[{index}].tags must match inline tags in text")
+
+    if seen_speakers != CANONICAL_SPEAKERS:
+        raise ValueError(f"turns must include both canonical speakers: {sorted(CANONICAL_SPEAKERS)}")
 
     return transcript
 

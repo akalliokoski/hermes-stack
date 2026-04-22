@@ -71,6 +71,13 @@ class PodcastTranscriptSchemaTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             pts.validate_transcript(transcript)
 
+    def test_validate_rejects_missing_required_tags_field(self):
+        transcript = self.make_valid_transcript()
+        transcript["turns"][0].pop("tags")
+
+        with self.assertRaises(ValueError):
+            pts.validate_transcript(transcript)
+
     def test_validate_rejects_missing_required_top_level_fields(self):
         transcript = self.make_valid_transcript()
         transcript.pop("title")
@@ -81,6 +88,20 @@ class PodcastTranscriptSchemaTests(unittest.TestCase):
     def test_validate_rejects_unknown_speaker(self):
         transcript = self.make_valid_transcript()
         transcript["turns"][0]["speaker"] = "HOST_C"
+
+        with self.assertRaises(ValueError):
+            pts.validate_transcript(transcript)
+
+    def test_validate_rejects_extra_host_entries(self):
+        transcript = self.make_valid_transcript()
+        transcript["hosts"]["HOST_C"] = {"role": "narrator"}
+
+        with self.assertRaises(ValueError):
+            pts.validate_transcript(transcript)
+
+    def test_validate_rejects_turns_that_do_not_use_both_hosts(self):
+        transcript = self.make_valid_transcript()
+        transcript["turns"][1]["speaker"] = "HOST_A"
 
         with self.assertRaises(ValueError):
             pts.validate_transcript(transcript)

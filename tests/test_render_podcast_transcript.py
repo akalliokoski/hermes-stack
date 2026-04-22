@@ -170,15 +170,14 @@ class RenderPodcastTranscriptTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             rpp.normalize_transcript(json.dumps(transcript))
 
-    def test_run_podcastfy_pipeline_keeps_backward_compatible_raw_transcript_text(self):
+    def test_run_podcastfy_pipeline_rejects_legacy_raw_transcript_text(self):
         raw = "HOST_A: Hello there.\n\nHOST_B: General Kenobi."
 
-        normalized = rpp.normalize_transcript(raw)
-
-        self.assertEqual(
-            normalized,
-            "<Person1>Hello there.</Person1>\n<Person2>General Kenobi.</Person2>",
-        )
+        with self.assertRaisesRegex(
+            ValueError,
+            "Legacy raw podcast transcripts are no longer supported. Provide canonical transcript JSON only.",
+        ):
+            rpp.normalize_transcript(raw)
 
 
 if __name__ == "__main__":
