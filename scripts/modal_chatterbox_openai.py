@@ -42,6 +42,7 @@ import modal
 APP_NAME = "hermes-chatterbox-openai"
 VOICE_ROOT = "/voices"
 DEFAULT_VOICE_FILE = "Lucy.wav"
+DEBUG_ENV_VAR = "HERMES_CHATTERBOX_DEBUG"
 STRICT_ALIAS_GROUPS = {"female", "male", "shimmer", "nova", "echo", "alloy"}
 VOICE_ALIAS_CANDIDATES = {
     "female": ["female.wav", "Female.wav", "Lucy.wav"],
@@ -229,6 +230,11 @@ def inspect_prompt_file(path_str: str | None, target_sr: int | None = None) -> d
     return info
 
 
+def debug_enabled() -> bool:
+    value = os.getenv(DEBUG_ENV_VAR, "").strip().lower()
+    return value in {"1", "true", "yes", "on", "debug"}
+
+
 def render_audio_bytes(samples, sample_rate: int, response_format: str) -> tuple[bytes, str]:
     import wave
 
@@ -293,6 +299,7 @@ def render_audio_bytes(samples, sample_rate: int, response_format: str) -> tuple
 def fastapi_app():
     startup_time = datetime.now(timezone.utc).isoformat()
     app_version = os.getenv("HERMES_CHATTERBOX_APP_VERSION", "dev")
+    expose_debug = debug_enabled()
 
     web_app = FastAPI(
         title="Hermes Chatterbox OpenAI API",
@@ -313,47 +320,49 @@ def fastapi_app():
             alias: resolve_voice_prompt(alias)
             for alias in ["female", "male", "shimmer", "nova", "echo", "alloy", "Lucy", "Adam"]
         }
-        prompt_inspection = {
-            alias: inspect_prompt_file(
-                str(details.get("resolved_prompt") or ""),
-                getattr(MODEL, "sr", None),
-            )
-            for alias, details in voice_debug.items()
+        payload = {
+            "ok": True,
+            "model_loaded": MODEL is not None,
+            "app_version": app_version,
+            "startup_time": startup_time,
+            "debug_enabled": expose_debug,
+            "default_voice_prompt": resolve_voice_prompt("Lucy").get("resolved_prompt"),
+            "speech_endpoints": ["/audio/speech", "/v1/audio/speech"],
+            "default_response_format": "mp3",
+            "supported_response_formats": ["mp3", "wav", "pcm"],
+            "available_prompt_files": available_prompt_files(),
+            "voice_alias_candidates": VOICE_ALIAS_CANDIDATES,
+            "voice_debug": voice_debug,
         }
-        return JSONResponse(
-            {
-                "ok": True,
-                "model_loaded": MODEL is not None,
-                "app_version": app_version,
-                "startup_time": startup_time,
-                "default_voice_prompt": resolve_voice_prompt("Lucy").get("resolved_prompt"),
-                "speech_endpoints": ["/audio/speech", "/v1/audio/speech"],
-                "default_response_format": "mp3",
-                "supported_response_formats": ["mp3", "wav", "pcm"],
-                "available_prompt_files": available_prompt_files(),
-                "voice_alias_candidates": VOICE_ALIAS_CANDIDATES,
-                "voice_debug": voice_debug,
-                "prompt_inspection": prompt_inspection,
+        if expose_debug:
+            payload["prompt_inspection"] = {
+                alias: inspect_prompt_file(
+                    str(details.get("resolved_prompt") or ""),
+                    getattr(MODEL, "sr", None),
+                )
+                for alias, details in voice_debug.items()
             }
-        )
+        return JSONResponse(payload)
 
-    @web_app.get("/debug/prompt/{voice_name}")
-    def debug_prompt(voice_name: str) -> JSONResponse:
-        global MODEL
-        resolution = resolve_voice_prompt(voice_name)
-        prompt_path = str(resolution.get("resolved_prompt") or "")
-        return JSONResponse(
-            {
-                "ok": True,
-                "app_version": app_version,
-                "startup_time": startup_time,
-                "model_loaded": MODEL is not None,
-                "requested_voice": voice_name,
-                "resolution": resolution,
-                "available_prompt_files": available_prompt_files(),
-                "prompt_inspection": inspect_prompt_file(prompt_path, getattr(MODEL, "sr", None)),
-            }
-        )
+    if expose_debug:
+
+        @web_app.get("/debug/prompt/{voice_name}")
+        def debug_prompt(voice_name: str) -> JSONResponse:
+            global MODEL
+            resolution = resolve_voice_prompt(voice_name)
+            prompt_path = str(resolution.get("resolved_prompt") or "")
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "app_version": app_version,
+                    "startup_time": startup_time,
+                    "model_loaded": MODEL is not None,
+                    "requested_voice": voice_name,
+                    "resolution": resolution,
+                    "available_prompt_files": available_prompt_files(),
+                    "prompt_inspection": inspect_prompt_file(prompt_path, getattr(MODEL, "sr", None)),
+                }
+            )
 
     def create_speech_impl(payload: dict) -> Response:
         global MODEL
@@ -372,32 +381,33 @@ def fastapi_app():
         if resolution.get("error"):
             raise HTTPException(status_code=503, detail=str(resolution["error"]))
         voice_prompt = str(resolution.get("resolved_prompt") or "")
-        prompt_debug = inspect_prompt_file(voice_prompt, getattr(MODEL, "sr", None))
-        print(
-            "speech_request_debug",
-            {
-                "app_version": app_version,
-                "requested_voice": resolution.get("requested_voice"),
-                "resolution": resolution.get("resolution"),
-                "voice_prompt": voice_prompt,
-                "prompt_debug": prompt_debug,
-            },
-            flush=True,
-        )
-        try:
-            waveform = MODEL.generate(input_text, audio_prompt_path=voice_prompt)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=500,
-                detail={
-                    "error": repr(exc),
+        prompt_debug = inspect_prompt_file(voice_prompt, getattr(MODEL, "sr", None)) if expose_debug else None
+        if expose_debug:
+            print(
+                "speech_request_debug",
+                {
                     "app_version": app_version,
                     "requested_voice": resolution.get("requested_voice"),
                     "resolution": resolution.get("resolution"),
                     "voice_prompt": voice_prompt,
                     "prompt_debug": prompt_debug,
                 },
-            ) from exc
+                flush=True,
+            )
+        try:
+            waveform = MODEL.generate(input_text, audio_prompt_path=voice_prompt)
+        except Exception as exc:
+            detail: object = f"Speech synthesis failed: {exc}"
+            if expose_debug:
+                detail = {
+                    "error": repr(exc),
+                    "app_version": app_version,
+                    "requested_voice": resolution.get("requested_voice"),
+                    "resolution": resolution.get("resolution"),
+                    "voice_prompt": voice_prompt,
+                    "prompt_debug": prompt_debug,
+                }
+            raise HTTPException(status_code=500, detail=detail) from exc
         samples = waveform.squeeze().detach().cpu().numpy()
 
         try:

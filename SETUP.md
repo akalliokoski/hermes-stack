@@ -508,6 +508,8 @@ Deploy the Modal app from the VPS after authenticating with Modal (`modal setup`
 Use the resulting HTTPS URL as `TTS_BASE_URL`.
 For the repo's `scripts/modal_chatterbox_openai.py` helper, keep it as the bare Modal app URL (no `/v1` suffix); the helper serves both `/audio/speech` and `/v1/audio/speech` compatibility routes and returns real MP3 bytes for default/mp3 requests.
 
+Operational note: the helper now keeps prompt-inspection details behind `HERMES_CHATTERBOX_DEBUG`. In normal production mode, `/health` still reports alias resolution and available prompt files, but deep prompt metadata and the `/debug/prompt/{voice}` route are only exposed when `HERMES_CHATTERBOX_DEBUG=1` is set for the Modal deployment.
+
 The main orchestration entrypoint is:
 
 ```bash
