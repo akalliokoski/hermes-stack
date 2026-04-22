@@ -9,16 +9,18 @@ HOST_PROFILES = textwrap.dedent(
     """
     HOST_A — The Connector
     - opens threads and adds context
-    - slightly longer sentences
+    - slightly longer sentences with spoken cadence, contractions, and occasional contrastive emphasis
     - bridges topics and frames stakes
-    - occasional self-correction or clarification
+    - occasional self-correction, aside, or soft reaction when a point lands
+    - should sound warm, engaged, and lightly animated rather than lecturer-flat
     - default emotion around 0.8
 
     HOST_B — The Interrogator
-    - shorter, punchier responses
-    - pressure-tests claims
-    - uses interruptions and reframings
+    - shorter, punchier responses with sharper sentence-length variation
+    - pressure-tests claims and calls out weak framing
+    - uses interruptions, reframings, quick reactions, and incredulous pivots
     - drives pivots and tension
+    - should sound more skeptical, amused, or urgent when the material supports it
     - default emotion around 0.75
     """
 ).strip()
@@ -35,6 +37,10 @@ EPISODE_STRUCTURE_RULES = textwrap.dedent(
     - close: 1-2 turns
 
     Avoid sterile intro/outro boilerplate unless explicitly requested.
+    Write for spoken delivery, not essay prose.
+    Use contractions, sentence-length variation, quick reactions, and occasional friction so the exchange sounds performed rather than narrated.
+    Let emotion move visibly across the episode: curiosity -> tension/surprise -> synthesis/release.
+    At least a few turns should feel playful, skeptical, surprised, or emphatic when the sources support it.
     Allowed inline tags only: [laugh], [chuckle], [sigh], [gasp], [cough].
     Tags must follow a completed clause or sentence and should stay rare.
     Store numeric emotion values per turn.
@@ -117,6 +123,8 @@ def build_draft_prompt(*, title: str, source_packet: dict[str, Any]) -> str:
         Keep claims grounded in the provided sources.
         Target roughly 6 to 12 minutes of spoken audio unless the source volume clearly justifies more.
         Include per-turn emotion values and tags that match inline text tags exactly.
+        Prioritize vocal texture: contractions, interruptions, rebuttals, callbacks, short reactions, and occasional surprise when justified.
+        Avoid long runs of evenly explanatory turns that would sound flat in TTS.
 
         Canonical JSON example:
         {json.dumps(CANONICAL_JSON_EXAMPLE, indent=2, sort_keys=True)}
@@ -141,7 +149,10 @@ def build_revision_prompt(*, title: str, source_packet: dict[str, Any], draft_tr
         - remove “as you know” exposition
         - make every exchange do at least two jobs where possible
         - smooth emotion arc
-        - reduce tag overuse
+        - create stronger emotional contrast instead of keeping every turn evenly composed
+        - add more spoken rhythm: contractions, pivots, interruptions, callbacks, and short reactions where natural
+        - reduce tag overuse while still letting a few turns feel performative
+        - keep sentences punchy enough for TTS and avoid textbook-flat explanation blocks
         - keep claims grounded in source material
 
         Return ONLY revised canonical JSON.

@@ -13,6 +13,8 @@ GASP_WARNING_THRESHOLD = 2
 COUGH_WARNING_THRESHOLD = 1
 EMOTION_PEAK_THRESHOLD = 0.85
 EMOTION_FLAT_SPREAD_THRESHOLD = 0.05
+EMOTION_MUTED_SPREAD_THRESHOLD = 0.18
+EMOTION_RELEASE_DROP_THRESHOLD = 0.08
 SPEAKER_IMBALANCE_THRESHOLD = 0.75
 EARLY_PEAK_FRACTION = 0.33
 
@@ -49,8 +51,11 @@ def emotion_arc_summary(turns: list[dict[str, Any]]) -> dict[str, Any]:
             "peak_value": None,
             "peak_turn_index": None,
             "flat": False,
+            "muted": False,
             "peak_too_early": False,
             "missing_peak": True,
+            "release_drop": None,
+            "missing_release": False,
         }
 
     min_emotion = min(emotions)
@@ -60,6 +65,14 @@ def emotion_arc_summary(turns: list[dict[str, Any]]) -> dict[str, Any]:
     peak_turn_index = None if missing_peak else emotions.index(max_emotion)
     early_cutoff = max(1, int(len(emotions) * EARLY_PEAK_FRACTION))
     peak_too_early = peak_turn_index is not None and peak_turn_index < early_cutoff
+    release_drop = None
+    missing_release = False
+    if peak_turn_index is not None and len(emotions) >= 6 and peak_turn_index < len(emotions) - 2:
+        post_peak = emotions[peak_turn_index + 1 :]
+        if post_peak:
+            release_window = post_peak[-2:] if len(post_peak) >= 2 else post_peak
+            release_drop = max_emotion - (sum(release_window) / len(release_window))
+            missing_release = release_drop < EMOTION_RELEASE_DROP_THRESHOLD
 
     return {
         "turn_count": len(emotions),
@@ -69,8 +82,11 @@ def emotion_arc_summary(turns: list[dict[str, Any]]) -> dict[str, Any]:
         "peak_value": None if missing_peak else max_emotion,
         "peak_turn_index": peak_turn_index,
         "flat": spread <= EMOTION_FLAT_SPREAD_THRESHOLD,
+        "muted": spread <= EMOTION_MUTED_SPREAD_THRESHOLD,
         "peak_too_early": peak_too_early,
         "missing_peak": missing_peak,
+        "release_drop": release_drop,
+        "missing_release": missing_release,
     }
 
 
@@ -194,6 +210,22 @@ def audit_transcript(data: Any) -> dict[str, Any]:
                 "severity": "warning",
                 "code": "flat_emotion_arc",
                 "message": "emotion arc looks flat across turns",
+            }
+        )
+    elif emotion["muted"]:
+        issues.append(
+            {
+                "severity": "warning",
+                "code": "muted_emotion_arc",
+                "message": "emotion arc has limited contrast and may sound too plain in TTS",
+            }
+        )
+    if emotion["missing_release"]:
+        issues.append(
+            {
+                "severity": "warning",
+                "code": "missing_emotion_release",
+                "message": "emotion arc does not drop enough after its peak, so delivery may feel too uniformly keyed-up",
             }
         )
     if emotion["peak_too_early"]:

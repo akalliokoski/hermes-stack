@@ -522,6 +522,7 @@ The transcript path is now structured-first:
   - draft pass -> canonical `transcript-draft.json`
   - revision pass -> canonical `transcript.json`
 - local helpers validate the JSON schema and run a transcript audit, writing `transcript-audit.json`
+- the audit now also warns on transcript plainness patterns such as muted emotion contrast or weak post-peak release, so flat-but-valid scripts are easier to catch before TTS
 - the canonical JSON is rendered to Podcastfy-compatible `<Person1>/<Person2>` dialogue as `transcript.txt`
 - `run_podcastfy_pipeline.py` accepts canonical transcript JSON only; legacy raw `HOST_A:` / `HOST_B:` transcript text now hard-fails
 - for generated episodes, the shared wiki now archives:

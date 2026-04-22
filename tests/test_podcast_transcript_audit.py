@@ -162,6 +162,176 @@ class PodcastTranscriptAuditTests(unittest.TestCase):
         self.assertEqual(messages[0]["severity"], "warning")
         self.assertIn("flat", messages[0]["message"])
 
+    def test_audit_warns_when_emotion_arc_is_muted_but_not_flat(self):
+        transcript = self.make_valid_transcript()
+        transcript["turns"][0]["emotion"] = 0.68
+        transcript["turns"][1]["emotion"] = 0.71
+        transcript["turns"][2]["emotion"] = 0.82
+        transcript["turns"][3]["emotion"] = 0.79
+
+        audit = pta.audit_transcript(transcript)
+
+        messages = self.get_messages(audit, "muted_emotion_arc")
+        self.assertEqual(messages[0]["severity"], "warning")
+        self.assertIn("plain", messages[0]["message"])
+
+    def test_audit_warns_when_emotion_arc_never_releases(self):
+        transcript = self.make_valid_transcript()
+        transcript["turns"] = [
+            {
+                "turn_id": "t01",
+                "speaker": "HOST_A",
+                "text": "We start calm.",
+                "emotion": 0.68,
+                "tags": [],
+            },
+            {
+                "turn_id": "t02",
+                "speaker": "HOST_B",
+                "text": "Then the stakes rise.",
+                "emotion": 0.74,
+                "tags": [],
+            },
+            {
+                "turn_id": "t03",
+                "speaker": "HOST_A",
+                "text": "Now things get sharper.",
+                "emotion": 0.81,
+                "tags": [],
+            },
+            {
+                "turn_id": "t04",
+                "speaker": "HOST_B",
+                "text": "This is the peak.",
+                "emotion": 0.91,
+                "tags": [],
+            },
+            {
+                "turn_id": "t05",
+                "speaker": "HOST_A",
+                "text": "But it barely settles.",
+                "emotion": 0.88,
+                "tags": [],
+            },
+            {
+                "turn_id": "t06",
+                "speaker": "HOST_B",
+                "text": "And it stays hot into the close.",
+                "emotion": 0.87,
+                "tags": [],
+            },
+        ]
+
+        audit = pta.audit_transcript(transcript)
+
+        messages = self.get_messages(audit, "missing_emotion_release")
+        self.assertEqual(messages[0]["severity"], "warning")
+        self.assertIn("drop enough", messages[0]["message"])
+
+    def test_audit_does_not_warn_on_release_when_arc_cools_after_peak(self):
+        transcript = self.make_valid_transcript()
+        transcript["turns"] = [
+            {
+                "turn_id": "t01",
+                "speaker": "HOST_A",
+                "text": "We start calm.",
+                "emotion": 0.68,
+                "tags": [],
+            },
+            {
+                "turn_id": "t02",
+                "speaker": "HOST_B",
+                "text": "Then the stakes rise.",
+                "emotion": 0.74,
+                "tags": [],
+            },
+            {
+                "turn_id": "t03",
+                "speaker": "HOST_A",
+                "text": "Now things get sharper.",
+                "emotion": 0.81,
+                "tags": [],
+            },
+            {
+                "turn_id": "t04",
+                "speaker": "HOST_B",
+                "text": "This is the peak.",
+                "emotion": 0.91,
+                "tags": [],
+            },
+            {
+                "turn_id": "t05",
+                "speaker": "HOST_A",
+                "text": "Then it settles.",
+                "emotion": 0.77,
+                "tags": [],
+            },
+            {
+                "turn_id": "t06",
+                "speaker": "HOST_B",
+                "text": "And it lands cleanly.",
+                "emotion": 0.73,
+                "tags": [],
+            },
+        ]
+
+        audit = pta.audit_transcript(transcript)
+
+        messages = self.get_messages(audit, "missing_emotion_release")
+        self.assertEqual(messages, [])
+
+    def test_audit_warns_when_arc_briefly_dips_then_reheats_after_peak(self):
+        transcript = self.make_valid_transcript()
+        transcript["turns"] = [
+            {
+                "turn_id": "t01",
+                "speaker": "HOST_A",
+                "text": "We start calm.",
+                "emotion": 0.68,
+                "tags": [],
+            },
+            {
+                "turn_id": "t02",
+                "speaker": "HOST_B",
+                "text": "Then the stakes rise.",
+                "emotion": 0.74,
+                "tags": [],
+            },
+            {
+                "turn_id": "t03",
+                "speaker": "HOST_A",
+                "text": "Now things get sharper.",
+                "emotion": 0.81,
+                "tags": [],
+            },
+            {
+                "turn_id": "t04",
+                "speaker": "HOST_B",
+                "text": "This is the peak.",
+                "emotion": 0.91,
+                "tags": [],
+            },
+            {
+                "turn_id": "t05",
+                "speaker": "HOST_A",
+                "text": "It dips for a second.",
+                "emotion": 0.77,
+                "tags": [],
+            },
+            {
+                "turn_id": "t06",
+                "speaker": "HOST_B",
+                "text": "Then it heats back up into the ending.",
+                "emotion": 0.9,
+                "tags": [],
+            },
+        ]
+
+        audit = pta.audit_transcript(transcript)
+
+        messages = self.get_messages(audit, "missing_emotion_release")
+        self.assertEqual(messages[0]["severity"], "warning")
+
     def test_emotion_arc_summary_flags_peak_too_early(self):
         turns = [
             {"emotion": 1.0},

@@ -24,10 +24,13 @@ class PodcastTranscriptPromptingTests(unittest.TestCase):
 
         self.assertIn("HOST_A — The Connector", prompt)
         self.assertIn("HOST_B — The Interrogator", prompt)
+        self.assertIn("spoken cadence", prompt)
+        self.assertIn("Write for spoken delivery, not essay prose", prompt)
         self.assertIn("/tmp/source-a.md", prompt)
         self.assertIn("https://example.com/alpha", prompt)
         self.assertIn("Why agent memory matters", prompt)
         self.assertIn("Return ONLY canonical JSON", prompt)
+        self.assertIn("Prioritize vocal texture", prompt)
         self.assertIn('"speaker": "HOST_A"', prompt)
 
     def test_build_revision_prompt_includes_audit_rubric_and_draft_json(self):
@@ -58,6 +61,8 @@ class PodcastTranscriptPromptingTests(unittest.TestCase):
 
         self.assertIn("make speakers more distinct", prompt)
         self.assertIn("smooth emotion arc", prompt)
+        self.assertIn("create stronger emotional contrast", prompt)
+        self.assertIn("spoken rhythm", prompt)
         self.assertIn("reduce tag overuse", prompt)
         self.assertIn(json.dumps(draft, indent=2, sort_keys=True), prompt)
         self.assertIn("Return ONLY revised canonical JSON", prompt)
