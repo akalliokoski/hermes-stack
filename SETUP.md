@@ -185,7 +185,7 @@ bash scripts/vps-bootstrap.sh     # one-time, from MacBook
 git push                           # subsequent deploys go through CI
 ```
 
-After bootstrap, the first `git push` to `main` (or a manual `make deploy`) rsyncs the repo, renders the latest VPS config, syncs all profiles/environment context, brings up the support stack, and starts `hermes-gateway` if it is not already running. Later deploys only restart gateway services when their rendered config or systemd unit changed, so routine stack deploys do not interrupt active chats unnecessarily.
+After bootstrap, the first `git push` to `main` (or a manual `make deploy`) rsyncs the repo, renders the latest VPS config, syncs all profiles/environment context, brings up the support stack, and starts `hermes-gateway` if it is not already running. Later deploys only restart gateway services when their rendered config or systemd unit changed, so routine stack deploys do not interrupt active chats unnecessarily. Gateway services now also self-heal stale `gateway.pid` and scoped lock files before each start via a repo-owned `ExecStartPre` cleanup helper, so the host can keep using stock Hermes Agent while recovering automatically from stale gateway state.
 
 `VPS_HOST` and `VPS_DIR` are read from `.env`:
 
@@ -199,9 +199,18 @@ The individual scripts can also be run standalone (e.g. `ssh $VPS_HOST 'sudo bas
 ### Deploying updates
 
 ```bash
-make deploy          # rsync repo, docker compose up -d, systemctl restart hermes-gateway
+make deploy          # rsync repo, refresh systemd units/profile config, restart only gateways that changed or are inactive
 make update-agent    # bumps hermes to latest (runs `hermes update` on VPS)
 ```
+
+Gateway services should be operated through the systemd units managed by this repo, not by long-running ad hoc foreground shells. The unit entrypoint remains the stock Hermes command `hermes gateway run --replace`; hermes-stack adds a host-side `ExecStartPre=/usr/bin/python3 /opt/hermes/scripts/cleanup-hermes-gateway-state.py` so each start clears only stale gateway PID/lock records first.
+
+That means the steady-state pattern is:
+
+1. render/update config and units from `hermes-stack`
+2. start or restart `hermes-gateway` / `hermes-gateway-<profile>` with systemd
+3. let `ExecStartPre` clean stale `gateway.pid`, takeover markers, and dead scoped lock files
+4. let stock Hermes start normally with `hermes gateway run --replace`
 
 Hermes no longer lives as a git submodule — new releases are pulled by `hermes update`, not by rebuilding a container.
 
@@ -260,6 +269,7 @@ sudo provision-profile <name> ***
 - writes `/home/hermes/.hermes/profiles/<name>/hindsight/config.json` in the current Hermes Hindsight plugin format (`mode: local_external`, `api_url`, `bank_id`, auto-retain/recall settings)
 - renders `SOUL.md` from shared base + per-profile override
 - installs + starts the system gateway when root (or passwordless sudo) is available
+- renders named-profile hardening drop-ins that also run the same `cleanup-hermes-gateway-state.py` preflight before startup
 - when `--sync-all-profiles --gateway existing` is used, refreshes hardening drop-ins and restarts only named-profile gateways that already exist as systemd units
 
 If you edit shared instructions later, rerender all profile `SOUL.md` files with:
