@@ -490,7 +490,7 @@ write_gateway_override() {
   run_as_root_if_possible python3 - <<PY
 from pathlib import Path
 path = Path(${override_path@Q})
-path.write_text('''[Service]\nNoNewPrivileges=true\nPrivateTmp=true\nProtectSystem=full\nProtectHome=false\nRestrictSUIDSGID=true\nLockPersonality=true\n''')
+path.write_text('''[Service]\nExecStartPre=/usr/bin/python3 /opt/hermes/scripts/cleanup-hermes-gateway-state.py\nNoNewPrivileges=true\nPrivateTmp=true\nProtectSystem=full\nProtectHome=false\nRestrictSUIDSGID=true\nLockPersonality=true\n''')
 PY
 }
 
