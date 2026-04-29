@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hermes Stack Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #050816;
+        --panel: rgba(11, 18, 38, 0.88);
+        --panel-2: rgba(15, 23, 42, 0.92);
+        --line: rgba(143, 167, 255, 0.2);
+        --text: #eef2ff;
+        --muted: #b8c3ef;
+        --accent: #8fa7ff;
+        --accent-2: #53e0c1;
+        --accent-3: #f7c76c;
+        --danger: #ff8da1;
+        --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(143, 167, 255, 0.22), transparent 24%),
+          radial-gradient(circle at top right, rgba(83, 224, 193, 0.16), transparent 20%),
+          linear-gradient(180deg, #09101e 0%, #040712 100%);
+        color: var(--text);
+      }
+
+      .page {
+        width: min(1380px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 40px 0 80px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 20px;
+        align-items: stretch;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(12px);
+      }
+
+      .hero-main {
+        padding: 34px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        padding: 7px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(83, 224, 193, 0.3);
+        color: var(--accent-2);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 18px 0 12px;
+        font-size: clamp(2.2rem, 4vw, 4.6rem);
+        line-height: 1.02;
+      }
+
+      .lede {
+        max-width: 820px;
+        color: var(--muted);
+        line-height: 1.75;
+        font-size: 1.05rem;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 22px;
+      }
+
+      .chip {
+        border-radius: 999px;
+        padding: 10px 13px;
+        background: rgba(143, 167, 255, 0.12);
+        border: 1px solid rgba(143, 167, 255, 0.18);
+        color: #d9e2ff;
+        font-size: 0.94rem;
+      }
+
+      .hero-side {
+        padding: 28px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .metric {
+        padding: 16px 18px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .metric .label {
+        color: var(--muted);
+        font-size: 0.88rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .metric .value {
+        margin-top: 8px;
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+
+      .section {
+        margin-top: 22px;
+        padding: 28px;
+      }
+
+      .section h2 {
+        margin: 0 0 16px;
+        font-size: 1.55rem;
+      }
+
+      .subtle {
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .architecture {
+        overflow: hidden;
+      }
+
+      svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .service-card {
+        padding: 18px;
+        border-radius: 18px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+      }
+
+      .service-card h3 {
+        margin: 0 0 8px;
+        font-size: 1.08rem;
+      }
+
+      .service-card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .service-card .port {
+        margin-top: 12px;
+        color: var(--accent-2);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 0.92rem;
+      }
+
+      .timeline {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+      }
+
+      .step {
+        padding: 18px;
+        border-radius: 18px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+      }
+
+      .step .num {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: rgba(83, 224, 193, 0.18);
+        color: var(--accent-2);
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+
+      .step h3 {
+        margin: 0 0 8px;
+        font-size: 1rem;
+      }
+
+      .step p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+
+      .footer {
+        margin-top: 20px;
+        padding: 18px 22px;
+        color: var(--muted);
+        font-size: 0.95rem;
+        line-height: 1.65;
+      }
+
+      code {
+        color: var(--text);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+
+      @media (max-width: 1100px) {
+        .hero,
+        .grid-3,
+        .timeline {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section class="hero">
+        <div class="hero-main card">
+          <div class="eyebrow">Hermes Agent + hermes-stack demo</div>
+          <h1>Self-hosted AI operator stack for chat, memory, automation, and media workflows</h1>
+          <p class="lede">
+            Hermes runs natively on the VPS as the operator. This repo, hermes-stack, supplies the environment rendering,
+            profile provisioning, service wiring, docs, and deployment conventions around it. Docker Compose handles the support layer,
+            while Tailscale exposes selected UIs to the tailnet without making the services public.
+          </p>
+          <div class="chips">
+            <div class="chip">Native Hermes runtime</div>
+            <div class="chip">Systemd-managed gateways</div>
+            <div class="chip">Profile-isolated Hindsight memory</div>
+            <div class="chip">Tailnet-only web UIs</div>
+            <div class="chip">Repo-first deploy workflow</div>
+            <div class="chip">Podcast + video delivery services</div>
+          </div>
+        </div>
+
+        <div class="hero-side card">
+          <div class="metric">
+            <div class="label">Core runtime</div>
+            <div class="value">Hermes Agent on host</div>
+          </div>
+          <div class="metric">
+            <div class="label">Support plane</div>
+            <div class="value">Firecrawl, Hindsight, Litestream, Backup, Syncthing, Audiobookshelf, Jellyfin</div>
+          </div>
+          <div class="metric">
+            <div class="label">Publication boundary</div>
+            <div class="value">Tailscale Serve only</div>
+          </div>
+          <div class="metric">
+            <div class="label">Profile model</div>
+            <div class="value">Shared SOUL + shared skills, isolated memory banks</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section card architecture">
+        <h2>Architecture map</h2>
+        <p class="subtle">The most important split is: Hermes itself stays native and close to upstream, while the surrounding services run in Docker Compose and are selectively published through Tailscale.</p>
+        <svg viewBox="0 0 1280 860" role="img" aria-label="Hermes Stack architecture diagram">
+          <defs>
+            <linearGradient id="panelBlue" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="rgba(143,167,255,0.28)" />
+              <stop offset="100%" stop-color="rgba(83,224,193,0.14)" />
+            </linearGradient>
+            <marker id="arrow" markerWidth="14" markerHeight="14" refX="10" refY="7" orient="auto">
+              <path d="M0,0 L14,7 L0,14 z" fill="#8fa7ff"></path>
+            </marker>
+          </defs>
+
+          <rect x="24" y="24" width="1232" height="812" rx="28" fill="rgba(255,255,255,0.02)" stroke="rgba(143,167,255,0.12)" />
+
+          <rect x="64" y="84" width="260" height="190" rx="24" fill="rgba(83,224,193,0.10)" stroke="rgba(83,224,193,0.45)" />
+          <text x="92" y="122" fill="#eef2ff" font-size="28" font-weight="700">Clients</text>
+          <text x="92" y="162" fill="#b8c3ef" font-size="22">• Hermes CLI on VPS</text>
+          <text x="92" y="196" fill="#b8c3ef" font-size="22">• Mobile / gateway chats</text>
+          <text x="92" y="230" fill="#b8c3ef" font-size="22">• Tailnet browser access</text>
+
+          <rect x="396" y="64" width="504" height="300" rx="28" fill="rgba(143,167,255,0.08)" stroke="rgba(143,167,255,0.34)" />
+          <text x="426" y="108" fill="#eef2ff" font-size="30" font-weight="700">Host-native Hermes runtime</text>
+          <text x="426" y="152" fill="#b8c3ef" font-size="22">systemd services: hermes-gateway, hermes-gateway-&lt;profile&gt;, hermes-dashboard</text>
+          <text x="426" y="188" fill="#b8c3ef" font-size="22">profile config render + SOUL render + ENVIRONMENT context</text>
+          <text x="426" y="224" fill="#b8c3ef" font-size="22">shared skills, shared wiki, per-profile workspaces</text>
+          <text x="426" y="260" fill="#b8c3ef" font-size="22">tool-using operator loop for sysops, research, and media pipelines</text>
+          <rect x="426" y="284" width="210" height="54" rx="14" fill="rgba(83,224,193,0.14)" stroke="rgba(83,224,193,0.28)" />
+          <text x="449" y="318" fill="#53e0c1" font-size="21" font-weight="700">Profiles: shared doctrine</text>
+          <rect x="656" y="284" width="212" height="54" rx="14" fill="rgba(247,199,108,0.12)" stroke="rgba(247,199,108,0.3)" />
+          <text x="680" y="318" fill="#f7c76c" font-size="21" font-weight="700">Memory: isolated banks</text>
+
+          <rect x="396" y="430" width="820" height="310" rx="28" fill="rgba(9,14,28,0.75)" stroke="rgba(143,167,255,0.20)" />
+          <text x="426" y="474" fill="#eef2ff" font-size="30" font-weight="700">Docker Compose support plane</text>
+
+          <rect x="430" y="506" width="220" height="78" rx="18" fill="rgba(143,167,255,0.12)" stroke="rgba(143,167,255,0.28)" />
+          <text x="454" y="552" fill="#eef2ff" font-size="24" font-weight="700">Firecrawl</text>
+          <text x="454" y="575" fill="#b8c3ef" font-size="18">web crawl + scrape backend</text>
+
+          <rect x="674" y="506" width="220" height="78" rx="18" fill="rgba(83,224,193,0.12)" stroke="rgba(83,224,193,0.28)" />
+          <text x="698" y="552" fill="#eef2ff" font-size="24" font-weight="700">Hindsight</text>
+          <text x="698" y="575" fill="#b8c3ef" font-size="18">semantic memory service</text>
+
+          <rect x="918" y="506" width="268" height="78" rx="18" fill="rgba(247,199,108,0.12)" stroke="rgba(247,199,108,0.28)" />
+          <text x="942" y="552" fill="#eef2ff" font-size="24" font-weight="700">Litestream + Backup</text>
+          <text x="942" y="575" fill="#b8c3ef" font-size="18">durability and daily snapshots</text>
+
+          <rect x="430" y="616" width="220" height="78" rx="18" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.14)" />
+          <text x="454" y="662" fill="#eef2ff" font-size="24" font-weight="700">Syncthing</text>
+          <text x="454" y="685" fill="#b8c3ef" font-size="18">sync /home/hermes/sync</text>
+
+          <rect x="674" y="616" width="220" height="78" rx="18" fill="rgba(255,141,161,0.10)" stroke="rgba(255,141,161,0.28)" />
+          <text x="698" y="662" fill="#eef2ff" font-size="24" font-weight="700">Audiobookshelf</text>
+          <text x="698" y="685" fill="#b8c3ef" font-size="18">podcast delivery surface</text>
+
+          <rect x="918" y="616" width="220" height="78" rx="18" fill="rgba(143,167,255,0.10)" stroke="rgba(143,167,255,0.28)" />
+          <text x="942" y="662" fill="#eef2ff" font-size="24" font-weight="700">Jellyfin</text>
+          <text x="942" y="685" fill="#b8c3ef" font-size="18">video library surface</text>
+
+          <rect x="952" y="84" width="248" height="192" rx="24" fill="rgba(247,199,108,0.10)" stroke="rgba(247,199,108,0.36)" />
+          <text x="980" y="122" fill="#eef2ff" font-size="28" font-weight="700">Tailscale Serve</text>
+          <text x="980" y="160" fill="#b8c3ef" font-size="21">Publishes localhost UIs</text>
+          <text x="980" y="193" fill="#b8c3ef" font-size="21">to the tailnet only:</text>
+          <text x="980" y="228" fill="#f7c76c" font-size="19">/ , /memory/ , /firecrawl/</text>
+          <text x="980" y="255" fill="#f7c76c" font-size="19">:9443, :9444, :9445</text>
+
+          <line x1="324" y1="178" x2="396" y2="178" stroke="#8fa7ff" stroke-width="4" marker-end="url(#arrow)" />
+          <line x1="900" y1="178" x2="952" y2="178" stroke="#8fa7ff" stroke-width="4" marker-end="url(#arrow)" />
+          <line x1="648" y1="364" x2="648" y2="430" stroke="#8fa7ff" stroke-width="4" marker-end="url(#arrow)" />
+          <line x1="784" y1="364" x2="784" y2="430" stroke="#53e0c1" stroke-width="4" marker-end="url(#arrow)" />
+          <line x1="1080" y1="276" x2="1080" y2="430" stroke="#f7c76c" stroke-width="4" marker-end="url(#arrow)" />
+
+          <text x="430" y="788" fill="#b8c3ef" font-size="20">Repo-first deploy path: edit repo → commit/push → GitHub deploy workflow updates host and services</text>
+        </svg>
+      </section>
+
+      <section class="section card">
+        <h2>Service tour</h2>
+        <div class="grid-3">
+          <div class="service-card">
+            <h3>Hermes Dashboard</h3>
+            <p>Built-in Hermes web UI for configuration, sessions, logs, and credentials. Runs as a host-native service and is exposed through a dedicated Tailnet HTTPS port.</p>
+            <div class="port">local 127.0.0.1:9119 → tailnet :9444</div>
+          </div>
+          <div class="service-card">
+            <h3>Firecrawl</h3>
+            <p>Gives Hermes a crawling and extraction backend for richer web research than basic fetch/search alone.</p>
+            <div class="port">127.0.0.1:3002 and /firecrawl/</div>
+          </div>
+          <div class="service-card">
+            <h3>Hindsight</h3>
+            <p>Provides semantic long-term memory. Profiles share the service instance but stay isolated by bank IDs like <code>hermes-default</code> and <code>hermes-gemma</code>.</p>
+            <div class="port">127.0.0.1:8888 API, 127.0.0.1:9999 UI, tailnet :9443</div>
+          </div>
+          <div class="service-card">
+            <h3>Litestream + backups</h3>
+            <p>Protects Hermes state with continuous SQLite WAL replication plus scheduled snapshot archives and logical Hindsight SQL dumps.</p>
+            <div class="port">internal durability layer</div>
+          </div>
+          <div class="service-card">
+            <h3>Syncthing + shared wiki</h3>
+            <p>Syncs <code>/home/hermes/sync</code> across devices, including the shared wiki and synchronized backup destinations.</p>
+            <div class="port">local 127.0.0.1:8384 → tailnet :9445</div>
+          </div>
+          <div class="service-card">
+            <h3>Media outputs</h3>
+            <p>Audiobookshelf is the podcast delivery surface. Jellyfin is the video delivery surface for Hermes-generated explainers.</p>
+            <div class="port">tailnet :13378 and :8096</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section card">
+        <h2>How the stack is operated</h2>
+        <p class="subtle">The repo is the control plane. Hermes is the operator. Direct shell debugging exists, but the normal path is to ship changes through version control and let deploy automation apply them.</p>
+        <div class="timeline">
+          <div class="step">
+            <div class="num">1</div>
+            <h3>Render environment and profiles</h3>
+            <p><code>config/base.yaml</code> and environment overlays render profile config, service URLs, environment context, and shared SOUL composition.</p>
+          </div>
+          <div class="step">
+            <div class="num">2</div>
+            <h3>Provision profile behavior</h3>
+            <p><code>scripts/provision-profile.sh</code> creates workspaces, Hindsight bank wiring, profile SOUL output, and optional gateway units.</p>
+          </div>
+          <div class="step">
+            <div class="num">3</div>
+            <h3>Run support services</h3>
+            <p>Compose keeps Firecrawl, Hindsight, durability helpers, sync, and media apps available on localhost.</p>
+          </div>
+          <div class="step">
+            <div class="num">4</div>
+            <h3>Publish safely to the tailnet</h3>
+            <p>Tailscale Serve exposes only the selected UIs, keeping the rest of the stack private and localhost-bound.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="footer card">
+        Source files for this demo live in the repo itself. For the detailed written walkthrough, see <code>README.md</code> and <code>SETUP.md</code>. For the live Tailnet landing page, go back to <code>index.html</code> in this same directory.
+      </section>
+    </div>
+  </body>
+</html>
