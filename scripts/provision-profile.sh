@@ -76,7 +76,11 @@ have_passwordless_sudo() {
 
 run_as_hermes() {
   if [[ "$(id -un)" == "${HERMES_USER}" ]]; then
-    "$@"
+    if [[ "$1" == "hermes" ]] && ! command -v hermes >/dev/null 2>&1 && [[ -x "${HOME}/.local/bin/hermes" ]]; then
+      "${HOME}/.local/bin/hermes" "${@:2}"
+    else
+      "$@"
+    fi
   else
     sudo -iu "${HERMES_USER}" "$@"
   fi
