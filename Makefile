@@ -212,7 +212,7 @@ import-profile:
 
 clone-profile-from-vps:
 	@[ -n "$(PROFILE)" ] || { echo "ERROR: PROFILE is required"; exit 1; }
-	@bash scripts/clone-profile-from-vps.sh --profile "$(PROFILE)" $(if $(VPS_HOST),--vps-host "$(VPS_HOST)",) $(if $(ARCHIVE),--archive "$(ARCHIVE)",) $(if $(TARGET_HOME),--target-home "$(TARGET_HOME)",) $(if $(CLONE_SERVICE_MODE),--service-mode "$(CLONE_SERVICE_MODE)",) $(if $(filter 1,$(MINIMAL)),--clone-mode minimal,) $(if $(filter 0,$(WORKSPACE)),--workspace skip,) $(if $(filter 1,$(COPY_AUTH)),--copy-auth,) $(if $(filter 0,$(COPY_AUTH)),--no-copy-auth,) $(if $(filter 1,$(COPY_ENV)),--copy-env,) $(if $(filter 0,$(COPY_ENV)),--no-copy-env,) $(if $(filter 1,$(COPY_PROFILE_SKILLS)),--copy-profile-skills,) $(if $(filter 0,$(COPY_PROFILE_SKILLS)),--no-copy-profile-skills,)
+	@bash scripts/clone-profile-from-vps.sh --profile "$(PROFILE)" $(if $(VPS_HOST),--vps-host "$(VPS_HOST)",) $(if $(REMOTE_REPO_ROOT),--remote-repo-root "$(REMOTE_REPO_ROOT)",) $(if $(ARCHIVE),--archive "$(ARCHIVE)",) $(if $(TARGET_HOME),--target-home "$(TARGET_HOME)",) $(if $(CLONE_SERVICE_MODE),--service-mode "$(CLONE_SERVICE_MODE)",) $(if $(filter 1,$(MINIMAL)),--clone-mode minimal,) $(if $(filter 0,$(WORKSPACE)),--workspace skip,) $(if $(filter 1,$(COPY_AUTH)),--copy-auth,) $(if $(filter 0,$(COPY_AUTH)),--no-copy-auth,) $(if $(filter 1,$(COPY_ENV)),--copy-env,) $(if $(filter 0,$(COPY_ENV)),--no-copy-env,) $(if $(filter 1,$(COPY_PROFILE_SKILLS)),--copy-profile-skills,) $(if $(filter 0,$(COPY_PROFILE_SKILLS)),--no-copy-profile-skills,)
 
 portability-smoke:
 	@bash scripts/smoke-test-portability.sh

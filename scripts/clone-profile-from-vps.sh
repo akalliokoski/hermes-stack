@@ -10,7 +10,7 @@ DETECT_ENV_SCRIPT="${REPO_ROOT}/scripts/detect-env.sh"
 
 PROFILE=""
 VPS_HOST=""
-REMOTE_REPO_ROOT="/opt/hermes"
+REMOTE_REPO_ROOT="${HERMES_REMOTE_REPO_ROOT:-}"
 ENV_ID="${HERMES_ENV_ID:-}"
 SERVICE_MODE="${HERMES_SERVICE_MODE:-remote}"
 GATEWAY_MODE="skip"
@@ -38,7 +38,7 @@ profile-local files.
 Options:
   --profile <name>           Profile to clone (required)
   --vps-host <host>          SSH target for the VPS (defaults to VPS_HOST from repo .env)
-  --remote-repo-root <path>  VPS repo path used to run export-profile.sh (default: /opt/hermes)
+  --remote-repo-root <path>  VPS repo path used to run export-profile.sh (default: auto-detect via VPS_DIR, /home/hermes/work/hermes-stack, /opt/hermes)
   --archive <path>           Local archive destination (default: <sync_root>/exports/profiles/<name>/...)
   --env-id <id>              Local environment manifest id (default: auto-detect)
   --target-home <path>       Base directory for local install layout (default: parent of ~/.hermes)
@@ -56,9 +56,10 @@ Options:
   -h, --help                 Show this help
 
 Examples:
-  bash scripts/clone-profile-from-vps.sh --profile ai-lab --vps-host hermes@vps.tailnet.ts.net
+  bash scripts/clone-profile-from-vps.sh --profile ai-lab --vps-host vps
   bash scripts/clone-profile-from-vps.sh --profile ai-lab
   bash scripts/clone-profile-from-vps.sh --profile ai-lab --target-home "$HOME/machines/hermes-mac"
+  bash scripts/clone-profile-from-vps.sh --profile ai-lab --remote-repo-root /home/hermes/work/hermes-stack
   bash scripts/clone-profile-from-vps.sh --profile ai-lab --clone-mode minimal --workspace skip
 EOF
 }
@@ -85,6 +86,45 @@ default_vps_host() {
   if [[ -f "${env_file}" ]]; then
     awk -F= '/^VPS_HOST=/{print $2; exit}' "${env_file}"
   fi
+}
+
+default_remote_repo_root() {
+  local env_file="${REPO_ROOT}/.env"
+  if [[ -f "${env_file}" ]]; then
+    awk -F= '/^VPS_DIR=/{print $2; exit}' "${env_file}"
+  fi
+}
+
+detect_remote_repo_root() {
+  local candidate
+  local candidates=()
+
+  if [[ -n "${REMOTE_REPO_ROOT}" ]]; then
+    candidates+=("${REMOTE_REPO_ROOT}")
+  fi
+
+  candidate="$(default_remote_repo_root)"
+  if [[ -n "${candidate}" ]]; then
+    candidates+=("${candidate}")
+  fi
+
+  candidates+=("/home/hermes/work/hermes-stack" "/opt/hermes")
+
+  local remote_path
+  local seen="|"
+  for remote_path in "${candidates[@]}"; do
+    [[ -n "${remote_path}" ]] || continue
+    if [[ "${seen}" == *"|${remote_path}|"* ]]; then
+      continue
+    fi
+    seen+="${remote_path}|"
+    if run_ssh "test -f $(shell_quote "${remote_path}/scripts/export-profile.sh")" >/dev/null 2>&1; then
+      REMOTE_REPO_ROOT="${remote_path}"
+      return 0
+    fi
+  done
+
+  return 1
 }
 
 profile_home() {
@@ -251,6 +291,10 @@ if [[ -z "${VPS_HOST}" ]]; then
 fi
 [[ -n "${VPS_HOST}" ]] || die "Could not determine VPS host. Pass --vps-host or set VPS_HOST in ${REPO_ROOT}/.env"
 
+if ! detect_remote_repo_root; then
+  die "Could not find export-profile.sh on ${VPS_HOST}. Pass --remote-repo-root explicitly or set VPS_DIR in ${REPO_ROOT}/.env"
+fi
+
 if [[ -z "${ENV_ID}" ]]; then
   ENV_ID="$(bash "${DETECT_ENV_SCRIPT}" --repo-root "${REPO_ROOT}")"
 fi
@@ -283,6 +327,7 @@ Local clone layout:
 - Sync root: ${SYNC_ROOT}
 - Wiki path: ${WIKI_PATH}
 - Archive path: ${ARCHIVE_PATH}
+- Remote repo root: ${REMOTE_REPO_ROOT}
 EOF
 
 log "→ Exporting profile '${PROFILE}' on ${VPS_HOST} via ${REMOTE_REPO_ROOT}"

@@ -705,6 +705,9 @@ make clone-profile-from-vps PROFILE=ai-lab
 # even shorter wrapper
 ./clone-profile ai-lab
 
+# if your VPS checkout lives somewhere else, override it explicitly
+make clone-profile-from-vps PROFILE=ai-lab REMOTE_REPO_ROOT=/home/hermes/work/hermes-stack
+
 # put everything under a custom base directory instead of $HOME
 ./clone-profile ai-lab "$HOME/machines/hermes-mac"
 
@@ -717,7 +720,9 @@ make clone-profile-from-vps PROFILE=ai-lab COPY_ENV=0
 
 `clone-profile-from-vps` does this in one flow:
 
-- runs `export-profile.sh` on the VPS over SSH (typically your Tailscale host/DNS name)
+- resolves the VPS SSH target (for example `VPS_HOST=vps` if you use an SSH alias)
+- auto-detects the remote `hermes-stack` checkout by trying `VPS_DIR`, `/home/hermes/work/hermes-stack`, and `/opt/hermes`
+- runs `export-profile.sh` on the VPS over SSH
 - downloads the resulting bundle with `scp`
 - runs `import-profile.sh` locally on the Mac
 - copies `/home/hermes/work/<profile>/` into the local rendered work root (uses `rsync --delete` when available, else tar-over-ssh)
