@@ -330,12 +330,15 @@ configure_shared_skills() {
 
   run_as_hermes mkdir -p "${SHARED_SKILLS_ROOT}"
 
-  run_as_hermes python3 - <<PY
+  RUN_CONFIG_PATH="${config_path}" \
+  RUN_SHARED_SKILLS_ROOT="${SHARED_SKILLS_ROOT}" \
+  run_as_hermes python3 - <<'PY'
 from pathlib import Path
+import os
 import yaml
 
-path = Path(${config_path@Q})
-shared_dir = ${SHARED_SKILLS_ROOT@Q}
+path = Path(os.environ["RUN_CONFIG_PATH"])
+shared_dir = os.environ["RUN_SHARED_SKILLS_ROOT"]
 
 if not path.exists():
     raise SystemExit(f"Expected config file to exist: {path}")
@@ -380,25 +383,41 @@ write_runtime_env() {
   local env_path
   env_path="$(profile_env_path "${profile}")"
 
-  if run_as_hermes python3 - <<PY
+  if RUN_ENV_PATH="${env_path}" \
+     RUN_TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}" \
+     RUN_TELEGRAM_HOME_CHANNEL="${TELEGRAM_HOME_CHANNEL}" \
+     RUN_AUDIOBOOKSHELF_BASE_URL="${AUDIOBOOKSHELF_BASE_URL}" \
+     RUN_AUDIOBOOKSHELF_TOKEN="${AUDIOBOOKSHELF_TOKEN}" \
+     RUN_AUDIOBOOKSHELF_ADMIN_USERNAME="${AUDIOBOOKSHELF_ADMIN_USERNAME}" \
+     RUN_AUDIOBOOKSHELF_ADMIN_PASSWORD="${AUDIOBOOKSHELF_ADMIN_PASSWORD}" \
+     RUN_AUDIOBOOKSHELF_LIBRARY_NAME="${AUDIOBOOKSHELF_LIBRARY_NAME}" \
+     RUN_AUDIOBOOKSHELF_PODCASTS_PATH="${AUDIOBOOKSHELF_PODCASTS_PATH}" \
+     RUN_TTS_BASE_URL="${TTS_BASE_URL}" \
+     RUN_CHATTERBOX_BASE_URL="${CHATTERBOX_BASE_URL}" \
+     RUN_PODCASTFY_PYTHON="${PODCASTFY_PYTHON}" \
+     RUN_PODCAST_OUTPUT_DIR="${PODCAST_OUTPUT_DIR}" \
+     RUN_HF_TOKEN="${HF_TOKEN}" \
+     RUN_KOKORO_BASE_URL="${KOKORO_BASE_URL}" \
+     run_as_hermes python3 - <<'PY'
 from pathlib import Path
+import os
 
-path = Path(${env_path@Q})
+path = Path(os.environ["RUN_ENV_PATH"])
 updates = {
-    "TELEGRAM_BOT_TOKEN": ${TELEGRAM_BOT_TOKEN@Q},
-    "TELEGRAM_HOME_CHANNEL": ${TELEGRAM_HOME_CHANNEL@Q},
-    "AUDIOBOOKSHELF_BASE_URL": ${AUDIOBOOKSHELF_BASE_URL@Q},
-    "AUDIOBOOKSHELF_TOKEN": ${AUDIOBOOKSHELF_TOKEN@Q},
-    "AUDIOBOOKSHELF_ADMIN_USERNAME": ${AUDIOBOOKSHELF_ADMIN_USERNAME@Q},
-    "AUDIOBOOKSHELF_ADMIN_PASSWORD": ${AUDIOBOOKSHELF_ADMIN_PASSWORD@Q},
-    "AUDIOBOOKSHELF_LIBRARY_NAME": ${AUDIOBOOKSHELF_LIBRARY_NAME@Q},
-    "AUDIOBOOKSHELF_PODCASTS_PATH": ${AUDIOBOOKSHELF_PODCASTS_PATH@Q},
-    "TTS_BASE_URL": ${TTS_BASE_URL@Q},
-    "CHATTERBOX_BASE_URL": ${CHATTERBOX_BASE_URL@Q},
-    "PODCASTFY_PYTHON": ${PODCASTFY_PYTHON@Q},
-    "PODCAST_OUTPUT_DIR": ${PODCAST_OUTPUT_DIR@Q},
-    "HF_TOKEN": ${HF_TOKEN@Q},
-    "KOKORO_BASE_URL": ${KOKORO_BASE_URL@Q},
+    "TELEGRAM_BOT_TOKEN": os.environ.get("RUN_TELEGRAM_BOT_TOKEN", ""),
+    "TELEGRAM_HOME_CHANNEL": os.environ.get("RUN_TELEGRAM_HOME_CHANNEL", ""),
+    "AUDIOBOOKSHELF_BASE_URL": os.environ.get("RUN_AUDIOBOOKSHELF_BASE_URL", ""),
+    "AUDIOBOOKSHELF_TOKEN": os.environ.get("RUN_AUDIOBOOKSHELF_TOKEN", ""),
+    "AUDIOBOOKSHELF_ADMIN_USERNAME": os.environ.get("RUN_AUDIOBOOKSHELF_ADMIN_USERNAME", ""),
+    "AUDIOBOOKSHELF_ADMIN_PASSWORD": os.environ.get("RUN_AUDIOBOOKSHELF_ADMIN_PASSWORD", ""),
+    "AUDIOBOOKSHELF_LIBRARY_NAME": os.environ.get("RUN_AUDIOBOOKSHELF_LIBRARY_NAME", ""),
+    "AUDIOBOOKSHELF_PODCASTS_PATH": os.environ.get("RUN_AUDIOBOOKSHELF_PODCASTS_PATH", ""),
+    "TTS_BASE_URL": os.environ.get("RUN_TTS_BASE_URL", ""),
+    "CHATTERBOX_BASE_URL": os.environ.get("RUN_CHATTERBOX_BASE_URL", ""),
+    "PODCASTFY_PYTHON": os.environ.get("RUN_PODCASTFY_PYTHON", ""),
+    "PODCAST_OUTPUT_DIR": os.environ.get("RUN_PODCAST_OUTPUT_DIR", ""),
+    "HF_TOKEN": os.environ.get("RUN_HF_TOKEN", ""),
+    "KOKORO_BASE_URL": os.environ.get("RUN_KOKORO_BASE_URL", ""),
 }
 updates = {key: value for key, value in updates.items() if value}
 if not updates:
@@ -440,10 +459,13 @@ configure_git_include() {
   gitconfig_path="${home_dir}/.gitconfig"
 
   run_as_hermes mkdir -p "${home_dir}"
-  run_as_hermes python3 - <<PY
+  RUN_GITCONFIG_PATH="${gitconfig_path}" \
+  RUN_SHARED_GITCONFIG="${shared_gitconfig}" \
+  run_as_hermes python3 - <<'PY'
 from pathlib import Path
-path = Path(${gitconfig_path@Q})
-shared = ${shared_gitconfig@Q}
+import os
+path = Path(os.environ["RUN_GITCONFIG_PATH"])
+shared = os.environ["RUN_SHARED_GITCONFIG"]
 path.write_text(f"[include]\n  path = {shared}\n")
 PY
   run_as_hermes chmod 644 "${gitconfig_path}"
@@ -458,14 +480,18 @@ configure_hindsight() {
   config_path="${hindsight_dir}/config.json"
 
   run_as_hermes mkdir -p "${hindsight_dir}"
-  run_as_hermes python3 - <<PY
+  RUN_HINDSIGHT_CONFIG_PATH="${config_path}" \
+  RUN_HINDSIGHT_API_URL="${HINDSIGHT_API_URL}" \
+  RUN_HINDSIGHT_BANK_ID="${bank_id}" \
+  run_as_hermes python3 - <<'PY'
 from pathlib import Path
 import json
-path = Path(${config_path@Q})
+import os
+path = Path(os.environ["RUN_HINDSIGHT_CONFIG_PATH"])
 payload = {
     "mode": "local_external",
-    "api_url": ${HINDSIGHT_API_URL@Q},
-    "bank_id": ${bank_id@Q},
+    "api_url": os.environ["RUN_HINDSIGHT_API_URL"],
+    "bank_id": os.environ["RUN_HINDSIGHT_BANK_ID"],
     "recall_budget": "mid",
     "memory_mode": "hybrid",
     "auto_recall": True,
@@ -487,9 +513,11 @@ write_gateway_override() {
   override_path="${dropin_dir}/override.conf"
 
   run_as_root_if_possible mkdir -p "${dropin_dir}" || die "Need root or passwordless sudo to harden ${unit_name}"
-  run_as_root_if_possible python3 - <<PY
+  RUN_OVERRIDE_PATH="${override_path}" \
+  run_as_root_if_possible python3 - <<'PY'
 from pathlib import Path
-path = Path(${override_path@Q})
+import os
+path = Path(os.environ["RUN_OVERRIDE_PATH"])
 path.write_text('''[Service]\nExecStartPre=/usr/bin/python3 /opt/hermes/scripts/cleanup-hermes-gateway-state.py\nNoNewPrivileges=true\nPrivateTmp=true\nProtectSystem=full\nProtectHome=false\nRestrictSUIDSGID=true\nLockPersonality=true\n''')
 PY
 }
