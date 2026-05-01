@@ -42,13 +42,14 @@
 #   make local-setup-hindsight        write hindsight/config.json locally
 #   make export-profile PROFILE=<n>   create a portable profile bundle under the synced exports root
 #   make import-profile PROFILE=<n> ARCHIVE=/path/to/bundle.tar.gz   import a portable profile bundle locally
+#   make clone-profile-from-vps PROFILE=<n>   one-command full clone from VPS over SSH/SCP, including workspace and profile-local files
 #   make backup-hindsight             trigger a logical Hindsight SQL dump on the VPS
 #   make restore-hindsight ARGS="..." restore or validate Hindsight dumps on the VPS
 
 .PHONY: up down deploy status logs logs-all restart restart-gemma restart-both chat shell hermes \
         update-agent backup-now snapshots restore clean add-profile sync-souls sync-profiles setup-hindsight \
         detect-env sync-env sync-profiles-local machine-bootstrap verify-env verify-env-local local-up local-down local-chat local-status local-logs \
-        local-backup-now local-snapshots local-update-agent local-setup-hindsight export-profile import-profile backup-hindsight restore-hindsight portability-smoke
+        local-backup-now local-snapshots local-update-agent local-setup-hindsight export-profile import-profile clone-profile-from-vps backup-hindsight restore-hindsight portability-smoke
 
 COMPOSE       = docker compose -f docker-compose.yml -f docker-compose.vps.yml
 LOCAL_COMPOSE = docker compose                          # auto-merges docker-compose.override.yml
@@ -208,6 +209,10 @@ export-profile:
 import-profile:
 	@[ -n "$(ARCHIVE)" ] || { echo "ERROR: ARCHIVE is required"; exit 1; }
 	@bash scripts/import-profile.sh --archive "$(ARCHIVE)" $(if $(PROFILE),--profile "$(PROFILE)",) --service-mode "$(SERVICE_MODE)" --gateway skip
+
+clone-profile-from-vps:
+	@[ -n "$(PROFILE)" ] || { echo "ERROR: PROFILE is required"; exit 1; }
+	@bash scripts/clone-profile-from-vps.sh --profile "$(PROFILE)" $(if $(VPS_HOST),--vps-host "$(VPS_HOST)",) $(if $(ARCHIVE),--archive "$(ARCHIVE)",) $(if $(TARGET_HOME),--target-home "$(TARGET_HOME)",) $(if $(CLONE_SERVICE_MODE),--service-mode "$(CLONE_SERVICE_MODE)",) $(if $(filter 1,$(MINIMAL)),--clone-mode minimal,) $(if $(filter 0,$(WORKSPACE)),--workspace skip,) $(if $(filter 1,$(COPY_AUTH)),--copy-auth,) $(if $(filter 0,$(COPY_AUTH)),--no-copy-auth,) $(if $(filter 1,$(COPY_ENV)),--copy-env,) $(if $(filter 0,$(COPY_ENV)),--no-copy-env,) $(if $(filter 1,$(COPY_PROFILE_SKILLS)),--copy-profile-skills,) $(if $(filter 0,$(COPY_PROFILE_SKILLS)),--no-copy-profile-skills,)
 
 portability-smoke:
 	@bash scripts/smoke-test-portability.sh

@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./clone-profile <profile> [target-home]
+
+Examples:
+  ./clone-profile ai-lab
+  ./clone-profile ai-lab "$HOME/machines/hermes-mac"
+
+What it does:
+  - clones the profile from the VPS over SSH/SCP
+  - imports it locally
+  - copies workspace, auth.json, .env, and profile-local skills by default
+
+Local layout:
+  default target-home: $HOME
+  Hermes root:         <target-home>/.hermes
+  Work root:           <target-home>/hermes-work
+  Sync root:           <target-home>/Sync/hermes
+EOF
+}
+
+PROFILE="${1:-}"
+TARGET_HOME="${2:-}"
+
+if [[ -z "${PROFILE}" || "${PROFILE}" == "-h" || "${PROFILE}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+ARGS=(--profile "${PROFILE}")
+if [[ -n "${TARGET_HOME}" ]]; then
+  ARGS+=(--target-home "${TARGET_HOME}")
+fi
+
+exec bash "${SCRIPT_DIR}/scripts/clone-profile-from-vps.sh" "${ARGS[@]}"

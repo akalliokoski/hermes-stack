@@ -97,6 +97,7 @@ make verify-env-local              # validate rendered profile wiring for this m
 make sync-profiles-local SERVICE_MODE=local   # opt into local Hindsight URLs when running local dev containers
 make export-profile PROFILE=default           # create portable profile bundle under synced exports root
 make import-profile ARCHIVE=/path/to/bundle.tar.gz PROFILE=default
+make clone-profile-from-vps PROFILE=ai-lab    # export on VPS over SSH/SCP, import locally, and copy the workspace
 make local-chat                    # hermes chat
 make local-backup-now              # trigger immediate backup
 make local-snapshots               # list available backups
@@ -696,6 +697,51 @@ make import-profile PROFILE=default ARCHIVE=~/Sync/hermes/exports/profiles/defau
 
 `import-profile` restores shared/profile soul sources, rerenders the profile for the target machine, and keeps reference copies of the source-machine artifacts under `~/.hermes[/profiles/<name>]/imports/`.
 
+If you want to skip Syncthing and pull a profile straight from the VPS over the tailnet, use the SSH/SCP helper from the Mac:
+
+```bash
+make clone-profile-from-vps PROFILE=ai-lab
+
+# even shorter wrapper
+./clone-profile ai-lab
+
+# put everything under a custom base directory instead of $HOME
+./clone-profile ai-lab "$HOME/machines/hermes-mac"
+
+# optional: slimmer clone if you do not want secrets/profile-local extras
+make clone-profile-from-vps PROFILE=ai-lab MINIMAL=1
+
+# optional: fine-grained exclusions from the default full clone
+make clone-profile-from-vps PROFILE=ai-lab COPY_ENV=0
+```
+
+`clone-profile-from-vps` does this in one flow:
+
+- runs `export-profile.sh` on the VPS over SSH (typically your Tailscale host/DNS name)
+- downloads the resulting bundle with `scp`
+- runs `import-profile.sh` locally on the Mac
+- copies `/home/hermes/work/<profile>/` into the local rendered work root (uses `rsync --delete` when available, else tar-over-ssh)
+- by default also copies profile-local `auth.json`, `.env`, and `skills/`
+- supports a `MINIMAL=1` mode when you want just the portable import plus optional workspace
+
+This is the easiest way to bring over an `ai-lab` workspace for local SFT work on the Mac without waiting for Syncthing.
+
+By default on the Mac, the files land under your home directory, not under the repo checkout:
+
+- Hermes files: `~/.hermes`
+- Profile files: `~/.hermes/profiles/<name>` (or `~/.hermes` for `default`)
+- Shared skills: `~/.hermes/shared/skills`
+- Shared soul: `~/.hermes/shared/soul`
+- Workspace: `~/hermes-work/<name>`
+- Synced/shared root: `~/Sync/hermes`
+- Wiki: `~/Sync/hermes/wiki`
+
+If you want the whole layout under a different base path, pass `TARGET_HOME=/some/path` to `make clone-profile-from-vps ...` or use `./clone-profile <name> /some/path`. That makes the layout:
+
+- Hermes files: `/some/path/.hermes`
+- Workspace: `/some/path/hermes-work/<name>`
+- Sync root: `/some/path/Sync/hermes`
+
 **Backup locations:**
 
 | Env | Sync root | Tarballs | Hindsight SQL dumps |
@@ -750,6 +796,7 @@ make import-profile PROFILE=default ARCHIVE=~/Sync/hermes/exports/profiles/defau
 | `make local-update-agent` | `hermes update` locally |
 | `make export-profile PROFILE=name` | Create a portable profile bundle |
 | `make import-profile PROFILE=name ARCHIVE=/path/to/bundle.tar.gz` | Import a portable profile bundle locally |
+| `make clone-profile-from-vps PROFILE=name` | Export on the VPS over SSH/SCP, import locally, and optionally copy the workspace/secrets/profile-local skills |
 | `make local-backup-now` / `local-snapshots` | Backups |
 | `make portability-smoke` | Run local regression/smoke checks for portability scripts |
 
