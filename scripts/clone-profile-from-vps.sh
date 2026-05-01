@@ -331,7 +331,7 @@ Local clone layout:
 EOF
 
 log "→ Exporting profile '${PROFILE}' on ${VPS_HOST} via ${REMOTE_REPO_ROOT}"
-REMOTE_EXPORT_OUTPUT="$(run_ssh "cd $(shell_quote "${REMOTE_REPO_ROOT}") && sudo -iu hermes env HERMES_ENV_ID=vps bash scripts/export-profile.sh --profile $(shell_quote "${PROFILE}") --service-mode remote")"
+REMOTE_EXPORT_OUTPUT="$(run_ssh "sudo -iu hermes env HERMES_ENV_ID=vps bash -lc 'cd $(shell_quote "${REMOTE_REPO_ROOT}") && bash scripts/export-profile.sh --profile $(shell_quote "${PROFILE}") --service-mode remote'")"
 printf '%s\n' "${REMOTE_EXPORT_OUTPUT}"
 REMOTE_ARCHIVE_PATH="$(printf '%s\n' "${REMOTE_EXPORT_OUTPUT}" | awk -F': ' '/Exported profile bundle/ {print $2}' | tail -n1)"
 [[ -n "${REMOTE_ARCHIVE_PATH}" ]] || die "Could not parse remote archive path from export output"

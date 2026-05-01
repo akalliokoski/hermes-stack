@@ -722,7 +722,7 @@ make clone-profile-from-vps PROFILE=ai-lab COPY_ENV=0
 
 - resolves the VPS SSH target (for example `VPS_HOST=vps` if you use an SSH alias)
 - auto-detects the remote `hermes-stack` checkout by trying `VPS_DIR`, `/home/hermes/work/hermes-stack`, and `/opt/hermes`
-- runs `export-profile.sh` on the VPS over SSH
+- runs `export-profile.sh` on the VPS over SSH as the `hermes` user from the detected repo checkout
 - downloads the resulting bundle with `scp`
 - runs `import-profile.sh` locally on the Mac
 - copies `/home/hermes/work/<profile>/` into the local rendered work root (uses `rsync --delete` when available, else tar-over-ssh)
