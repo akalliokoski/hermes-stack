@@ -39,3 +39,11 @@ config:
     config:
       wiki:
         path: ~/Sync/hermes/wiki
+profile_overrides:
+  ai-lab:
+    terminal:
+      backend: local
+      cwd: ~/hermes-work/ai-lab
+      docker_env: {}
+      docker_volumes: []
+      docker_forward_env: []

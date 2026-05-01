@@ -112,6 +112,18 @@ def append_unique(items: list[str], value: str) -> list[str]:
     return items
 
 
+def apply_manifest_profile_overrides(config: dict[str, Any], manifest: dict[str, Any], profile: str) -> dict[str, Any]:
+    overrides = manifest.get('profile_overrides') or {}
+    if not isinstance(overrides, dict):
+        raise SystemExit('Expected profile_overrides to be a mapping when present')
+    override = overrides.get(profile)
+    if override is None:
+        return config
+    if not isinstance(override, dict):
+        raise SystemExit(f'Expected profile_overrides.{profile} to be a mapping')
+    return deep_merge(config, override)
+
+
 def apply_profile_overrides(config: dict[str, Any], manifest: dict[str, Any], profile: str) -> dict[str, Any]:
     work_root = get_path(manifest, 'env.work_root')
     profile_root = Path(get_path(manifest, 'env.profile_root'))
@@ -211,6 +223,7 @@ def main() -> None:
 
     rendered = deep_merge(base, config_overlay)
     rendered = apply_profile_overrides(rendered, manifest, args.profile)
+    rendered = apply_manifest_profile_overrides(rendered, manifest, args.profile)
 
     output = yaml.safe_dump(rendered, sort_keys=False)
     if args.output:

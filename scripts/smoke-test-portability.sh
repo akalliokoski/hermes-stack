@@ -29,6 +29,7 @@ python3 -m py_compile scripts/render-config.py scripts/render-environment-contex
 printf '\n== Renderer smoke tests ==\n'
 python3 scripts/render-config.py --env-id vps --target-home /home/hermes --profile default >"${TMP_ROOT}/rendered-vps-default.yaml"
 python3 scripts/render-config.py --env-id macbook --target-home "${TMP_ROOT}/mac-home" --profile default >"${TMP_ROOT}/rendered-mac-default.yaml"
+python3 scripts/render-config.py --env-id macbook --target-home "${TMP_ROOT}/mac-home" --profile ai-lab >"${TMP_ROOT}/rendered-mac-ai-lab.yaml"
 python3 - <<'PY' "${TMP_ROOT}/rendered-vps-default.yaml"
 import sys, yaml
 path = sys.argv[1]
@@ -49,6 +50,16 @@ volumes = terminal.get('docker_volumes', [])
 assert terminal.get('backend') == 'docker', terminal
 assert terminal.get('cwd') == '/workspace', terminal
 assert any(entry.endswith(':/workspace') for entry in volumes), volumes
+PY
+python3 - <<'PY' "${TMP_ROOT}/rendered-mac-ai-lab.yaml" "${TMP_ROOT}/mac-home"
+import sys, yaml
+path, home = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    cfg = yaml.safe_load(f)
+terminal = cfg.get('terminal', {})
+assert terminal.get('backend') == 'local', terminal
+assert terminal.get('cwd') == f'{home}/hermes-work/ai-lab', terminal
+assert terminal.get('docker_volumes') == [], terminal
 PY
 python3 scripts/render-environment-context.py --env-id macbook --profile default --profile-home "${TMP_ROOT}/mac-home/.hermes" --config-path "${TMP_ROOT}/mac-home/.hermes/config.yaml" --service-mode auto --output "${TMP_ROOT}/ENVIRONMENT.md"
 

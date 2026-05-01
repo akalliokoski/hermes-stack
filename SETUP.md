@@ -726,6 +726,8 @@ make clone-profile-from-vps PROFILE=ai-lab COPY_ENV=0
 
 This is the easiest way to bring over an `ai-lab` workspace for local SFT work on the Mac without waiting for Syncthing.
 
+For the `ai-lab` profile specifically, macOS/workstation renders now default to `terminal.backend: local` with `terminal.cwd: ~/hermes-work/ai-lab`, so local import/clone lands in a Mac-native training setup without an extra post-import config edit.
+
 By default on the Mac, the files land under your home directory, not under the repo checkout:
 
 - Hermes files: `~/.hermes`
