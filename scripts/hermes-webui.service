@@ -1,0 +1,33 @@
+[Unit]
+Description=Hermes WebUI
+After=network-online.target hermes-gateway.service
+Wants=network-online.target
+
+[Service]
+User=hermes
+Group=hermes
+WorkingDirectory=/opt/hermes-webui
+Environment=HOME=/home/hermes
+Environment=PATH=/home/hermes/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=PYTHONUNBUFFERED=1
+Environment=HERMES_HOME=/home/hermes/.hermes
+Environment=HERMES_BASE_HOME=/home/hermes/.hermes
+Environment=HERMES_WEBUI_INSTALL_DIR=/opt/hermes-webui
+Environment=HERMES_WEBUI_AGENT_DIR=/opt/hermes/hermes-agent
+Environment=HERMES_WEBUI_HOST=127.0.0.1
+Environment=HERMES_WEBUI_PORT=8787
+Environment=HERMES_WEBUI_STATE_DIR=/home/hermes/.hermes/webui
+Environment=HERMES_WEBUI_DEFAULT_WORKSPACE=/home/hermes/work/default
+Environment=HERMES_SKIP_CHMOD=1
+EnvironmentFile=-/home/hermes/.hermes/.env
+ExecStart=/opt/hermes/scripts/run-hermes-webui.sh
+Restart=always
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=false
+
+[Install]
+WantedBy=multi-user.target

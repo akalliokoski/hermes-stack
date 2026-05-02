@@ -7,6 +7,10 @@ env:
   wiki_path: ~/Sync/hermes/wiki
   sync_root: ~/Sync/hermes
   services:
+    hermes_webui:
+      mode: remote_ui
+      remote_ui_url: https://vps.taild96651.ts.net:9446/
+      ui_url: https://vps.taild96651.ts.net:9446/
     hindsight:
       mode: remote_vps_preferred
       remote_api_url: https://vps.taild96651.ts.net/memory/

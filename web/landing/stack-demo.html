@@ -306,7 +306,7 @@
 
           <rect x="396" y="64" width="504" height="300" rx="28" fill="rgba(143,167,255,0.08)" stroke="rgba(143,167,255,0.34)" />
           <text x="426" y="108" fill="#eef2ff" font-size="30" font-weight="700">Host-native Hermes runtime</text>
-          <text x="426" y="152" fill="#b8c3ef" font-size="22">systemd services: hermes-gateway, hermes-gateway-&lt;profile&gt;, hermes-dashboard</text>
+          <text x="426" y="152" fill="#b8c3ef" font-size="22">systemd services: hermes-gateway, hermes-gateway-&lt;profile&gt;, hermes-dashboard, hermes-webui</text>
           <text x="426" y="188" fill="#b8c3ef" font-size="22">profile config render + SOUL render + ENVIRONMENT context</text>
           <text x="426" y="224" fill="#b8c3ef" font-size="22">shared skills, shared wiki, per-profile workspaces</text>
           <text x="426" y="260" fill="#b8c3ef" font-size="22">tool-using operator loop for sysops, research, and media pipelines</text>
@@ -347,7 +347,7 @@
           <text x="980" y="160" fill="#b8c3ef" font-size="21">Publishes localhost UIs</text>
           <text x="980" y="193" fill="#b8c3ef" font-size="21">to the tailnet only:</text>
           <text x="980" y="228" fill="#f7c76c" font-size="19">/ , /memory/ , /firecrawl/</text>
-          <text x="980" y="255" fill="#f7c76c" font-size="19">:9443, :9444, :9445</text>
+          <text x="980" y="255" fill="#f7c76c" font-size="19">:9443, :9444, :9445, :9446</text>
 
           <line x1="324" y1="178" x2="396" y2="178" stroke="#8fa7ff" stroke-width="4" marker-end="url(#arrow)" />
           <line x1="900" y1="178" x2="952" y2="178" stroke="#8fa7ff" stroke-width="4" marker-end="url(#arrow)" />
@@ -362,6 +362,11 @@
       <section class="section card">
         <h2>Service tour</h2>
         <div class="grid-3">
+          <div class="service-card">
+            <h3>Hermes WebUI</h3>
+            <p>Upstream chat-first browser UI for Hermes. It runs as a host-native service against the shared <code>~/.hermes</code> root, so one deployment can switch across all profiles from the UI itself.</p>
+            <div class="port">local 127.0.0.1:8787 → tailnet :9446</div>
+          </div>
           <div class="service-card">
             <h3>Hermes Dashboard</h3>
             <p>Built-in Hermes web UI for configuration, sessions, logs, and credentials. Runs as a host-native service and is exposed through a dedicated Tailnet HTTPS port.</p>

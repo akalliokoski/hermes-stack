@@ -388,8 +388,9 @@ Open the Hermes stack landing page from any tailnet device:
 https://<current-tailscale-node-name>.<your-tailnet>.ts.net/
 ```
 
-That landing page links to the Hermes dashboard, Syncthing UI, Hindsight UI/API, Firecrawl API, Audiobookshelf, and Jellyfin. Direct paths are also available:
+That landing page links to Hermes WebUI, the Hermes dashboard, Syncthing UI, Hindsight UI/API, Firecrawl API, Audiobookshelf, and Jellyfin. Direct paths are also available:
 
+- `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9446/` (Hermes WebUI)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9444/` (Hermes Dashboard)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9445/` (Syncthing UI)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:13378/` (Audiobookshelf UI/API)
@@ -398,7 +399,7 @@ That landing page links to the Hermes dashboard, Syncthing UI, Hindsight UI/API,
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/memory/` (Hindsight API)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/firecrawl/` (Firecrawl API)
 
-All of these stay bound to `127.0.0.1` on the VPS and are published externally only through the host Tailscale daemon. The deploy flow reapplies `scripts/configure-tailscale-serve.sh` and verifies the live Serve listeners against the node's current MagicDNS/cert domain so hostname drift fails deployment instead of leaving stale URLs behind.
+All of these stay bound to `127.0.0.1` on the VPS and are published externally only through the host Tailscale daemon. Hermes WebUI runs against the shared `/home/hermes/.hermes` root so its built-in profile switcher can see the default profile plus every named profile under `~/.hermes/profiles/`. The deploy flow reapplies `scripts/configure-tailscale-serve.sh` and verifies the live Serve listeners against the node's current MagicDNS/cert domain so hostname drift fails deployment instead of leaving stale URLs behind.
 
 Point the MacBook side at `~/Sync/hermes` (or wherever). Obsidian → **Open folder as vault** → `~/Sync/hermes/wiki`.
 
@@ -420,6 +421,32 @@ Because the shared root now lives directly at `/home/hermes/sync`, do the follow
 
 ```bash
 sudo bash scripts/configure-tailscale-serve.sh
+```
+
+#### Hermes WebUI
+
+Hermes WebUI is now the adopted browser chat surface for this stack. It stays upstream and runs host-natively instead of inside Docker so tool calls, profile switching, and filesystem access match the real VPS Hermes runtime as closely as possible.
+
+Current shape:
+- upstream checkout lives at `/opt/hermes-webui`
+- deploy refreshes it with `/opt/hermes/scripts/setup-hermes-webui.sh`
+- systemd unit: `hermes-webui.service`
+- localhost bind: `127.0.0.1:8787`
+- tailnet URL: `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9446/`
+- shared profile root: `/home/hermes/.hermes`
+
+Important behavior:
+- the UI points at the shared Hermes home, not a single profile subdirectory
+- the Hermes WebUI profile picker can switch across the default profile and named profiles in `~/.hermes/profiles/`
+- because it runs on the host with the Hermes user's real filesystem, it sees `/home/hermes/work/<profile>` and `/home/hermes/sync/wiki` directly instead of requiring container bind-mount tricks
+
+Optional env overrides in `/home/hermes/.hermes/.env`:
+
+```bash
+HERMES_WEBUI_REPO_URL=https://github.com/nesquena/hermes-webui.git
+HERMES_WEBUI_REF=master
+# Optional extra auth on top of Tailscale:
+# HERMES_WEBUI_PASSWORD=<strong-random-secret>
 ```
 
 #### Built-in Hermes API server

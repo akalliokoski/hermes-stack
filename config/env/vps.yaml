@@ -7,6 +7,11 @@ env:
   wiki_path: /home/hermes/sync/wiki
   sync_root: /home/hermes/sync
   services:
+    hermes_webui:
+      mode: host_native
+      local_ui_url: http://127.0.0.1:8787/
+      remote_ui_url: https://vps.taild96651.ts.net:9446/
+      ui_url: https://vps.taild96651.ts.net:9446/
     hindsight:
       mode: local_docker
       local_api_url: http://127.0.0.1:8888

@@ -148,6 +148,12 @@
           <div class="meta">Repo artifact: <code>web/landing/stack-demo.html</code></div>
         </a>
 
+        <a class="card" id="hermes-webui-link" href="#">
+          <div class="title"><span>Hermes WebUI</span><span>↗</span></div>
+          <div class="description">Upstream Hermes WebUI for chat-first browser access from desktop or phone. It runs against the shared Hermes home on the VPS, so the profile picker can switch between the default profile and named profiles without a separate deploy per profile.</div>
+          <div class="meta">Tailnet URL: <code>:9446</code> → local <code>127.0.0.1:8787</code></div>
+        </a>
+
         <a class="card" id="dashboard-link" href="#">
           <div class="title"><span>Hermes Dashboard</span><span>↗</span></div>
           <div class="description">Hermes Agent web UI for configuration, sessions, logs, and provider credentials. It is exposed on its own Tailnet HTTPS port because the current dashboard frontend is not path-prefix safe.</div>
@@ -204,12 +210,14 @@
       const protocol = window.location.protocol || "https:";
       const canonical = `${protocol}//${hostname}/`;
       const hindsightUi = `${protocol}//${hostname}:9443/`;
+      const hermesWebUi = `${protocol}//${hostname}:9446/`;
       const dashboardUi = `${protocol}//${hostname}:9444/`;
       const syncthingUi = `${protocol}//${hostname}:9445/`;
       const audiobookshelfUi = `${protocol}//${hostname}:13378/`;
       const jellyfinUi = `${protocol}//${hostname}:8096/`;
       document.getElementById("canonical-entrypoint").textContent = canonical;
       document.getElementById("hindsight-ui-link").href = hindsightUi;
+      document.getElementById("hermes-webui-link").href = hermesWebUi;
       document.getElementById("dashboard-link").href = dashboardUi;
       document.getElementById("syncthing-link").href = syncthingUi;
       document.getElementById("audiobookshelf-link").href = audiobookshelfUi;

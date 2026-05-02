@@ -77,13 +77,14 @@ Prefer thin, repo-auditable extensions around the native Hermes runtime instead 
 adding a second control plane.
 
 Approved additions:
+- Hermes WebUI as a tailnet-only chat UI backed by the stock host-native Hermes runtime and shared profile root
 - Hermes Workspace V2 as a tailnet-only operator UI backed by Hermes's built-in API server
 - Ollama Cloud or a local/OpenAI-compatible Ollama endpoint for delegation/fallback economics
 - shared cross-profile skills under `~/.hermes/shared/skills/`, including house orchestration protocols
 - experimental plugins only when they are isolated behind a dedicated profile or documented pilot flow
 
 Not adopted by default:
-- alternate dashboards that duplicate the same role as Workspace V2
+- extra web dashboards/UIs that duplicate Hermes WebUI or Hermes Dashboard without a documented need
 - third-party multi-agent harnesses that replace Hermes as the primary orchestrator
 - shared-memory plugins that blur profile boundaries without an explicit design and docs update
 

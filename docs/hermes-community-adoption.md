@@ -14,7 +14,29 @@ The rule is still:
 
 ## Adopted now
 
-### 1. Hermes Workspace V2
+### 1. Hermes WebUI
+
+Status: adopted as the browser chat surface for the VPS.
+
+Why:
+- zero-fork with upstream `hermes-agent`
+- mobile/PWA friendly
+- richer chat-first operator experience than the built-in dashboard
+- supports switching across all Hermes profiles from one shared `~/.hermes` root
+- fits the existing Tailscale-only remote access model
+
+How we run it:
+- deploy refreshes an upstream checkout into `/opt/hermes-webui`
+- `scripts/setup-hermes-webui.sh` installs the tiny WebUI dependency set into the existing Hermes Python runtime
+- `scripts/hermes-webui.service` runs the server host-natively on `127.0.0.1:8787`
+- Tailscale Serve publishes it on `https://<node>.ts.net:9446/`
+
+Boundaries:
+- Hermes itself still runs natively under systemd
+- we do not fork Hermes Agent to support the UI
+- we intentionally avoid the Docker deployment mode here so the UI sees the same host filesystem and profile layout as the real runtime
+
+### 2. Hermes Workspace V2
 
 Status: experimental/manual only; not deployed as always-on infrastructure.
 
@@ -35,7 +57,7 @@ Boundaries:
 - Hermes itself still runs natively under systemd
 - upstream packaging must be reproducible before Workspace can be promoted back into always-on deploys
 
-### 2. Ollama strategy for delegation/fallback
+### 3. Ollama strategy for delegation/fallback
 
 Status: adopted as an optional config overlay driven by env vars.
 
@@ -54,7 +76,7 @@ Boundaries:
 - we intentionally do not auto-switch the primary model
 - `smart_model_routing` stays opt-in
 
-### 3. House orchestration skill
+### 4. House orchestration skill
 
 Status: adopted via shared skill.
 
@@ -94,13 +116,14 @@ Reason:
 
 ## Not adopted by default
 
-- alternate web UIs that overlap with Workspace V2
+- additional web UIs that overlap with Hermes WebUI + Hermes Dashboard without a documented reason
 - third-party orchestration layers that replace Hermes as the primary coordinator
 - shared-memory plugins that bypass profile boundaries without a deliberate architecture update
 
 ## Operational consequences
 
 If a change touches any of the following, it belongs in the repo and should ship through the normal deploy path:
+- Hermes WebUI service wiring
 - Workspace service wiring
 - API server env/config
 - Tailscale Serve routes

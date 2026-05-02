@@ -45,6 +45,7 @@ Docker Compose runs the surrounding services Hermes uses:
 
 | Service | Role | Typical endpoint |
 |---|---|---|
+| Hermes WebUI | Upstream chat-first Hermes browser UI with profile switching | `127.0.0.1:8787` via Tailscale `:9446` |
 | Hermes Dashboard | Built-in Hermes web UI | `127.0.0.1:9119` via Tailscale `:9444` |
 | Firecrawl | Web crawling / scraping backend | `127.0.0.1:3002` |
 | Hindsight | Long-term semantic memory service | `127.0.0.1:8888` API, `127.0.0.1:9999` UI |
@@ -60,11 +61,13 @@ Docker Compose runs the surrounding services Hermes uses:
 At the time this overview was generated, the VPS had these host-native Hermes services active:
 - `hermes-gateway.service`
 - `hermes-gateway-gemma.service`
+- `hermes-webui.service`
 - `hermes-dashboard.service`
 
 And these published Tailnet entrypoints:
 - `https://vps.taild96651.ts.net/` → landing page + `/memory/` + `/firecrawl/`
 - `https://vps.taild96651.ts.net:9443/` → Hindsight UI
+- `https://vps.taild96651.ts.net:9446/` → Hermes WebUI
 - `https://vps.taild96651.ts.net:9444/` → Hermes Dashboard
 - `https://vps.taild96651.ts.net:9445/` → Syncthing UI
 - `https://vps.taild96651.ts.net:13378/` → Audiobookshelf
@@ -82,6 +85,7 @@ Clients
 Host-native Hermes Agent
   ├─ systemd: hermes-gateway
   ├─ systemd: hermes-gateway-<profile>
+  ├─ systemd: hermes-webui
   ├─ systemd: hermes-dashboard
   ├─ profile config + SOUL rendering
   ├─ shared skills / shared wiki access
