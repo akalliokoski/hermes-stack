@@ -20,7 +20,11 @@ resolve_requested_ref() {
   local resolved_tag
   resolved_tag="$(run_as_hermes bash -lc '
     set -euo pipefail
-    git -C "'"${HERMES_WEBUI_INSTALL_DIR}"'" tag --list "v*" --sort=-version:refname | head -n 1
+    git -C "'"${HERMES_WEBUI_INSTALL_DIR}"'" for-each-ref \
+      --count=1 \
+      --sort=-version:refname \
+      --format="%(refname:strip=2)" \
+      refs/tags/v*
   ')"
 
   if [[ -z "$resolved_tag" ]]; then
