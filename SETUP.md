@@ -444,7 +444,8 @@ Optional env overrides in `/home/hermes/.hermes/.env`:
 
 ```bash
 HERMES_WEBUI_REPO_URL=https://github.com/nesquena/hermes-webui.git
-HERMES_WEBUI_REF=master
+# Default is latest-release; set a branch/tag/sha only if you want to pin or test something specific.
+HERMES_WEBUI_REF=latest-release
 # Optional extra auth on top of Tailscale:
 # HERMES_WEBUI_PASSWORD=<strong-random-secret>
 ```

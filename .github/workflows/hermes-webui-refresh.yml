@@ -1,0 +1,144 @@
+name: Hermes WebUI Refresh
+
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: Optional SSH host or Tailscale IP override for the VPS target
+        required: false
+        type: string
+
+concurrency:
+  group: hermes-webui-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PRIMARY_DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || vars.VPS_HOST || secrets.VPS_HOST || '' }}
+      FALLBACK_DEPLOY_TARGET: 100.121.250.82
+      EXPECTED_REMOTE_HOSTNAME: ${{ vars.VPS_EXPECTED_HOSTNAME || 'vps' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          tags: tag:ci
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.VPS_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          if [ -n "${{ secrets.VPS_SSH_KNOWN_HOSTS }}" ]; then
+            printf '%s\n' "${{ secrets.VPS_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          else
+            cp .github/ssh_known_hosts ~/.ssh/known_hosts
+          fi
+
+          if [ ! -s ~/.ssh/known_hosts ]; then
+            echo "No pinned SSH host keys available. Set VPS_SSH_KNOWN_HOSTS or populate .github/ssh_known_hosts." >&2
+            exit 1
+          fi
+
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Resolve deploy target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_DEPLOY_TARGET: ${{ github.event.inputs.deploy_target || '' }}
+        run: |
+          validate_target() {
+            local candidate="$1"
+            [[ "$candidate" =~ ^[A-Za-z0-9.-]+$ ]]
+          }
+
+          candidates=()
+          if [ -n "$PRIMARY_DEPLOY_TARGET" ]; then
+            candidates+=("$PRIMARY_DEPLOY_TARGET")
+          fi
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && [ -n "$DISPATCH_DEPLOY_TARGET" ]; then
+            fallback_allowed=false
+          else
+            fallback_allowed=true
+          fi
+
+          if $fallback_allowed; then
+            candidates+=("$FALLBACK_DEPLOY_TARGET")
+          fi
+
+          seen_candidates=""
+          for candidate in "${candidates[@]}"; do
+            if [ -n "$seen_candidates" ] && printf '%s\n' "$seen_candidates" | grep -Fx -- "$candidate" >/dev/null; then
+              continue
+            fi
+            seen_candidates="${seen_candidates}${candidate}"$'\n'
+
+            if ! validate_target "$candidate"; then
+              echo "Skipping invalid deploy target candidate: $candidate" >&2
+              continue
+            fi
+
+            if ! ssh-keygen -F "$candidate" -f ~/.ssh/known_hosts >/dev/null; then
+              echo "Skipping deploy target candidate without pinned known_hosts entry: $candidate" >&2
+              continue
+            fi
+
+            echo "Trying deploy target: $candidate"
+            remote_hostname=$(ssh -i ~/.ssh/deploy_key \
+              -o BatchMode=yes \
+              -o IdentitiesOnly=yes \
+              -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile=$HOME/.ssh/known_hosts \
+              -o ConnectTimeout=10 \
+              "${{ secrets.VPS_SSH_USER }}@$candidate" "hostname -s" 2>/dev/null || true)
+
+            if [ "$remote_hostname" = "$EXPECTED_REMOTE_HOSTNAME" ]; then
+              echo "DEPLOY_TARGET=$candidate" >> "$GITHUB_ENV"
+              echo "Using deploy target: $candidate"
+              exit 0
+            fi
+
+            if [ -n "$remote_hostname" ]; then
+              echo "Candidate $candidate resolved to unexpected host '$remote_hostname'" >&2
+            fi
+          done
+
+          echo "Unable to resolve a trusted deploy target. Ensure deploy candidates are reachable and VPS_SSH_KNOWN_HOSTS includes pinned entries for each allowed hostname or IP." >&2
+          exit 1
+
+      - name: Sync repo helpers
+        run: |
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='.env' \
+            --exclude='backups/' \
+            -e "ssh -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts" \
+            . ${{ secrets.VPS_SSH_USER }}@${{ env.DEPLOY_TARGET }}:/opt/hermes/
+
+      - name: Refresh Hermes WebUI
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile=$HOME/.ssh/known_hosts \
+            ${{ secrets.VPS_SSH_USER }}@${{ env.DEPLOY_TARGET }} \
+            'set -euo pipefail
+             cd /opt/hermes
+             before=$(git -C /opt/hermes-webui describe --tags --always 2>/dev/null || echo missing)
+             sudo bash scripts/setup-hermes-webui.sh
+             after=$(git -C /opt/hermes-webui describe --tags --always 2>/dev/null || echo unknown)
+             sudo systemctl restart hermes-webui
+             systemctl is-active hermes-webui
+             bash scripts/verify-local-web-bindings.sh
+             printf "before=%s\nafter=%s\n" "$before" "$after"'
