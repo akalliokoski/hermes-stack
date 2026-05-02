@@ -334,9 +334,10 @@ configure_shared_skills() {
 
   run_as_hermes mkdir -p "${SHARED_SKILLS_ROOT}"
 
-  RUN_CONFIG_PATH="${config_path}" \
-  RUN_SHARED_SKILLS_ROOT="${SHARED_SKILLS_ROOT}" \
-  run_as_hermes python3 - <<'PY'
+  run_as_hermes env \
+    RUN_CONFIG_PATH="${config_path}" \
+    RUN_SHARED_SKILLS_ROOT="${SHARED_SKILLS_ROOT}" \
+    python3 - <<'PY'
 from pathlib import Path
 import os
 import yaml
@@ -387,22 +388,23 @@ write_runtime_env() {
   local env_path
   env_path="$(profile_env_path "${profile}")"
 
-  if RUN_ENV_PATH="${env_path}" \
-     RUN_TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}" \
-     RUN_TELEGRAM_HOME_CHANNEL="${TELEGRAM_HOME_CHANNEL}" \
-     RUN_AUDIOBOOKSHELF_BASE_URL="${AUDIOBOOKSHELF_BASE_URL}" \
-     RUN_AUDIOBOOKSHELF_TOKEN="${AUDIOBOOKSHELF_TOKEN}" \
-     RUN_AUDIOBOOKSHELF_ADMIN_USERNAME="${AUDIOBOOKSHELF_ADMIN_USERNAME}" \
-     RUN_AUDIOBOOKSHELF_ADMIN_PASSWORD="${AUDIOBOOKSHELF_ADMIN_PASSWORD}" \
-     RUN_AUDIOBOOKSHELF_LIBRARY_NAME="${AUDIOBOOKSHELF_LIBRARY_NAME}" \
-     RUN_AUDIOBOOKSHELF_PODCASTS_PATH="${AUDIOBOOKSHELF_PODCASTS_PATH}" \
-     RUN_TTS_BASE_URL="${TTS_BASE_URL}" \
-     RUN_CHATTERBOX_BASE_URL="${CHATTERBOX_BASE_URL}" \
-     RUN_PODCASTFY_PYTHON="${PODCASTFY_PYTHON}" \
-     RUN_PODCAST_OUTPUT_DIR="${PODCAST_OUTPUT_DIR}" \
-     RUN_HF_TOKEN="${HF_TOKEN}" \
-     RUN_KOKORO_BASE_URL="${KOKORO_BASE_URL}" \
-     run_as_hermes python3 - <<'PY'
+  if run_as_hermes env \
+       RUN_ENV_PATH="${env_path}" \
+       RUN_TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN}" \
+       RUN_TELEGRAM_HOME_CHANNEL="${TELEGRAM_HOME_CHANNEL}" \
+       RUN_AUDIOBOOKSHELF_BASE_URL="${AUDIOBOOKSHELF_BASE_URL}" \
+       RUN_AUDIOBOOKSHELF_TOKEN="${AUDIOBOOKSHELF_TOKEN}" \
+       RUN_AUDIOBOOKSHELF_ADMIN_USERNAME="${AUDIOBOOKSHELF_ADMIN_USERNAME}" \
+       RUN_AUDIOBOOKSHELF_ADMIN_PASSWORD="${AUDIOBOOKSHELF_ADMIN_PASSWORD}" \
+       RUN_AUDIOBOOKSHELF_LIBRARY_NAME="${AUDIOBOOKSHELF_LIBRARY_NAME}" \
+       RUN_AUDIOBOOKSHELF_PODCASTS_PATH="${AUDIOBOOKSHELF_PODCASTS_PATH}" \
+       RUN_TTS_BASE_URL="${TTS_BASE_URL}" \
+       RUN_CHATTERBOX_BASE_URL="${CHATTERBOX_BASE_URL}" \
+       RUN_PODCASTFY_PYTHON="${PODCASTFY_PYTHON}" \
+       RUN_PODCAST_OUTPUT_DIR="${PODCAST_OUTPUT_DIR}" \
+       RUN_HF_TOKEN="${HF_TOKEN}" \
+       RUN_KOKORO_BASE_URL="${KOKORO_BASE_URL}" \
+       python3 - <<'PY'
 from pathlib import Path
 import os
 
@@ -463,9 +465,10 @@ configure_git_include() {
   gitconfig_path="${home_dir}/.gitconfig"
 
   run_as_hermes mkdir -p "${home_dir}"
-  RUN_GITCONFIG_PATH="${gitconfig_path}" \
-  RUN_SHARED_GITCONFIG="${shared_gitconfig}" \
-  run_as_hermes python3 - <<'PY'
+  run_as_hermes env \
+    RUN_GITCONFIG_PATH="${gitconfig_path}" \
+    RUN_SHARED_GITCONFIG="${shared_gitconfig}" \
+    python3 - <<'PY'
 from pathlib import Path
 import os
 path = Path(os.environ["RUN_GITCONFIG_PATH"])
@@ -484,10 +487,11 @@ configure_hindsight() {
   config_path="${hindsight_dir}/config.json"
 
   run_as_hermes mkdir -p "${hindsight_dir}"
-  RUN_HINDSIGHT_CONFIG_PATH="${config_path}" \
-  RUN_HINDSIGHT_API_URL="${HINDSIGHT_API_URL}" \
-  RUN_HINDSIGHT_BANK_ID="${bank_id}" \
-  run_as_hermes python3 - <<'PY'
+  run_as_hermes env \
+    RUN_HINDSIGHT_CONFIG_PATH="${config_path}" \
+    RUN_HINDSIGHT_API_URL="${HINDSIGHT_API_URL}" \
+    RUN_HINDSIGHT_BANK_ID="${bank_id}" \
+    python3 - <<'PY'
 from pathlib import Path
 import json
 import os
@@ -517,8 +521,9 @@ write_gateway_override() {
   override_path="${dropin_dir}/override.conf"
 
   run_as_root_if_possible mkdir -p "${dropin_dir}" || die "Need root or passwordless sudo to harden ${unit_name}"
-  RUN_OVERRIDE_PATH="${override_path}" \
-  run_as_root_if_possible python3 - <<'PY'
+  run_as_root_if_possible env \
+    RUN_OVERRIDE_PATH="${override_path}" \
+    python3 - <<'PY'
 from pathlib import Path
 import os
 path = Path(os.environ["RUN_OVERRIDE_PATH"])
