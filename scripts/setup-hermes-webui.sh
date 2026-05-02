@@ -18,14 +18,11 @@ resolve_requested_ref() {
   fi
 
   local resolved_tag
-  resolved_tag="$(run_as_hermes bash -lc '
-    set -euo pipefail
-    git -C "'"${HERMES_WEBUI_INSTALL_DIR}"'" for-each-ref \
-      --count=1 \
-      --sort=-version:refname \
-      --format="%(refname:strip=2)" \
-      refs/tags/v*
-  ')"
+  resolved_tag="$(run_as_hermes git -C "${HERMES_WEBUI_INSTALL_DIR}" for-each-ref \
+    --count=1 \
+    --sort=-version:refname \
+    --format='%(refname:strip=2)' \
+    'refs/tags/v*')"
 
   if [[ -z "$resolved_tag" ]]; then
     echo "ERROR: unable to resolve latest Hermes WebUI release tag from ${HERMES_WEBUI_REPO_URL}" >&2
