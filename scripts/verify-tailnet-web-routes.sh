@@ -48,12 +48,6 @@ expected = {
     f'{domain}:9445': {
         '/': 'http://127.0.0.1:8384',
     },
-    f'{domain}:13378': {
-        '/': 'http://127.0.0.1:13378',
-    },
-    f'{domain}:8096': {
-        '/': 'http://127.0.0.1:8096',
-    },
 }
 
 for listener, paths in expected.items():
@@ -66,9 +60,9 @@ for listener, paths in expected.items():
         if actual != proxy:
             raise SystemExit(f'{listener}{path} expected {proxy} but found {actual}')
 
-unexpected = sorted(k for k in web if not k.startswith(f'{domain}:'))
+unexpected = sorted(k for k in web if k not in expected)
 if unexpected:
-    raise SystemExit('stale listeners present: ' + ', '.join(unexpected))
+    raise SystemExit('unexpected listeners present: ' + ', '.join(unexpected))
 PY
   then
     echo "✓ Verified tailnet-served route mappings on ${CURRENT_TAILNET_DOMAIN}"

@@ -24,8 +24,7 @@ VPS host
       ├── backup                             daily /home/hermes/.hermes tarball
       ├── syncthing (VPS only)               sync /home/hermes/sync → MacBook
       │                                      over Tailscale
-      ├── audiobookshelf (VPS only)          127.0.0.1:13378 podcast delivery
-      └── jellyfin (VPS only)                127.0.0.1:8096 video delivery
+      └── host runtime helpers               tailnet-only operator support
 ```
 
 **Compose files:**
@@ -34,7 +33,7 @@ VPS host
 |---|---|
 | `docker-compose.yml` | Base — auxiliary services only |
 | `docker-compose.override.yml` | Local dev overrides (auto-applied) |
-| `docker-compose.vps.yml` | VPS additions: syncthing, Audiobookshelf, Jellyfin, and host data bind-mounts |
+| `docker-compose.vps.yml` | VPS additions: syncthing and host data bind-mounts |
 
 ---
 
@@ -388,13 +387,11 @@ Open the Hermes stack landing page from any tailnet device:
 https://<current-tailscale-node-name>.<your-tailnet>.ts.net/
 ```
 
-That landing page links to Hermes WebUI, the Hermes dashboard, Syncthing UI, Hindsight UI/API, Firecrawl API, Audiobookshelf, and Jellyfin. Direct paths are also available:
+That landing page links to Hermes WebUI, the Hermes dashboard, Syncthing UI, Hindsight UI/API, and Firecrawl API. Direct paths are also available:
 
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9446/` (Hermes WebUI)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9444/` (Hermes Dashboard)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9445/` (Syncthing UI)
-- `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:13378/` (Audiobookshelf UI/API)
-- `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:8096/` (Jellyfin UI/API)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net:9443/` (Hindsight UI)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/memory/` (Hindsight API)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/firecrawl/` (Firecrawl API)

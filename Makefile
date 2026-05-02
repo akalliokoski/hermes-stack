@@ -26,6 +26,7 @@
 #
 # Backup & restore (VPS):
 #   make backup-now                   trigger immediate .hermes tarball
+#   make refresh-runtime              refresh Hermes + compose services in-place without a full deploy
 #   make snapshots                    list available restore points
 #   make restore ARGS="..."           see scripts/restore.sh
 #
@@ -47,7 +48,7 @@
 #   make restore-hindsight ARGS="..." restore or validate Hindsight dumps on the VPS
 
 .PHONY: up down deploy status logs logs-all restart restart-gemma restart-both chat shell hermes \
-        update-agent backup-now snapshots restore clean add-profile sync-souls sync-profiles setup-hindsight \
+        update-agent refresh-runtime backup-now snapshots restore clean add-profile sync-souls sync-profiles setup-hindsight \
         detect-env sync-env sync-profiles-local machine-bootstrap verify-env verify-env-local local-up local-down local-chat local-status local-logs \
         local-backup-now local-snapshots local-update-agent local-setup-hindsight export-profile import-profile clone-profile-from-vps backup-hindsight restore-hindsight portability-smoke
 
@@ -116,6 +117,9 @@ setup-hindsight:
 	fi
 
 # ── Maintenance ────────────────────────────────────────────────────────────────
+
+refresh-runtime:
+	bash scripts/refresh-runtime-services.sh
 
 backup-now:
 	ssh $(VPS_HOST) 'cd /opt/hermes && docker exec $$(docker compose -f docker-compose.yml -f docker-compose.vps.yml ps -q backup) backup'

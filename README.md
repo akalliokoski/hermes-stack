@@ -52,8 +52,6 @@ Docker Compose runs the surrounding services Hermes uses:
 | Litestream | Continuous SQLite WAL replication for Hermes state | internal |
 | Backup | Daily `.hermes` snapshots + Hindsight SQL dump hook | internal |
 | Syncthing | Syncs `/home/hermes/sync` to other machines | `127.0.0.1:8384` via Tailscale `:9445` |
-| Audiobookshelf | Podcast / audiobook delivery | `127.0.0.1:13378` |
-| Jellyfin | Video delivery for generated explainers | `127.0.0.1:8096` |
 | Tailscale Serve | Tailnet-only publication layer | `https://vps.taild96651.ts.net/` |
 
 ## Live VPS shape
@@ -70,8 +68,6 @@ And these published Tailnet entrypoints:
 - `https://vps.taild96651.ts.net:9446/` → Hermes WebUI
 - `https://vps.taild96651.ts.net:9444/` → Hermes Dashboard
 - `https://vps.taild96651.ts.net:9445/` → Syncthing UI
-- `https://vps.taild96651.ts.net:13378/` → Audiobookshelf
-- `https://vps.taild96651.ts.net:8096/` → Jellyfin
 
 ## Architecture in one view
 
@@ -101,9 +97,7 @@ Docker Compose support stack
   ├─ Hindsight
   ├─ Litestream
   ├─ Backup
-  ├─ Syncthing
-  ├─ Audiobookshelf
-  └─ Jellyfin
+  └─ Syncthing
            │
            ▼
 Tailscale Serve
@@ -203,8 +197,8 @@ This stack is designed to support workflows like:
 - shared multi-profile knowledge with isolated long-term memory
 - automated web research with Firecrawl
 - durable recall and semantic memory with Hindsight
-- podcast generation and delivery through Audiobookshelf
-- explainer-video generation and delivery through Jellyfin
+- podcast generation tooling and transcript archiving
+- explainer-video generation tooling and brief archiving
 - shared cross-device notes and artifacts through Syncthing
 
 ## Design principles

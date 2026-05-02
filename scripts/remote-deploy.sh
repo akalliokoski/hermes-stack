@@ -208,14 +208,6 @@ docker system prune -af
 docker compose pull --quiet --ignore-buildable
 HERMES_UID="$HERMES_UID" HERMES_GID="$HERMES_GID" docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
 
-log_step "bootstrap service-specific state"
-python3 scripts/bootstrap-audiobookshelf.py
-python3 scripts/bootstrap-jellyfin.py
-
-docker restart hermes-jellyfin-1 >/dev/null
-sleep 10
-python3 scripts/bootstrap-jellyfin.py --refresh
-
 log_step "refresh host services"
 sudo systemctl restart hermes-webui
 sudo systemctl restart hermes-dashboard
