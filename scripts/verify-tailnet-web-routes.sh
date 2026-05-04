@@ -25,7 +25,7 @@ while true; do
   SERVE_STATUS_JSON="$(${TAILSCALE_BIN} serve status --json)"
 
   if CURRENT_TAILNET_DOMAIN="${CURRENT_TAILNET_DOMAIN}" SERVE_STATUS_JSON="${SERVE_STATUS_JSON}" python3 - <<'PY'
-import json, os, sys
+import json, os, ssl, sys, urllib.request
 
 domain = os.environ['CURRENT_TAILNET_DOMAIN']
 status = json.loads(os.environ['SERVE_STATUS_JSON'])
@@ -43,7 +43,7 @@ expected = {
         '/': 'http://127.0.0.1:8787',
     },
     f'{domain}:9444': {
-        '/': 'http://127.0.0.1:9119',
+        '/': 'http://127.0.0.1:9120',
     },
     f'{domain}:9445': {
         '/': 'http://127.0.0.1:8384',
@@ -63,9 +63,29 @@ for listener, paths in expected.items():
 unexpected = sorted(k for k in web if k not in expected)
 if unexpected:
     raise SystemExit('unexpected listeners present: ' + ', '.join(unexpected))
+
+ctx = ssl._create_unverified_context()
+checks = [
+    (f'https://{domain}/', '<title>Hermes Stack</title>'),
+    (f'https://{domain}/memory/openapi.json', '"title":"Hindsight HTTP API"'),
+    (f'https://{domain}/firecrawl/', 'Firecrawl API'),
+    (f'https://{domain}:9443/', '<!DOCTYPE html>'),
+    (f'https://{domain}:9444/', 'Hermes Agent - Dashboard'),
+    (f'https://{domain}:9445/', '<!DOCTYPE html>'),
+    (f'https://{domain}:9446/', '<!doctype html>'),
+]
+
+for url, needle in checks:
+    req = urllib.request.Request(url, headers={'User-Agent': 'hermes-stack-tailnet-verifier/1.0'})
+    with urllib.request.urlopen(req, context=ctx, timeout=20) as response:
+        body = response.read(4096).decode('utf-8', 'replace')
+        if response.status < 200 or response.status >= 400:
+            raise SystemExit(f'{url} returned HTTP {response.status}')
+        if needle not in body:
+            raise SystemExit(f'{url} missing expected marker: {needle}')
 PY
   then
-    echo "✓ Verified tailnet-served route mappings on ${CURRENT_TAILNET_DOMAIN}"
+    echo "✓ Verified tailnet-served route mappings and live HTTP responses on ${CURRENT_TAILNET_DOMAIN}"
     exit 0
   fi
 

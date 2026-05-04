@@ -46,7 +46,7 @@ Docker Compose runs the surrounding services Hermes uses:
 | Service | Role | Typical endpoint |
 |---|---|---|
 | Hermes WebUI | Upstream chat-first Hermes browser UI with profile switching | `127.0.0.1:8787` via Tailscale `:9446` |
-| Hermes Dashboard | Built-in Hermes web UI | `127.0.0.1:9119` via Tailscale `:9444` |
+| Hermes Dashboard | Built-in Hermes web UI | `127.0.0.1:9120` proxy → `127.0.0.1:9119` via Tailscale `:9444` |
 | Firecrawl | Web crawling / scraping backend | `127.0.0.1:3002` |
 | Hindsight | Long-term semantic memory service | `127.0.0.1:8888` API, `127.0.0.1:9999` UI |
 | Litestream | Continuous SQLite WAL replication for Hermes state | internal |
@@ -66,7 +66,7 @@ And these published Tailnet entrypoints:
 - `https://vps.taild96651.ts.net/` → landing page + `/memory/` + `/firecrawl/`
 - `https://vps.taild96651.ts.net:9443/` → Hindsight UI
 - `https://vps.taild96651.ts.net:9446/` → Hermes WebUI
-- `https://vps.taild96651.ts.net:9444/` → Hermes Dashboard
+- `https://vps.taild96651.ts.net:9444/` → Hermes Dashboard (via localhost proxy `127.0.0.1:9120` → dashboard `127.0.0.1:9119`)
 - `https://vps.taild96651.ts.net:9445/` → Syncthing UI
 
 ## Architecture in one view

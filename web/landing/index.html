@@ -156,8 +156,8 @@
 
         <a class="card" id="dashboard-link" href="#">
           <div class="title"><span>Hermes Dashboard</span><span>↗</span></div>
-          <div class="description">Hermes Agent web UI for configuration, sessions, logs, and provider credentials. It is exposed on its own Tailnet HTTPS port because the current dashboard frontend is not path-prefix safe.</div>
-          <div class="meta">Tailnet URL: <code>:9444</code> → local <code>127.0.0.1:9119</code></div>
+          <div class="description">Hermes Agent web UI for configuration, sessions, logs, and provider credentials. It is exposed on its own Tailnet HTTPS port through a tiny localhost reverse proxy because the upstream dashboard now rejects non-loopback Host headers.</div>
+          <div class="meta">Tailnet URL: <code>:9444</code> → local proxy <code>127.0.0.1:9120</code> → dashboard <code>127.0.0.1:9119</code></div>
         </a>
 
         <a class="card" id="syncthing-link" href="#">

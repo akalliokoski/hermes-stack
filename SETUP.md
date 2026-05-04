@@ -344,7 +344,7 @@ The operating flow is:
 - `scripts/render-config.py` renders a machine-specific `config.yaml`.
 - `scripts/render-environment-context.py` generates `ENVIRONMENT.md`, including the preferred service URLs for the chosen `SERVICE_MODE`.
 - `scripts/provision-profile.sh` regenerates profile `config.yaml`, `ENVIRONMENT.md`, and `SOUL.md` together.
-- `scripts/verify-environment.sh` validates that rendered profiles match the declared environment contract.
+- `scripts/verify-environment.sh` validates that rendered profiles match the declared environment contract, including terminal backend/workspace wiring drift against the canonical rendered config.
 - `scripts/bootstrap-machine.sh` creates the synced/shared directory layout, mirrors env manifests into `<sync_root>/envs`, links shared soul/skills, and rerenders local profiles.
 
 On a local machine, run:
@@ -396,7 +396,7 @@ That landing page links to Hermes WebUI, the Hermes dashboard, Syncthing UI, Hin
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/memory/` (Hindsight API)
 - `https://<current-tailscale-node-name>.<your-tailnet>.ts.net/firecrawl/` (Firecrawl API)
 
-All of these stay bound to `127.0.0.1` on the VPS and are published externally only through the host Tailscale daemon. Hermes WebUI runs against the shared `/home/hermes/.hermes` root so its built-in profile switcher can see the default profile plus every named profile under `~/.hermes/profiles/`. The deploy flow reapplies `scripts/configure-tailscale-serve.sh` and verifies the live Serve listeners against the node's current MagicDNS/cert domain so hostname drift fails deployment instead of leaving stale URLs behind.
+All of these stay bound to `127.0.0.1` on the VPS and are published externally only through the host Tailscale daemon. Hermes WebUI runs against the shared `/home/hermes/.hermes` root so its built-in profile switcher can see the default profile plus every named profile under `~/.hermes/profiles/`. The Hermes Dashboard path now goes through a tiny localhost reverse proxy on `127.0.0.1:9120` before reaching the upstream dashboard on `127.0.0.1:9119`, which preserves the dashboard's new Host-header protection while keeping tailnet access working. The deploy flow reapplies `scripts/configure-tailscale-serve.sh` and verifies both the live Serve listeners and real HTTP responses against the node's current MagicDNS/cert domain so hostname drift or dashboard Host-header regressions fail deployment instead of leaving stale URLs behind.
 
 Point the MacBook side at `~/Sync/hermes` (or wherever). Obsidian → **Open folder as vault** → `~/Sync/hermes/wiki`.
 

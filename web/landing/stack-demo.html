@@ -369,8 +369,8 @@
           </div>
           <div class="service-card">
             <h3>Hermes Dashboard</h3>
-            <p>Built-in Hermes web UI for configuration, sessions, logs, and credentials. Runs as a host-native service and is exposed through a dedicated Tailnet HTTPS port.</p>
-            <div class="port">local 127.0.0.1:9119 → tailnet :9444</div>
+            <p>Built-in Hermes web UI for configuration, sessions, logs, and credentials. Runs as a host-native service, with a tiny localhost proxy in front so remote Tailnet requests still satisfy the dashboard's Host-header checks.</p>
+            <div class="port">local 127.0.0.1:9120 → 127.0.0.1:9119 → tailnet :9444</div>
           </div>
           <div class="service-card">
             <h3>Firecrawl</h3>

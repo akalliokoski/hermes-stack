@@ -31,7 +31,7 @@ echo "→ Configuring Tailscale Serve for ${CURRENT_TAILNET_DOMAIN}"
 "${TAILSCALE_CMD[@]}" serve reset
 "${TAILSCALE_CMD[@]}" serve --bg --https=443 http://127.0.0.1:8081
 "${TAILSCALE_CMD[@]}" serve --bg --https=9446 http://127.0.0.1:8787
-"${TAILSCALE_CMD[@]}" serve --bg --https=9444 http://127.0.0.1:9119
+"${TAILSCALE_CMD[@]}" serve --bg --https=9444 http://127.0.0.1:9120
 "${TAILSCALE_CMD[@]}" serve --bg --https=9445 http://127.0.0.1:8384
 "${TAILSCALE_CMD[@]}" serve --bg --https=443 --set-path /memory/ http://127.0.0.1:8888
 "${TAILSCALE_CMD[@]}" serve --bg --https=9443 http://127.0.0.1:9999
