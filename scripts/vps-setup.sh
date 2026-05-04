@@ -127,6 +127,17 @@ else
   echo "  (hermes-dashboard.service not staged next to this script — install manually)"
 fi
 
+if [[ -f "${SCRIPT_DIR}/hermes-dashboard-proxy.service" ]]; then
+  install -m 644 "${SCRIPT_DIR}/hermes-dashboard-proxy.service" /etc/systemd/system/hermes-dashboard-proxy.service
+  install -m 755 "${SCRIPT_DIR}/run-hermes-dashboard-proxy.py" /opt/hermes/scripts/run-hermes-dashboard-proxy.py
+  systemctl daemon-reload
+  systemctl enable hermes-dashboard-proxy
+  echo "✓ hermes-dashboard-proxy.service installed & enabled"
+  echo "  Start with: systemctl start hermes-dashboard-proxy"
+else
+  echo "  (hermes-dashboard-proxy.service not staged next to this script — install manually)"
+fi
+
 # ── Profile provisioning helper ───────────────────────────────────────────────
 if [[ -f "${SCRIPT_DIR}/provision-profile" ]]; then
   install -m 755 "${SCRIPT_DIR}/provision-profile" /usr/local/bin/provision-profile

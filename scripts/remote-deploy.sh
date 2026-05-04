@@ -260,6 +260,7 @@ sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles
 log_step "install systemd units and helper executables"
 sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
 sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
+sudo install -m 644 scripts/hermes-dashboard-proxy.service /etc/systemd/system/hermes-dashboard-proxy.service
 sudo install -m 644 scripts/hermes-webui.service /etc/systemd/system/hermes-webui.service
 sudo install -m 644 scripts/hermes-cron-tick@.service /etc/systemd/system/hermes-cron-tick@.service
 HELPER_SRC="$(readlink -f scripts/run-profile-cron-tick.sh)"
@@ -269,9 +270,9 @@ if [[ -n "${HELPER_DST}" && "${HELPER_SRC}" == "${HELPER_DST}" ]]; then
 else
   sudo install -m 755 scripts/run-profile-cron-tick.sh /opt/hermes/scripts/run-profile-cron-tick.sh
 fi
-sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/run-profile-cron-tick.sh
+sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/run-profile-cron-tick.sh scripts/run-hermes-dashboard-proxy.py
 sudo systemctl daemon-reload
-sudo systemctl enable hermes-gateway hermes-dashboard hermes-webui
+sudo systemctl enable hermes-gateway hermes-dashboard hermes-dashboard-proxy hermes-webui
 
 DEFAULT_GATEWAY_CONFIG_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_CONFIG_PATH}")"
 DEFAULT_GATEWAY_UNIT_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_UNIT_PATH}")"
@@ -299,6 +300,7 @@ HERMES_UID="$HERMES_UID" HERMES_GID="$HERMES_GID" docker compose -f docker-compo
 log_step "refresh host services"
 sudo systemctl restart hermes-webui
 sudo systemctl restart hermes-dashboard
+sudo systemctl restart hermes-dashboard-proxy
 restart_default_gateway_if_needed
 restart_named_profile_gateways
 reconcile_profile_cron_tickers
@@ -310,6 +312,7 @@ if [[ "${API_SERVER_ENABLED:-}" =~ ^(true|TRUE|1|yes|YES)$ || -n "${API_SERVER_K
 fi
 systemctl is-active hermes-webui
 systemctl is-active hermes-dashboard
+systemctl is-active hermes-dashboard-proxy
 systemctl is-active hermes-gateway
 verify_profile_cron_tickers
 docker compose -f docker-compose.yml -f docker-compose.vps.yml ps

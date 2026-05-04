@@ -17,6 +17,9 @@ fi
 VPS_DIR="${VPS_DIR:-/opt/hermes}"
 
 echo "→ Stopping hermes services (if present)"
+systemctl stop hermes-dashboard-proxy 2>/dev/null || true
+systemctl disable hermes-dashboard-proxy 2>/dev/null || true
+rm -f /etc/systemd/system/hermes-dashboard-proxy.service
 systemctl stop hermes-dashboard 2>/dev/null || true
 systemctl disable hermes-dashboard 2>/dev/null || true
 rm -f /etc/systemd/system/hermes-dashboard.service
