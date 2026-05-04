@@ -262,7 +262,13 @@ sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-ga
 sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
 sudo install -m 644 scripts/hermes-webui.service /etc/systemd/system/hermes-webui.service
 sudo install -m 644 scripts/hermes-cron-tick@.service /etc/systemd/system/hermes-cron-tick@.service
-sudo install -m 755 scripts/run-profile-cron-tick.sh /opt/hermes/scripts/run-profile-cron-tick.sh
+HELPER_SRC="$(readlink -f scripts/run-profile-cron-tick.sh)"
+HELPER_DST="$(readlink -f /opt/hermes/scripts/run-profile-cron-tick.sh 2>/dev/null || true)"
+if [[ -n "${HELPER_DST}" && "${HELPER_SRC}" == "${HELPER_DST}" ]]; then
+  sudo chmod 755 /opt/hermes/scripts/run-profile-cron-tick.sh
+else
+  sudo install -m 755 scripts/run-profile-cron-tick.sh /opt/hermes/scripts/run-profile-cron-tick.sh
+fi
 sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/run-profile-cron-tick.sh
 sudo systemctl daemon-reload
 sudo systemctl enable hermes-gateway hermes-dashboard hermes-webui
