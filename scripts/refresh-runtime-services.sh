@@ -26,6 +26,20 @@ log_step "verify runtime"
 systemctl is-active hermes-gateway >/dev/null
 systemctl is-active hermes-dashboard >/dev/null
 systemctl is-active hermes-webui >/dev/null
+if [[ -f config/profile-cron-tickers.txt ]]; then
+  while IFS= read -r profile; do
+    [[ -n "${profile}" ]] || continue
+    [[ "${profile}" =~ ^# ]] && continue
+    if [[ "${profile}" == "default" ]]; then
+      profile_home="/home/hermes/.hermes"
+    else
+      profile_home="/home/hermes/.hermes/profiles/${profile}"
+    fi
+    if [[ -d "${profile_home}" ]]; then
+      systemctl is-active "hermes-cron-tick@${profile}.service" >/dev/null
+    fi
+  done < config/profile-cron-tickers.txt
+fi
 "${COMPOSE[@]}" ps
 bash scripts/verify-local-web-bindings.sh
 

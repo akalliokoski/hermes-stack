@@ -53,6 +53,86 @@ unit_is_active() {
   systemctl is-active --quiet "${unit_name}"
 }
 
+PROFILE_CRON_TICKER_CONFIG="${REPO_ROOT}/config/profile-cron-tickers.txt"
+
+profile_home_path() {
+  local profile="$1"
+  if [[ "${profile}" == "default" ]]; then
+    printf '%s\n' "/home/hermes/.hermes"
+  else
+    printf '%s\n' "/home/hermes/.hermes/profiles/${profile}"
+  fi
+}
+
+cron_ticker_unit_name() {
+  local profile="$1"
+  printf 'hermes-cron-tick@%s.service\n' "${profile}"
+}
+
+managed_cron_ticker_profiles() {
+  local config_path="${PROFILE_CRON_TICKER_CONFIG}"
+  [[ -f "${config_path}" ]] || return 0
+  python3 - "${config_path}" <<'PY'
+from pathlib import Path
+import sys
+for raw in Path(sys.argv[1]).read_text().splitlines():
+    line = raw.strip()
+    if not line or line.startswith('#'):
+        continue
+    print(line)
+PY
+}
+
+reconcile_profile_cron_tickers() {
+  local profile unit_name profile_home
+  declare -A wanted=()
+
+  while IFS= read -r profile; do
+    [[ -n "${profile}" ]] || continue
+    wanted["${profile}"]=1
+    unit_name="$(cron_ticker_unit_name "${profile}")"
+    profile_home="$(profile_home_path "${profile}")"
+
+    if [[ ! -d "${profile_home}" ]]; then
+      log_step "skip ${unit_name} (profile home missing)"
+      continue
+    fi
+
+    log_step "enable ${unit_name}"
+    sudo systemctl enable "${unit_name}"
+
+    if unit_is_active "${unit_name}"; then
+      log_step "restart ${unit_name}"
+      sudo systemctl restart "${unit_name}"
+    else
+      log_step "start ${unit_name}"
+      sudo systemctl start "${unit_name}"
+    fi
+  done < <(managed_cron_ticker_profiles)
+
+  while IFS= read -r unit_name; do
+    [[ -n "${unit_name}" ]] || continue
+    profile="${unit_name#hermes-cron-tick@}"
+    profile="${profile%.service}"
+    if [[ -z "${wanted[${profile}]:-}" ]]; then
+      log_step "disable stale ${unit_name}"
+      sudo systemctl disable --now "${unit_name}" || true
+    fi
+  done < <(find /etc/systemd/system/multi-user.target.wants -maxdepth 1 -type l -name 'hermes-cron-tick@*.service' -printf '%f\n' 2>/dev/null | sort)
+}
+
+verify_profile_cron_tickers() {
+  local profile unit_name profile_home
+  while IFS= read -r profile; do
+    [[ -n "${profile}" ]] || continue
+    unit_name="$(cron_ticker_unit_name "${profile}")"
+    profile_home="$(profile_home_path "${profile}")"
+    if [[ -d "${profile_home}" ]]; then
+      systemctl is-active "${unit_name}"
+    fi
+  done < <(managed_cron_ticker_profiles)
+}
+
 declare -A PROFILE_CONFIG_DIGEST_BEFORE=()
 declare -A PROFILE_UNIT_DIGEST_BEFORE=()
 declare -A PROFILE_CONFIG_DIGEST_AFTER=()
@@ -181,7 +261,9 @@ log_step "install systemd units and helper executables"
 sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
 sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
 sudo install -m 644 scripts/hermes-webui.service /etc/systemd/system/hermes-webui.service
-sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py
+sudo install -m 644 scripts/hermes-cron-tick@.service /etc/systemd/system/hermes-cron-tick@.service
+sudo install -m 755 scripts/run-profile-cron-tick.sh /opt/hermes/scripts/run-profile-cron-tick.sh
+sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/run-profile-cron-tick.sh
 sudo systemctl daemon-reload
 sudo systemctl enable hermes-gateway hermes-dashboard hermes-webui
 
@@ -213,6 +295,7 @@ sudo systemctl restart hermes-webui
 sudo systemctl restart hermes-dashboard
 restart_default_gateway_if_needed
 restart_named_profile_gateways
+reconcile_profile_cron_tickers
 sudo bash scripts/configure-tailscale-serve.sh
 
 log_step "validate live services"
@@ -222,6 +305,7 @@ fi
 systemctl is-active hermes-webui
 systemctl is-active hermes-dashboard
 systemctl is-active hermes-gateway
+verify_profile_cron_tickers
 docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
 bash scripts/verify-local-web-bindings.sh
 bash scripts/verify-tailnet-web-routes.sh

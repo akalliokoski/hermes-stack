@@ -1,0 +1,8 @@
+# Profiles whose Hermes cron schedulers should be driven by a dedicated host systemd ticker.
+# One profile name per line. Blank lines and comments are ignored.
+#
+# Default is intentionally omitted to keep that profile stable unless explicitly opted in.
+# ai-lab and aaltoni are opted in for dedicated profile-local cron ticking.
+
+ai-lab
+aaltoni
