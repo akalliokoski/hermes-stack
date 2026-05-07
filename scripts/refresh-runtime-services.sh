@@ -16,6 +16,10 @@ hermes update
 log_step "refresh compose images"
 "${COMPOSE[@]}" pull --quiet --ignore-buildable
 
+log_step "ensure syncthing bind mounts exist"
+mkdir -p /home/hermes/sync /home/hermes/codeo-sync
+chown "$(id -u)":"$(id -g)" /home/hermes/sync /home/hermes/codeo-sync
+
 log_step "reconcile compose services"
 HERMES_UID="$(id -u)" HERMES_GID="$(id -g)" "${COMPOSE[@]}" up -d --remove-orphans
 

@@ -22,7 +22,8 @@ VPS host
       ├── hindsight                          127.0.0.1:8888 / 9999 (vector memory)
       ├── litestream                         continuous state.db WAL replication
       ├── backup                             daily /home/hermes/.hermes tarball
-      ├── syncthing (VPS only)               sync /home/hermes/sync → MacBook
+      ├── syncthing (VPS only)               sync /home/hermes/sync plus dedicated
+      │                                      roots like /home/hermes/codeo-sync → MacBook
       │                                      over Tailscale
       └── host runtime helpers               tailnet-only operator support
 ```
@@ -34,6 +35,17 @@ VPS host
 | `docker-compose.yml` | Base — auxiliary services only |
 | `docker-compose.override.yml` | Local dev overrides (auto-applied) |
 | `docker-compose.vps.yml` | VPS additions: syncthing and host data bind-mounts |
+
+The VPS Syncthing service runs inside Docker, so folder paths entered in the
+Syncthing web UI must use container-visible mount points, not raw host paths.
+Current dedicated mounts include:
+
+- `/sync` → host `/home/hermes/sync`
+- `/codeo-sync` → host `/home/hermes/codeo-sync`
+
+For a separate per-user parent sync root for the macOS `codeo` user, accept or
+create the folder in the Syncthing UI with the container path `/codeo-sync`,
+then use `/codeo-sync/notebooklm-auth` as the NotebookLM auth-bundle subfolder.
 
 ---
 

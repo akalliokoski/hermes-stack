@@ -17,7 +17,8 @@ services:
       - ./web/landing:/usr/share/nginx/html:ro
 
   # ---------------------------------------------------------------------------
-  # Syncthing – sync /home/hermes/sync → MacBook over Tailscale.
+  # Syncthing – sync /home/hermes/sync plus optional dedicated user roots
+  # (for example /home/hermes/codeo-sync) → MacBook over Tailscale.
   # Runs over Tailscale – no public port exposure needed.
   # Web UI is exposed on the tailnet via https://<vps-tailnet-name>:9445/
   # Sync protocol bound to Tailscale interface only (set in Syncthing GUI).
@@ -30,6 +31,7 @@ services:
     volumes:
       - syncthing_config:/var/syncthing
       - /home/hermes/sync:/sync
+      - /home/hermes/codeo-sync:/codeo-sync
       - /home/hermes/work/hermes-stack:/sync/hermes-stack
     environment:
       PUID: "${HERMES_UID:-1001}"   # resolved at deploy time from `id -u hermes`
