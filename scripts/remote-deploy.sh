@@ -197,7 +197,8 @@ restart_default_gateway_if_needed() {
   fi
 
   if unit_is_active hermes-gateway; then
-    log_step "skip hermes-gateway restart (config, env, and unit unchanged)"
+    log_step "restart hermes-gateway (deploy refresh)"
+    sudo systemctl restart hermes-gateway
     return 0
   fi
 
@@ -238,7 +239,8 @@ restart_named_profile_gateways() {
         log_step "restart ${unit_name} (${reasons[*]})"
         sudo systemctl restart "${unit_name}"
       elif unit_is_active "${unit_name}"; then
-        log_step "skip ${unit_name} restart (config, env, and unit unchanged)"
+        log_step "restart ${unit_name} (deploy refresh)"
+        sudo systemctl restart "${unit_name}"
       else
         log_step "start ${unit_name} (service was inactive)"
         sudo systemctl start "${unit_name}"
