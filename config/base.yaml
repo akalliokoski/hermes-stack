@@ -306,7 +306,7 @@ code_execution:
   timeout: 300
   max_tool_calls: 50
 web:
-  backend: firecrawl
+  backend: exa
 
 # Optional Ollama strategy overlay
 # -------------------------------

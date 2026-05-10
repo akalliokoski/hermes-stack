@@ -30,6 +30,7 @@ CHATTERBOX_BASE_URL="${CHATTERBOX_BASE_URL:-}"
 PODCASTFY_PYTHON="${PODCASTFY_PYTHON:-}"
 PODCAST_OUTPUT_DIR="${PODCAST_OUTPUT_DIR:-}"
 HF_TOKEN="${HF_TOKEN:-}"
+EXA_API_KEY="${EXA_API_KEY:-}"
 KOKORO_BASE_URL="${KOKORO_BASE_URL:-}"
 SYNC_ALL_SOULS=0
 SYNC_ALL_PROFILES=0
@@ -403,6 +404,7 @@ write_runtime_env() {
        RUN_PODCASTFY_PYTHON="${PODCASTFY_PYTHON}" \
        RUN_PODCAST_OUTPUT_DIR="${PODCAST_OUTPUT_DIR}" \
        RUN_HF_TOKEN="${HF_TOKEN}" \
+       RUN_EXA_API_KEY="${EXA_API_KEY}" \
        RUN_KOKORO_BASE_URL="${KOKORO_BASE_URL}" \
        python3 - <<'PY'
 from pathlib import Path
@@ -423,6 +425,7 @@ updates = {
     "PODCASTFY_PYTHON": os.environ.get("RUN_PODCASTFY_PYTHON", ""),
     "PODCAST_OUTPUT_DIR": os.environ.get("RUN_PODCAST_OUTPUT_DIR", ""),
     "HF_TOKEN": os.environ.get("RUN_HF_TOKEN", ""),
+    "EXA_API_KEY": os.environ.get("RUN_EXA_API_KEY", ""),
     "KOKORO_BASE_URL": os.environ.get("RUN_KOKORO_BASE_URL", ""),
 }
 updates = {key: value for key, value in updates.items() if value}
