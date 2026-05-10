@@ -135,51 +135,60 @@ verify_profile_cron_tickers() {
 
 declare -A PROFILE_CONFIG_DIGEST_BEFORE=()
 declare -A PROFILE_UNIT_DIGEST_BEFORE=()
+declare -A PROFILE_ENV_DIGEST_BEFORE=()
 declare -A PROFILE_CONFIG_DIGEST_AFTER=()
 declare -A PROFILE_UNIT_DIGEST_AFTER=()
+declare -A PROFILE_ENV_DIGEST_AFTER=()
 
 capture_named_profile_state_before() {
   local profiles_root="/home/hermes/.hermes/profiles"
-  local profile config_path unit_name unit_path
+  local profile config_path env_path unit_name unit_path
 
   [[ -d "${profiles_root}" ]] || return 0
 
   while IFS= read -r profile; do
     [[ -n "${profile}" ]] || continue
     config_path="${profiles_root}/${profile}/config.yaml"
+    env_path="${profiles_root}/${profile}/.env"
     unit_name="hermes-gateway-${profile}.service"
     unit_path="/etc/systemd/system/${unit_name}"
     PROFILE_CONFIG_DIGEST_BEFORE["${profile}"]="$(file_digest "${config_path}")"
     PROFILE_UNIT_DIGEST_BEFORE["${profile}"]="$(file_digest "${unit_path}")"
+    PROFILE_ENV_DIGEST_BEFORE["${profile}"]="$(file_digest "${env_path}")"
   done < <(find "${profiles_root}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 }
 
 capture_named_profile_state_after() {
   local profiles_root="/home/hermes/.hermes/profiles"
-  local profile config_path unit_name unit_path
+  local profile config_path env_path unit_name unit_path
 
   [[ -d "${profiles_root}" ]] || return 0
 
   while IFS= read -r profile; do
     [[ -n "${profile}" ]] || continue
     config_path="${profiles_root}/${profile}/config.yaml"
+    env_path="${profiles_root}/${profile}/.env"
     unit_name="hermes-gateway-${profile}.service"
     unit_path="/etc/systemd/system/${unit_name}"
     PROFILE_CONFIG_DIGEST_AFTER["${profile}"]="$(file_digest "${config_path}")"
     PROFILE_UNIT_DIGEST_AFTER["${profile}"]="$(file_digest "${unit_path}")"
+    PROFILE_ENV_DIGEST_AFTER["${profile}"]="$(file_digest "${env_path}")"
   done < <(find "${profiles_root}" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort)
 }
 
 restart_default_gateway_if_needed() {
   local config_changed=0
   local unit_changed=0
+  local env_changed=0
   local reasons=()
 
   [[ "${DEFAULT_GATEWAY_CONFIG_DIGEST_BEFORE}" == "${DEFAULT_GATEWAY_CONFIG_DIGEST_AFTER}" ]] || config_changed=1
   [[ "${DEFAULT_GATEWAY_UNIT_DIGEST_BEFORE}" == "${DEFAULT_GATEWAY_UNIT_DIGEST_AFTER}" ]] || unit_changed=1
+  [[ "${DEFAULT_GATEWAY_ENV_DIGEST_BEFORE}" == "${DEFAULT_GATEWAY_ENV_DIGEST_AFTER}" ]] || env_changed=1
 
   (( config_changed )) && reasons+=("config changed")
   (( unit_changed )) && reasons+=("unit changed")
+  (( env_changed )) && reasons+=("env changed")
 
   if (( ${#reasons[@]} > 0 )); then
     log_step "restart hermes-gateway (${reasons[*]})"
@@ -188,7 +197,7 @@ restart_default_gateway_if_needed() {
   fi
 
   if unit_is_active hermes-gateway; then
-    log_step "skip hermes-gateway restart (config and unit unchanged)"
+    log_step "skip hermes-gateway restart (config, env, and unit unchanged)"
     return 0
   fi
 
@@ -198,7 +207,7 @@ restart_default_gateway_if_needed() {
 
 restart_named_profile_gateways() {
   local profiles_root="/home/hermes/.hermes/profiles"
-  local profile unit_name before_config before_unit after_config after_unit config_changed unit_changed
+  local profile unit_name before_config before_env before_unit after_config after_env after_unit config_changed env_changed unit_changed
 
   [[ -d "${profiles_root}" ]] || return 0
 
@@ -207,24 +216,29 @@ restart_named_profile_gateways() {
     unit_name="hermes-gateway-${profile}.service"
     if sudo systemctl list-unit-files --full --type=service "${unit_name}" 2>/dev/null | grep -Fq "${unit_name}"; then
       before_config="${PROFILE_CONFIG_DIGEST_BEFORE[${profile}]:-__missing__}"
+      before_env="${PROFILE_ENV_DIGEST_BEFORE[${profile}]:-__missing__}"
       before_unit="${PROFILE_UNIT_DIGEST_BEFORE[${profile}]:-__missing__}"
       after_config="${PROFILE_CONFIG_DIGEST_AFTER[${profile}]:-__missing__}"
+      after_env="${PROFILE_ENV_DIGEST_AFTER[${profile}]:-__missing__}"
       after_unit="${PROFILE_UNIT_DIGEST_AFTER[${profile}]:-__missing__}"
       config_changed=0
+      env_changed=0
       unit_changed=0
       local reasons=()
 
       [[ "${before_config}" == "${after_config}" ]] || config_changed=1
+      [[ "${before_env}" == "${after_env}" ]] || env_changed=1
       [[ "${before_unit}" == "${after_unit}" ]] || unit_changed=1
 
       (( config_changed )) && reasons+=("config changed")
+      (( env_changed )) && reasons+=("env changed")
       (( unit_changed )) && reasons+=("unit changed")
 
       if (( ${#reasons[@]} > 0 )); then
         log_step "restart ${unit_name} (${reasons[*]})"
         sudo systemctl restart "${unit_name}"
       elif unit_is_active "${unit_name}"; then
-        log_step "skip ${unit_name} restart (config and unit unchanged)"
+        log_step "skip ${unit_name} restart (config, env, and unit unchanged)"
       else
         log_step "start ${unit_name} (service was inactive)"
         sudo systemctl start "${unit_name}"
@@ -234,8 +248,10 @@ restart_named_profile_gateways() {
 }
 
 DEFAULT_GATEWAY_CONFIG_PATH="/home/hermes/.hermes/config.yaml"
+DEFAULT_GATEWAY_ENV_PATH="/home/hermes/.hermes/.env"
 DEFAULT_GATEWAY_UNIT_PATH="/etc/systemd/system/hermes-gateway.service"
 DEFAULT_GATEWAY_CONFIG_DIGEST_BEFORE="$(file_digest "${DEFAULT_GATEWAY_CONFIG_PATH}")"
+DEFAULT_GATEWAY_ENV_DIGEST_BEFORE="$(file_digest "${DEFAULT_GATEWAY_ENV_PATH}")"
 DEFAULT_GATEWAY_UNIT_DIGEST_BEFORE="$(file_digest "${DEFAULT_GATEWAY_UNIT_PATH}")"
 capture_named_profile_state_before
 
@@ -275,6 +291,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable hermes-gateway hermes-dashboard hermes-dashboard-proxy hermes-webui
 
 DEFAULT_GATEWAY_CONFIG_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_CONFIG_PATH}")"
+DEFAULT_GATEWAY_ENV_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_ENV_PATH}")"
 DEFAULT_GATEWAY_UNIT_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_UNIT_PATH}")"
 capture_named_profile_state_after
 
