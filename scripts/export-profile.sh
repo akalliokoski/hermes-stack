@@ -133,7 +133,7 @@ copy_if_exists "${HERMES_HOME}/shared/soul/base.md" "${BUNDLE_DIR}/shared/soul/b
 copy_if_exists "${HERMES_HOME}/shared/soul/profiles/${PROFILE}.md" "${BUNDLE_DIR}/shared/soul/profiles/${PROFILE}.md"
 
 LATEST_TARBALL="$(find "${SYNC_ROOT}/backups" -maxdepth 1 -type f -name '*.tar.gz' | sort | tail -n1 || true)"
-LATEST_HINDSIGHT_DUMP="$(find "${SYNC_ROOT}/backups/hindsight" -maxdepth 1 -type f -name '*.sql' | sort | tail -n1 || true)"
+LATEST_HINDSIGHT_DUMP="$(find "${SYNC_ROOT}/backups/hindsight" -maxdepth 1 -type f \( -name '*.sql' -o -name '*.sql.gz' \) | sort | tail -n1 || true)"
 
 python3 - <<'PY' "${BUNDLE_DIR}/manifest.json" "${PROFILE}" "${ENV_ID}" "${SERVICE_MODE}" "${PROFILE_HOME}" "${ARCHIVE_PATH}" "${LATEST_TARBALL}" "${LATEST_HINDSIGHT_DUMP}" "${SYNC_ROOT}"
 from pathlib import Path

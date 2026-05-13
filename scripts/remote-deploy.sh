@@ -288,9 +288,12 @@ if [[ -n "${HELPER_DST}" && "${HELPER_SRC}" == "${HELPER_DST}" ]]; then
 else
   sudo install -m 755 scripts/run-profile-cron-tick.sh /opt/hermes/scripts/run-profile-cron-tick.sh
 fi
-sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/run-profile-cron-tick.sh scripts/run-hermes-dashboard-proxy.py
+sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/run-profile-cron-tick.sh scripts/run-hermes-dashboard-proxy.py scripts/backup-hindsight-host.sh scripts/setup-backup-cron.sh scripts/backup-hindsight-watchdog.sh scripts/verify-web-research.sh
 sudo systemctl daemon-reload
 sudo systemctl enable hermes-gateway hermes-dashboard hermes-dashboard-proxy hermes-webui
+
+log_step "install hindsight backup cron"
+sudo bash scripts/setup-backup-cron.sh
 
 DEFAULT_GATEWAY_CONFIG_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_CONFIG_PATH}")"
 DEFAULT_GATEWAY_ENV_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_ENV_PATH}")"
@@ -334,6 +337,7 @@ systemctl is-active hermes-dashboard
 systemctl is-active hermes-dashboard-proxy
 systemctl is-active hermes-gateway
 verify_profile_cron_tickers
+sudo crontab -l | grep -F '/opt/hermes/scripts/backup-hindsight-host.sh'
 docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
 bash scripts/verify-local-web-bindings.sh
 bash scripts/verify-tailnet-web-routes.sh

@@ -15,7 +15,7 @@ usage() {
 Usage:
   scripts/restore-hindsight.sh list
   scripts/restore-hindsight.sh validate-bank <bank_id>
-  scripts/restore-hindsight.sh restore-db <dump.sql>
+  scripts/restore-hindsight.sh restore-db <dump.sql|dump.sql.gz>
 
 Notes:
   - list: shows synced SQL dumps under <sync_root>/backups/hindsight
@@ -43,7 +43,7 @@ shift || true
 case "${cmd}" in
   list)
     mkdir -p "${DUMP_ROOT}"
-    find "${DUMP_ROOT}" -maxdepth 1 -type f -name '*.sql' -printf '%TY-%Tm-%Td %TH:%TM:%TS %p\n' | sort || true
+    find "${DUMP_ROOT}" -maxdepth 1 -type f \( -name '*.sql' -o -name '*.sql.gz' \) -printf '%TY-%Tm-%Td %TH:%TM:%TS %p\n' | sort || true
     ;;
 
   validate-bank)
@@ -70,7 +70,7 @@ PY
 
   restore-db)
     dump_path="${1:-}"
-    [[ -n "${dump_path}" ]] || die "Usage: restore-hindsight.sh restore-db <dump.sql>"
+    [[ -n "${dump_path}" ]] || die "Usage: restore-hindsight.sh restore-db <dump.sql|dump.sql.gz>"
     [[ -f "${dump_path}" ]] || die "Dump not found: ${dump_path}"
     container_id="$(${COMPOSE_CMD[@]} ps -q hindsight)"
     [[ -n "${container_id}" ]] || die "Could not find running hindsight container"
@@ -83,7 +83,17 @@ WHERE datname = 'hindsight' AND pid <> pg_backend_pid();
 DROP DATABASE IF EXISTS hindsight;
 CREATE DATABASE hindsight;
 SQL
-    cat "${dump_path}" | docker exec -i "${container_id}" psql -v ON_ERROR_STOP=1 -U hindsight hindsight
+    case "${dump_path}" in
+      *.sql.gz)
+        gzip -dc "${dump_path}" | docker exec -i "${container_id}" psql -v ON_ERROR_STOP=1 -U hindsight hindsight
+        ;;
+      *.sql)
+        cat "${dump_path}" | docker exec -i "${container_id}" psql -v ON_ERROR_STOP=1 -U hindsight hindsight
+        ;;
+      *)
+        die "Unsupported dump format: ${dump_path} (expected .sql or .sql.gz)"
+        ;;
+    esac
     echo "✓ Restore completed"
     ;;
 

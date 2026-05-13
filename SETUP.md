@@ -706,13 +706,28 @@ make restore ARGS="file memories/MEMORY.md hermes_data_2026-04-05T03-00-00.tar.g
 
 ### 3. Hindsight logical SQL dumps
 
-The VPS backup flow also writes a logical `pg_dump` snapshot of Hindsight into `backups/hindsight/`, keeping Hindsight protected independently of live Docker volumes.
+The VPS backup flow also writes a compressed logical `pg_dump` snapshot of Hindsight into `backups/hindsight/`, keeping Hindsight protected independently of live Docker volumes. The canonical host-side script prunes old local dumps by count and age so one-off/manual retries do not accumulate forever on the root disk.
 
 ```bash
 make backup-hindsight
 make restore-hindsight ARGS="list"
 make restore-hindsight ARGS="validate-bank hermes-default"
-make restore-hindsight ARGS="restore-db /home/hermes/sync/backups/hindsight/hindsight_dump_....sql"
+make restore-hindsight ARGS="restore-db /home/hermes/sync/backups/hindsight/hindsight_dump_....sql.gz"
+```
+
+### Optional object storage for archive backups
+
+The backup sidecar (`offen/docker-volume-backup`) can mirror `.hermes` tarballs to any S3-compatible backend such as Cloudflare R2, Backblaze B2, MinIO, or AWS S3. Keep local retention short for fast restore, and use the remote bucket for longer retention/lifecycle rules.
+
+Configure these in `.env` on the VPS when you want remote copies:
+
+```bash
+AWS_S3_BUCKET_NAME=...
+AWS_S3_PATH=hermes/vps
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_ENDPOINT=...
+AWS_ENDPOINT_PROTO=https
 ```
 
 ### Portable profile export/import
@@ -790,8 +805,8 @@ If you want the whole layout under a different base path, pass `TARGET_HOME=/som
 
 | Env | Sync root | Tarballs | Hindsight SQL dumps |
 |---|---|---|---|
-| Local | `~/Sync/hermes` (recommended) | `<sync_root>/backups/*.tar.gz` | `<sync_root>/backups/hindsight/*.sql` |
-| VPS | `/home/hermes/sync` | `/home/hermes/sync/backups/*.tar.gz` | `/home/hermes/sync/backups/hindsight/*.sql` |
+| Local | `~/Sync/hermes` (recommended) | `<sync_root>/backups/*.tar.gz` | `<sync_root>/backups/hindsight/*.sql.gz` |
+| VPS | `/home/hermes/sync` | `/home/hermes/sync/backups/*.tar.gz` | `/home/hermes/sync/backups/hindsight/*.sql.gz` |
 
 ---
 
@@ -843,6 +858,7 @@ If you want the whole layout under a different base path, pass `TARGET_HOME=/som
 | `make clone-profile-from-vps PROFILE=name` | Export on the VPS over SSH/SCP, import locally, and optionally copy the workspace/secrets/profile-local skills |
 | `make local-backup-now` / `local-snapshots` | Backups |
 | `make portability-smoke` | Run local regression/smoke checks for portability scripts |
+| `bash scripts/verify-web-research.sh --all-profiles` | Run profile-scoped web_search + Firecrawl extract checks for current-fact research |
 
 ---
 
@@ -853,6 +869,15 @@ Check the rendered profile config (`~/.hermes/config.yaml` or `~/.hermes/profile
 
 **firecrawl-api keeps restarting**
 `nuq-migrate` didn't complete. Check `docker compose logs nuq-migrate`.
+
+**Current-fact research search is flaky or returns zero results**
+Run `bash scripts/verify-web-research.sh --all-profiles` on the VPS. That script sources each profile's own `.env`, uses the Hermes web tool implementation for `web_search`, and verifies Firecrawl extraction against `https://www.businessfinland.fi/en/services/funding` without printing secrets.
+
+Interpretation guidelines:
+- Local Firecrawl search currently uses DuckDuckGo and can intermittently hit anti-bot blocks. Treat it as a fallback/search-of-last-resort, not as the sole research-grade discovery backend.
+- Firecrawl extraction/scrape is still useful locally once you already know the URL.
+- For research-grade discovery, configure a stronger primary search backend in the relevant profile `.env` files and `config.yaml` (`TAVILY_API_KEY`, `EXA_API_KEY`, or `PARALLEL_API_KEY` with `web.backend` set accordingly), while keeping local Firecrawl available for extraction.
+- If only the Business Finland query fails while the regulatory query and extraction still pass, classify the stack as degraded rather than healthy.
 
 **state.db missing after a wipe**
 `make restore ARGS="db latest"` before restarting the gateway.

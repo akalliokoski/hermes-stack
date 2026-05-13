@@ -24,6 +24,8 @@ Usage:
 Checks:
   - rendered config.yaml / ENVIRONMENT.md / SOUL.md presence
   - shared skills wiring in config.yaml
+  - terminal backend/cwd/docker mount drift versus the canonical rendered config
+  - workspace path existence for local backends or /workspace docker mounts
   - Hindsight bank_id and api_url for each profile
   - selected service endpoints for the current environment
 EOF
@@ -88,28 +90,53 @@ if [[ ${ALL_PROFILES} -eq 1 ]]; then
   fi
 fi
 
-python3 - "${REPO_ROOT}" "${ENV_ID}" "${HERMES_HOME}" "${SHARED_SKILLS_ROOT}" "${SYNC_ROOT}" "${SERVICE_MODE}" "${STRICT}" "${profiles[@]}" <<'PY'
+python3 - "${REPO_ROOT}" "${CONFIG_RENDERER}" "${ENV_ID}" "${HERMES_HOME}" "${TARGET_HOME}" "${SHARED_SKILLS_ROOT}" "${SYNC_ROOT}" "${SERVICE_MODE}" "${STRICT}" "${profiles[@]}" <<'PY'
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
 import yaml
 
 repo_root = Path(sys.argv[1])
-env_id = sys.argv[2]
-hermes_home = Path(sys.argv[3])
-shared_skills_root = sys.argv[4]
-sync_root = Path(sys.argv[5])
-service_mode = sys.argv[6]
-strict = sys.argv[7] == '1'
-profiles = sys.argv[8:]
+config_renderer = Path(sys.argv[2])
+env_id = sys.argv[3]
+hermes_home = Path(sys.argv[4])
+target_home = sys.argv[5]
+shared_skills_root = sys.argv[6]
+sync_root = Path(sys.argv[7])
+service_mode = sys.argv[8]
+strict = sys.argv[9] == '1'
+profiles = sys.argv[10:]
 
 failures = []
 
 
 def profile_home(profile: str) -> Path:
     return hermes_home if profile == 'default' else hermes_home / 'profiles' / profile
+
+
+def load_expected_config(profile: str) -> dict:
+    rendered_yaml = subprocess.check_output(
+        [
+            sys.executable,
+            str(config_renderer),
+            '--repo-root',
+            str(repo_root),
+            '--env-id',
+            env_id,
+            '--target-home',
+            target_home,
+            '--profile',
+            profile,
+            '--service-mode',
+            service_mode,
+        ],
+        text=True,
+    )
+    return yaml.safe_load(rendered_yaml) or {}
+
 
 for profile in profiles:
     home = profile_home(profile)
@@ -129,12 +156,50 @@ for profile in profiles:
 
     if config_path.exists():
         config = yaml.safe_load(config_path.read_text()) or {}
+        expected_config = load_expected_config(profile)
         skills = config.get('skills') or {}
         external_dirs = skills.get('external_dirs') or []
         if isinstance(external_dirs, str):
             external_dirs = [external_dirs]
         if shared_skills_root not in [str(x) for x in external_dirs]:
             failures.append(f"shared skills path missing from {config_path}")
+
+        expected_terminal = expected_config.get('terminal') or {}
+        actual_terminal = config.get('terminal') or {}
+        for key in ('backend', 'cwd', 'docker_volumes', 'docker_forward_env'):
+            if actual_terminal.get(key) != expected_terminal.get(key):
+                failures.append(
+                    f"terminal.{key} drift for {profile}: {actual_terminal.get(key)!r} != {expected_terminal.get(key)!r}"
+                )
+
+        expected_docker_env = expected_terminal.get('docker_env') or {}
+        actual_docker_env = actual_terminal.get('docker_env') or {}
+        if not isinstance(actual_docker_env, dict):
+            failures.append(f"terminal.docker_env is not a mapping for {profile}")
+            actual_docker_env = {}
+        for env_key, expected_value in expected_docker_env.items():
+            if actual_docker_env.get(env_key) != expected_value:
+                failures.append(
+                    f"terminal.docker_env.{env_key} drift for {profile}: {actual_docker_env.get(env_key)!r} != {expected_value!r}"
+                )
+
+        backend = expected_terminal.get('backend')
+        cwd = expected_terminal.get('cwd')
+        if isinstance(cwd, str) and backend == 'local' and cwd and not Path(cwd).exists():
+            failures.append(f"terminal cwd missing for {profile}: {cwd}")
+
+        docker_volumes = expected_terminal.get('docker_volumes') or []
+        if backend != 'local' and isinstance(docker_volumes, list):
+            workspace_mount = next(
+                (str(entry) for entry in docker_volumes if str(entry).endswith(':/workspace')),
+                '',
+            )
+            if not workspace_mount:
+                failures.append(f"missing /workspace docker mount for {profile}")
+            else:
+                host_workspace = workspace_mount.rsplit(':/workspace', 1)[0]
+                if host_workspace and not Path(host_workspace).exists():
+                    failures.append(f"workspace mount source missing for {profile}: {host_workspace}")
 
         ollama_base_url = os.environ.get('HERMES_OLLAMA_BASE_URL', '').strip()
         ollama_cloud_key = os.environ.get('OLLAMA_API_KEY', '').strip()

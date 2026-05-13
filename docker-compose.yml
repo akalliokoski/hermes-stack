@@ -122,33 +122,35 @@ services:
     networks: [hermes]
 
   # ---------------------------------------------------------------------------
-  # Backup – daily snapshots of /home/hermes/.hermes
-  # Pre-archive step checkpoints state.db WAL so the tarball is consistent.
+  # Backup – daily tarball snapshots of /home/hermes/.hermes
   # Trigger manually: make backup-now
+  # Hindsight logical SQL dumps are produced separately by the host-side
+  # backup-hindsight-host.sh flow, not from inside this minimal container.
   # ---------------------------------------------------------------------------
   backup:
     image: offen/docker-volume-backup:v2
     restart: unless-stopped
-    labels:
-      # Run a logical Hindsight dump after each tarball is written. This uses the
-      # documented docker-volume-backup lifecycle hook mechanism instead of an
-      # unsupported env var, and stores the SQL dump alongside the tarballs.
-      - docker-volume-backup.archive-post=/bin/sh -c '/etc/backup-scripts/backup-hindsight.sh'
     environment:
       BACKUP_CRON_EXPRESSION: "0 3 * * *"
       BACKUP_FILENAME_FORMAT: "hermes_data_%Y-%m-%dT%H-%M-%S.tar.gz"
+      BACKUP_PRUNING_PREFIX: "hermes_data_"
       BACKUP_RETENTION_DAYS: "30"
       EXEC_FORWARD_OUTPUT: "true"
+      # Optional S3-compatible remote target (R2, Backblaze B2, MinIO, AWS S3, etc.).
+      # When AWS_S3_BUCKET_NAME is unset the backup stays local-only.
+      AWS_S3_BUCKET_NAME: "${AWS_S3_BUCKET_NAME:-}"
+      AWS_S3_PATH: "${AWS_S3_PATH:-}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      AWS_ENDPOINT: "${AWS_ENDPOINT:-}"
+      AWS_ENDPOINT_PROTO: "${AWS_ENDPOINT_PROTO:-https}"
+      AWS_ENDPOINT_INSECURE: "${AWS_ENDPOINT_INSECURE:-false}"
+      AWS_STORAGE_CLASS: "${AWS_STORAGE_CLASS:-}"
       # state.db consistency: litestream replicates WAL pages continuously, so
       # the tarball is a secondary restore path — no pre-archive checkpoint.
-      # Hindsight consistency: run a pg_dump through the Docker socket and write
-      # the SQL snapshot into /archive so Syncthing can carry it off-host.
     volumes:
       - ${HERMES_DATA_DIR:-/home/hermes/.hermes}:/backup/hermes_data:ro
       - hermes_backups:/archive
-      - hindsight_sql_backups:/hindsight-archive
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./scripts/backup-hindsight.sh:/etc/backup-scripts/backup-hindsight.sh:ro
 
 networks:
   hermes:
@@ -159,4 +161,3 @@ volumes:
   postgres_data:
   hindsight_data:
   hermes_backups:    # backup destination for .hermes tarballs — overridden to host bind-mount in vps/override files
-  hindsight_sql_backups:

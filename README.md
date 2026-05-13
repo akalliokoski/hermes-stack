@@ -50,7 +50,7 @@ Docker Compose runs the surrounding services Hermes uses:
 | Firecrawl | Web crawling / scraping backend | `127.0.0.1:3002` |
 | Hindsight | Long-term semantic memory service | `127.0.0.1:8888` API, `127.0.0.1:9999` UI |
 | Litestream | Continuous SQLite WAL replication for Hermes state | internal |
-| Backup | Daily `.hermes` snapshots + Hindsight SQL dump hook | internal |
+| Backup | Daily `.hermes` snapshots + compressed Hindsight SQL dumps | internal |
 | Syncthing | Syncs `/home/hermes/sync` to other machines | `127.0.0.1:8384` via Tailscale `:9445` |
 | Tailscale Serve | Tailnet-only publication layer | `https://vps.taild96651.ts.net/` |
 
@@ -175,7 +175,8 @@ The stack uses multiple layers of persistence:
 - Hermes local state in `/home/hermes/.hermes`
 - Litestream WAL replication for SQLite state
 - daily `.hermes` archive backups
-- logical Hindsight SQL dumps
+- compressed logical Hindsight SQL dumps
+- optional S3-compatible object storage for archive backups
 - Syncthing replication of `/home/hermes/sync`
 - shared wiki under `/home/hermes/sync/wiki`
 

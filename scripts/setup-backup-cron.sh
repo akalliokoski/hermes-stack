@@ -6,14 +6,17 @@ set -eu
 
 SCRIPT_PATH="/opt/hermes/scripts/backup-hindsight-host.sh"
 CRON_SCHEDULE="0 3 * * *"
-CRON_CMD="${SCRIPT_PATH} >> /var/log/hermes-backup.log 2>&1"
+LOG_DIR="/home/hermes/sync/backups/hindsight"
+LOG_FILE="${LOG_DIR}/hermes-backup.log"
+CRON_CMD="${SCRIPT_PATH} >> ${LOG_FILE} 2>&1"
 
 echo "Setting up Hindsight backup cron job..."
 
-# Check if script is executable
+# Ensure the log directory exists and the script is executable.
+mkdir -p "${LOG_DIR}"
 chmod +x "${SCRIPT_PATH}"
 
-# Check if cron job already exists to avoid duplicates
+# Check if cron job already exists to avoid duplicates.
 (crontab -l 2>/dev/null | grep -F "${SCRIPT_PATH}") && echo "Cron job already exists. Skipping." || (crontab -l 2>/dev/null; echo "${CRON_SCHEDULE} ${CRON_CMD}") | crontab -
 
-echo "Cron job setup complete."
+echo "Cron job setup complete. Logs: ${LOG_FILE}"
