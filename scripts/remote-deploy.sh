@@ -337,7 +337,7 @@ systemctl is-active hermes-dashboard
 systemctl is-active hermes-dashboard-proxy
 systemctl is-active hermes-gateway
 verify_profile_cron_tickers
-sudo crontab -l | grep -F '/opt/hermes/scripts/backup-hindsight-host.sh'
+grep -F '/opt/hermes/scripts/backup-hindsight-host.sh' /etc/cron.d/hermes-hindsight-backup
 docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
 bash scripts/verify-local-web-bindings.sh
 bash scripts/verify-tailnet-web-routes.sh
