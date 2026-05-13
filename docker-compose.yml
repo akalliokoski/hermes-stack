@@ -51,7 +51,17 @@ services:
       PROXY_SERVER: ${FIRECRAWL_PROXY_SERVER:-}
       PROXY_USERNAME: ${FIRECRAWL_PROXY_USERNAME:-}
       PROXY_PASSWORD: ${FIRECRAWL_PROXY_PASSWORD:-}
-    depends_on: [redis, db, playwright, rabbitmq, nuq-migrate]
+    depends_on:
+      redis:
+        condition: service_started
+      db:
+        condition: service_started
+      playwright:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      nuq-migrate:
+        condition: service_completed_successfully
     networks: [hermes]
 
   firecrawl-worker:
@@ -59,12 +69,32 @@ services:
     restart: unless-stopped
     command: node dist/src/services/queue-worker.js
     environment: *firecrawl-env
-    depends_on: [redis, db, playwright, rabbitmq, nuq-migrate]
+    depends_on:
+      redis:
+        condition: service_started
+      db:
+        condition: service_started
+      playwright:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+      nuq-migrate:
+        condition: service_completed_successfully
     networks: [hermes]
 
   rabbitmq:
     image: rabbitmq:3-alpine
     restart: unless-stopped
+    # Firecrawl's AMQP queue is disposable here; use tmpfs so broker state does not
+    # survive image/schema drift via Docker's implicit anonymous /var/lib/rabbitmq
+    # volume and wedge future deploys.
+    tmpfs:
+      - /var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     networks: [hermes]
 
   redis:

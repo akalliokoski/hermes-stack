@@ -868,7 +868,8 @@ If you want the whole layout under a different base path, pass `TARGET_HOME=/som
 Check the rendered profile config (`~/.hermes/config.yaml` or `~/.hermes/profiles/<name>/config.yaml`). On the VPS, always-on gateway profiles should use `terminal.backend: local` and `terminal.cwd: /home/hermes/work/<profile>`. If a profile still shows `backend: docker`, rerender with `python3 scripts/render-config.py ... --output ...` or `sudo bash scripts/provision-profile.sh --sync-all-profiles --gateway skip`, then restart the relevant gateway unit.
 
 **firecrawl-api keeps restarting**
-`nuq-migrate` didn't complete. Check `docker compose logs nuq-migrate`.
+First check `docker compose logs nuq-migrate`; Firecrawl will not start correctly if the NuQ schema bootstrap failed.
+If `nuq-migrate` succeeded but `/firecrawl/` still returns `502`, inspect the RabbitMQ broker too. In this stack the Firecrawl AMQP broker is disposable; stale RabbitMQ state under `/var/lib/rabbitmq` can wedge deploys with errors like `no_exists [rabbit_runtime_parameters,cluster_name]` or repeated `ECONNRESET` in Firecrawl logs. The durable repo fix is to keep RabbitMQ on tmpfs so old anonymous Docker volumes cannot survive image/schema drift.
 
 **Current-fact research search is flaky or returns zero results**
 Run `bash scripts/verify-web-research.sh --all-profiles` on the VPS. That script sources each profile's own `.env`, uses the Hermes web tool implementation for `web_search`, and verifies Firecrawl extraction against `https://www.businessfinland.fi/en/services/funding` without printing secrets.
