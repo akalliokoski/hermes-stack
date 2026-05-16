@@ -162,9 +162,15 @@ services:
     restart: unless-stopped
     environment:
       BACKUP_CRON_EXPRESSION: "0 3 * * *"
-      BACKUP_FILENAME_FORMAT: "hermes_data_%Y-%m-%dT%H-%M-%S.tar.gz"
-      BACKUP_PRUNING_PREFIX: "hermes_data_"
-      BACKUP_RETENTION_DAYS: "30"
+      # docker-volume-backup uses BACKUP_FILENAME (not BACKUP_FILENAME_FORMAT).
+      # Keep the default backup-* prefix so old oversized backup-* archives are pruned.
+      BACKUP_FILENAME: "backup-%Y-%m-%dT%H-%M-%S.{{ .Extension }}"
+      BACKUP_PRUNING_PREFIX: "backup-"
+      # Keep local Syncthing backups short-lived; Litestream and Hindsight dumps
+      # are the durable restore paths, and large .hermes tarballs can fill the VPS.
+      BACKUP_RETENTION_DAYS: "3"
+      # Exclude rebuildable/heavy runtime state from the .hermes tarball.
+      BACKUP_EXCLUDE_REGEXP: '(^|/)(checkpoints|state-snapshots|sandboxes|logs|sessions|node_modules|\.venv|venv|\.cache|__pycache__)(/|$)'
       EXEC_FORWARD_OUTPUT: "true"
       # Optional S3-compatible remote target (R2, Backblaze B2, MinIO, AWS S3, etc.).
       # When AWS_S3_BUCKET_NAME is unset the backup stays local-only.
