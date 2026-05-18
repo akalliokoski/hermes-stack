@@ -281,7 +281,7 @@ sudo -u hermes python3 scripts/render-config.py --env-id vps --target-home /home
 sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles --gateway existing
 
 log_step "install systemd units and helper executables"
-sudo env PATH="/home/hermes/.local/bin:${PATH}" HERMES_HOME=/home/hermes/.hermes /home/hermes/.local/bin/hermes gateway install --system --run-as-user hermes --force
+sudo env PATH="/home/hermes/.hermes/node/bin:/home/hermes/.local/bin:${PATH}" HERMES_HOME=/home/hermes/.hermes /home/hermes/.local/bin/hermes gateway install --system --run-as-user hermes --force
 sudo install -d -m 755 /etc/systemd/system/hermes-gateway.service.d
 sudo install -m 644 scripts/hermes-gateway.override.conf /etc/systemd/system/hermes-gateway.service.d/override.conf
 sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service

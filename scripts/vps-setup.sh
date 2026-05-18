@@ -108,7 +108,7 @@ echo "✓ App directory: ${VPS_DIR}"
 
 # ── systemd units ─────────────────────────────────────────────────────────────
 if sudo -iu hermes bash -lc 'command -v hermes &>/dev/null'; then
-  env PATH="/home/hermes/.local/bin:${PATH}" HERMES_HOME="${HERMES_DATA}" /home/hermes/.local/bin/hermes gateway install --system --run-as-user hermes --force
+  env PATH="/home/hermes/.hermes/node/bin:/home/hermes/.local/bin:${PATH}" HERMES_HOME="${HERMES_DATA}" /home/hermes/.local/bin/hermes gateway install --system --run-as-user hermes --force
   install -d -m 755 /etc/systemd/system/hermes-gateway.service.d
   if [[ -f "${SCRIPT_DIR}/hermes-gateway.override.conf" ]]; then
     install -m 644 "${SCRIPT_DIR}/hermes-gateway.override.conf" /etc/systemd/system/hermes-gateway.service.d/override.conf
