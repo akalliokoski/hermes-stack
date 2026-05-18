@@ -577,12 +577,12 @@ configure_gateway() {
       env PATH="${HERMES_GATEWAY_INSTALL_PATH}" HERMES_HOME="${HERMES_HOME}" "${HERMES_BIN}" -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}" --force
       write_gateway_override "${profile}"
       systemctl daemon-reload
-      env HERMES_HOME="${HERMES_HOME}" "${HERMES_BIN}" -p "${profile}" gateway start --system
+      env PATH="${HERMES_GATEWAY_INSTALL_PATH}" HERMES_HOME="${HERMES_HOME}" "${HERMES_BIN}" -p "${profile}" gateway start --system
     else
       sudo env PATH="${HERMES_GATEWAY_INSTALL_PATH}" HERMES_HOME="${HERMES_HOME}" "${HERMES_BIN}" -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}" --force
       write_gateway_override "${profile}"
       sudo systemctl daemon-reload
-      sudo env HERMES_HOME="${HERMES_HOME}" "${HERMES_BIN}" -p "${profile}" gateway start --system
+      sudo env PATH="${HERMES_GATEWAY_INSTALL_PATH}" HERMES_HOME="${HERMES_HOME}" "${HERMES_BIN}" -p "${profile}" gateway start --system
     fi
     log "✓ Gateway running as hermes-gateway-${profile}.service"
     return 0
