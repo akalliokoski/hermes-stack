@@ -10,6 +10,7 @@ TARGET_HOME="$(dirname "${HERMES_HOME:-/home/hermes/.hermes}")"
 
 HERMES_USER="${HERMES_USER:-hermes}"
 HERMES_HOME="${HERMES_HOME:-/home/hermes/.hermes}"
+HERMES_BIN="/home/${HERMES_USER}/.local/bin/hermes"
 ENV_ID="${HERMES_ENV_ID:-$("${REPO_ROOT}/scripts/detect-env.sh" --repo-root "${REPO_ROOT}")}"
 HERMES_SERVICE_MODE="${HERMES_SERVICE_MODE:-auto}"
 WORK_ROOT="${WORK_ROOT:-$(python3 "${CONFIG_RENDERER}" --repo-root "${REPO_ROOT}" --env-id "${ENV_ID}" --target-home "${TARGET_HOME}" --print-meta env.work_root)}"
@@ -572,15 +573,15 @@ configure_gateway() {
   if [[ ${EUID} -eq 0 ]] || have_passwordless_sudo; then
     log "→ Installing system gateway for profile '${profile}'"
     if [[ ${EUID} -eq 0 ]]; then
-      env PATH="/home/${HERMES_USER}/.local/bin:${PATH}" HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}"
+      env PATH="/home/${HERMES_USER}/.local/bin:${PATH}" HERMES_HOME="${HERMES_HOME}" "${HERMES_BIN}" -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}"
       write_gateway_override "${profile}"
       systemctl daemon-reload
-      env HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway start --system
+      env HERMES_HOME="${HERMES_HOME}" "${HERMES_BIN}" -p "${profile}" gateway start --system
     else
-      sudo env PATH="/home/${HERMES_USER}/.local/bin:${PATH}" HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}"
+      sudo env PATH="/home/${HERMES_USER}/.local/bin:${PATH}" HERMES_HOME="${HERMES_HOME}" "${HERMES_BIN}" -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}"
       write_gateway_override "${profile}"
       sudo systemctl daemon-reload
-      sudo env HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway start --system
+      sudo env HERMES_HOME="${HERMES_HOME}" "${HERMES_BIN}" -p "${profile}" gateway start --system
     fi
     log "✓ Gateway running as hermes-gateway-${profile}.service"
     return 0
