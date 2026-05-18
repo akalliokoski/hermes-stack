@@ -572,12 +572,12 @@ configure_gateway() {
   if [[ ${EUID} -eq 0 ]] || have_passwordless_sudo; then
     log "→ Installing system gateway for profile '${profile}'"
     if [[ ${EUID} -eq 0 ]]; then
-      env HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}"
+      env PATH="/home/${HERMES_USER}/.local/bin:${PATH}" HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}"
       write_gateway_override "${profile}"
       systemctl daemon-reload
       env HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway start --system
     else
-      sudo env HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}"
+      sudo env PATH="/home/${HERMES_USER}/.local/bin:${PATH}" HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway install --system --run-as-user "${HERMES_USER}"
       write_gateway_override "${profile}"
       sudo systemctl daemon-reload
       sudo env HERMES_HOME="${HERMES_HOME}" hermes -p "${profile}" gateway start --system

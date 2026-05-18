@@ -187,9 +187,9 @@ The strategy is explicit on purpose: it changes `delegation` and `fallback_model
 
 Run [scripts/vps-bootstrap.sh](scripts/vps-bootstrap.sh) from the MacBook. It reads `VPS_HOST` from `.env`, prompts for confirmation (the step is destructive on an existing VPS), and then:
 
-1. Stages `vps-reset.sh`, `vps-setup.sh`, `hermes-gateway.service`, repo config overlays, and `.env` into `/tmp/hermes-bootstrap/` on the VPS.
+1. Stages `vps-reset.sh`, `vps-setup.sh`, `hermes-gateway.override.conf`, repo config overlays, and `.env` into `/tmp/hermes-bootstrap/` on the VPS.
 2. Runs [scripts/vps-reset.sh](scripts/vps-reset.sh) — stops the hermes-gateway unit, `docker compose down --volumes` on the old stack, removes the `hermes_*` named volumes, wipes `/opt/hermes-backups` and `/home/hermes/{.hermes,work}`. Safe no-op on a clean VPS.
-3. Runs [scripts/vps-setup.sh](scripts/vps-setup.sh) — installs Docker (if missing), creates the `hermes` system user, adds it to the `docker` group, installs hermes-agent via the upstream install.sh, seeds `/home/hermes/.hermes/.env`, renders `/home/hermes/.hermes/config.yaml` from the `vps` environment overlay, creates `/opt/hermes-backups` + `/opt/hermes`, installs and enables the `hermes-gateway` systemd unit (but does not start it).
+3. Runs [scripts/vps-setup.sh](scripts/vps-setup.sh) — installs Docker (if missing), creates the `hermes` system user, adds it to the `docker` group, installs hermes-agent via the upstream install.sh, seeds `/home/hermes/.hermes/.env`, renders `/home/hermes/.hermes/config.yaml` from the `vps` environment overlay, creates `/opt/hermes-backups` + `/opt/hermes`, asks Hermes to generate the stock `hermes-gateway` systemd unit, then installs the repo-managed drop-in and enables the service (but does not start it).
 4. Cleans up the staged files.
 
 ```bash
@@ -215,11 +215,11 @@ make deploy          # rsync repo, refresh systemd units/profile config, restart
 make update-agent    # bumps hermes to latest (runs `hermes update` on VPS)
 ```
 
-Gateway services should be operated through the systemd units managed by this repo, not by long-running ad hoc foreground shells. The unit entrypoint remains the stock Hermes command `hermes gateway run --replace`; hermes-stack adds a host-side `ExecStartPre=/usr/bin/python3 /opt/hermes/scripts/cleanup-hermes-gateway-state.py` so each start clears only stale gateway PID/lock records first.
+Gateway services should be operated through the systemd units managed by this repo, not by long-running ad hoc foreground shells. For the default profile, Hermes now generates the base `hermes-gateway.service` unit and hermes-stack layers stack-specific behavior through `/etc/systemd/system/hermes-gateway.service.d/override.conf`. The unit entrypoint remains the stock Hermes command `hermes gateway run --replace`; hermes-stack adds a host-side `ExecStartPre=/usr/bin/python3 /opt/hermes/scripts/cleanup-hermes-gateway-state.py` so each start clears only stale gateway PID/lock records first.
 
 That means the steady-state pattern is:
 
-1. render/update config and units from `hermes-stack`
+1. render/update config and let Hermes regenerate the default gateway unit while `hermes-stack` refreshes its drop-in and the named-profile units
 2. start or restart `hermes-gateway` / `hermes-gateway-<profile>` with systemd
 3. let `ExecStartPre` clean stale `gateway.pid`, takeover markers, and dead scoped lock files
 4. let stock Hermes start normally with `hermes gateway run --replace`

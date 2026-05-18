@@ -107,14 +107,20 @@ mkdir -p "${VPS_DIR}"
 echo "✓ App directory: ${VPS_DIR}"
 
 # ── systemd units ─────────────────────────────────────────────────────────────
-if [[ -f "${SCRIPT_DIR}/hermes-gateway.service" ]]; then
-  install -m 644 "${SCRIPT_DIR}/hermes-gateway.service" /etc/systemd/system/hermes-gateway.service
+if sudo -iu hermes bash -lc 'command -v hermes &>/dev/null'; then
+  env PATH="/home/hermes/.local/bin:${PATH}" HERMES_HOME="${HERMES_DATA}" /home/hermes/.local/bin/hermes gateway install --system --run-as-user hermes --force
+  install -d -m 755 /etc/systemd/system/hermes-gateway.service.d
+  if [[ -f "${SCRIPT_DIR}/hermes-gateway.override.conf" ]]; then
+    install -m 644 "${SCRIPT_DIR}/hermes-gateway.override.conf" /etc/systemd/system/hermes-gateway.service.d/override.conf
+  else
+    echo "  (hermes-gateway.override.conf not staged next to this script — install manually)"
+  fi
   systemctl daemon-reload
   systemctl enable hermes-gateway
-  echo "✓ hermes-gateway.service installed & enabled"
+  echo "✓ hermes-gateway.service installed from Hermes and hardened via repo drop-in"
   echo "  Start with: systemctl start hermes-gateway"
 else
-  echo "  (hermes-gateway.service not staged next to this script — install manually)"
+  echo "  (hermes not installed for the hermes user — gateway unit install skipped)"
 fi
 
 if [[ -f "${SCRIPT_DIR}/hermes-dashboard.service" ]]; then

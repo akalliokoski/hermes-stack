@@ -180,15 +180,18 @@ restart_default_gateway_if_needed() {
   local config_changed=0
   local unit_changed=0
   local env_changed=0
+  local override_changed=0
   local reasons=()
 
   [[ "${DEFAULT_GATEWAY_CONFIG_DIGEST_BEFORE}" == "${DEFAULT_GATEWAY_CONFIG_DIGEST_AFTER}" ]] || config_changed=1
   [[ "${DEFAULT_GATEWAY_UNIT_DIGEST_BEFORE}" == "${DEFAULT_GATEWAY_UNIT_DIGEST_AFTER}" ]] || unit_changed=1
   [[ "${DEFAULT_GATEWAY_ENV_DIGEST_BEFORE}" == "${DEFAULT_GATEWAY_ENV_DIGEST_AFTER}" ]] || env_changed=1
+  [[ "${DEFAULT_GATEWAY_OVERRIDE_DIGEST_BEFORE}" == "${DEFAULT_GATEWAY_OVERRIDE_DIGEST_AFTER}" ]] || override_changed=1
 
   (( config_changed )) && reasons+=("config changed")
   (( unit_changed )) && reasons+=("unit changed")
   (( env_changed )) && reasons+=("env changed")
+  (( override_changed )) && reasons+=("override changed")
 
   if (( ${#reasons[@]} > 0 )); then
     log_step "restart hermes-gateway (${reasons[*]})"
@@ -252,9 +255,11 @@ restart_named_profile_gateways() {
 DEFAULT_GATEWAY_CONFIG_PATH="/home/hermes/.hermes/config.yaml"
 DEFAULT_GATEWAY_ENV_PATH="/home/hermes/.hermes/.env"
 DEFAULT_GATEWAY_UNIT_PATH="/etc/systemd/system/hermes-gateway.service"
+DEFAULT_GATEWAY_OVERRIDE_PATH="/etc/systemd/system/hermes-gateway.service.d/override.conf"
 DEFAULT_GATEWAY_CONFIG_DIGEST_BEFORE="$(file_digest "${DEFAULT_GATEWAY_CONFIG_PATH}")"
 DEFAULT_GATEWAY_ENV_DIGEST_BEFORE="$(file_digest "${DEFAULT_GATEWAY_ENV_PATH}")"
 DEFAULT_GATEWAY_UNIT_DIGEST_BEFORE="$(file_digest "${DEFAULT_GATEWAY_UNIT_PATH}")"
+DEFAULT_GATEWAY_OVERRIDE_DIGEST_BEFORE="$(file_digest "${DEFAULT_GATEWAY_OVERRIDE_PATH}")"
 capture_named_profile_state_before
 
 log_step "prepare directories and ids"
@@ -276,7 +281,9 @@ sudo -u hermes python3 scripts/render-config.py --env-id vps --target-home /home
 sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles --gateway existing
 
 log_step "install systemd units and helper executables"
-sudo install -m 644 scripts/hermes-gateway.service /etc/systemd/system/hermes-gateway.service
+sudo env PATH="/home/hermes/.local/bin:${PATH}" HERMES_HOME=/home/hermes/.hermes /home/hermes/.local/bin/hermes gateway install --system --run-as-user hermes --force
+sudo install -d -m 755 /etc/systemd/system/hermes-gateway.service.d
+sudo install -m 644 scripts/hermes-gateway.override.conf /etc/systemd/system/hermes-gateway.service.d/override.conf
 sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
 sudo install -m 644 scripts/hermes-dashboard-proxy.service /etc/systemd/system/hermes-dashboard-proxy.service
 sudo install -m 644 scripts/hermes-webui.service /etc/systemd/system/hermes-webui.service
@@ -298,6 +305,7 @@ sudo bash scripts/setup-backup-cron.sh
 DEFAULT_GATEWAY_CONFIG_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_CONFIG_PATH}")"
 DEFAULT_GATEWAY_ENV_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_ENV_PATH}")"
 DEFAULT_GATEWAY_UNIT_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_UNIT_PATH}")"
+DEFAULT_GATEWAY_OVERRIDE_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_OVERRIDE_PATH}")"
 capture_named_profile_state_after
 
 log_step "install video pipeline system packages"

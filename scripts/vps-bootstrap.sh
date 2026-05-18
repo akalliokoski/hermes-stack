@@ -43,7 +43,7 @@ echo "→ Staging bootstrap files on VPS"
 ssh "${VPS_HOST}" 'sudo rm -rf /tmp/hermes-bootstrap && mkdir -p /tmp/hermes-bootstrap/scripts'
 scp scripts/vps-reset.sh           "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
 scp scripts/vps-setup.sh           "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
-scp scripts/hermes-gateway.service "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
+scp scripts/hermes-gateway.override.conf "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
 scp scripts/hermes-dashboard.service "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
 scp scripts/render-config.py       "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
 scp scripts/provision-profile      "${VPS_HOST}:/tmp/hermes-bootstrap/scripts/"
