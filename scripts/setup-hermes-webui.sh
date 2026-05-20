@@ -68,9 +68,8 @@ log "✓ Hermes WebUI checkout ready at ${resolved_ref} (${resolved_version:-no-
 
 run_as_hermes bash -lc '
   set -euo pipefail
-  export PATH="$HOME/.local/bin:$PATH"
-  HERMES_PY="$HOME/.hermes/hermes-agent/venv/bin/python"
-  uv pip install --python "$HERMES_PY" --quiet --upgrade -r "'"${HERMES_WEBUI_INSTALL_DIR}"'"/requirements.txt
+  export PATH="/home/hermes/.local/bin:/usr/local/bin:/usr/bin:/bin"
+  uv pip install --python /home/hermes/.hermes/hermes-agent/venv/bin/python --quiet --upgrade -r "'"${HERMES_WEBUI_INSTALL_DIR}"'"/requirements.txt
 '
 
 log "✓ Hermes WebUI Python dependencies installed into the Hermes runtime"

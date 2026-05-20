@@ -100,7 +100,7 @@ else
 fi
 
 echo "→ Ensuring Hermes Python deps for Hindsight local_external mode"
-sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$HOME/.hermes/hermes-agent/venv/bin/python"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"'
+sudo -iu hermes env PATH="/home/hermes/.local/bin:/usr/local/bin:/usr/bin:/bin" uv pip install --python /home/hermes/.hermes/hermes-agent/venv/bin/python --quiet --upgrade "hindsight-client>=0.4.22"
 
 # ── App directory (docker compose files) ──────────────────────────────────────
 mkdir -p "${VPS_DIR}"
