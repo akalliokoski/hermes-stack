@@ -2,7 +2,6 @@
 # One profile name per line. Blank lines and comments are ignored.
 #
 # Default is intentionally omitted to keep that profile stable unless explicitly opted in.
-# ai-lab and aaltoni are opted in for dedicated profile-local cron ticking.
-
-ai-lab
-aaltoni
+# Keep this empty by default on the VPS. Profile cron tickers can run expensive
+# agent jobs, and a paused/stale kanban cron state can fan out enough workers to
+# starve sshd. Opt profiles in only after reviewing their cron/jobs.json.
