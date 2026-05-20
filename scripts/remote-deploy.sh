@@ -336,6 +336,7 @@ disable_existing_container_restarts
 
 log_step "remove legacy stack-managed backups"
 remove_legacy_backup_state
+sudo -u hermes python3 scripts/disable-retired-hermes-cron-jobs.py
 
 log_step "remove legacy Syncthing container"
 remove_legacy_syncthing_container
@@ -375,7 +376,7 @@ if [[ -n "${HELPER_DST}" && "${HELPER_SRC}" == "${HELPER_DST}" ]]; then
 else
   sudo install -m 755 scripts/run-profile-cron-tick.sh /opt/hermes/scripts/run-profile-cron-tick.sh
 fi
-sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-remote-access.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/run-profile-cron-tick.sh scripts/run-hermes-dashboard-proxy.py scripts/verify-web-research.sh scripts/install-repo-assets.sh scripts/setup-syncthing-host.sh
+sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-remote-access.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/disable-retired-hermes-cron-jobs.py scripts/run-profile-cron-tick.sh scripts/run-hermes-dashboard-proxy.py scripts/verify-web-research.sh scripts/install-repo-assets.sh scripts/setup-syncthing-host.sh
 sudo systemctl daemon-reload
 sudo systemctl enable hermes-gateway hermes-dashboard hermes-dashboard-proxy hermes-webui
 

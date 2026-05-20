@@ -532,7 +532,7 @@ write_gateway_override() {
 from pathlib import Path
 import os
 path = Path(os.environ["RUN_OVERRIDE_PATH"])
-path.write_text('''[Service]\nExecStartPre=/usr/bin/python3 /opt/hermes/scripts/cleanup-hermes-gateway-state.py\nKillMode=control-group\nTasksMax=48\nMemoryMax=3G\nCPUQuota=200%\nOOMPolicy=stop\nNoNewPrivileges=true\nPrivateTmp=true\nProtectSystem=full\nProtectHome=false\nRestrictSUIDSGID=true\nLockPersonality=true\n''')
+path.write_text('''[Service]\nExecStartPre=/usr/bin/python3 /opt/hermes/scripts/cleanup-hermes-gateway-state.py\nEnvironment=HERMES_KANBAN_DISPATCH_IN_GATEWAY=false\nKillMode=control-group\nTasksMax=16\nMemoryHigh=1G\nMemoryMax=1500M\nCPUQuota=100%\nOOMPolicy=stop\nNoNewPrivileges=true\nPrivateTmp=true\nProtectSystem=full\nProtectHome=false\nRestrictSUIDSGID=true\nLockPersonality=true\n''')
 PY
 }
 

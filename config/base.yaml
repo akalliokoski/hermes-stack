@@ -251,6 +251,12 @@ security:
     shared_files: []
 cron:
   wrap_response: true
+kanban:
+  dispatch_in_gateway: false
+  dispatch_interval_seconds: 300
+  max_spawn: 1
+  auto_decompose: false
+  auto_decompose_per_tick: 1
 _config_version: 11
 session_reset:
   mode: both

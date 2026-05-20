@@ -241,12 +241,12 @@ named profile gateways get their systemd hardening refreshed but are not started
 only if it was already active (`HERMES_DEFAULT_GATEWAY_MODE=if-active`). Use
 `HERMES_COMPOSE_SERVICE_SET=full`, or explicitly set
 `HERMES_PROFILE_GATEWAY_MODE=existing HERMES_DEFAULT_GATEWAY_MODE=start`, when
-the host has enough headroom to run the always-on gateway workers again.
+the host has enough headroom to run the always-on gateway again.
 Profile cron tickers are not enabled by default; review
 `~/.hermes/profiles/<name>/cron/jobs.json` before adding a profile to
 `config/profile-cron-tickers.txt`.
 
-Gateway services should be operated through the systemd units managed by this repo, not by long-running ad hoc foreground shells. For the default profile, Hermes now generates the base `hermes-gateway.service` unit and hermes-stack layers stack-specific behavior through `/etc/systemd/system/hermes-gateway.service.d/override.conf`. The unit entrypoint remains the stock Hermes command `hermes gateway run --replace`; hermes-stack adds a host-side `ExecStartPre=/usr/bin/python3 /opt/hermes/scripts/cleanup-hermes-gateway-state.py` so each start clears only stale gateway PID/lock records first. Gateway and cron ticker units also set `KillMode=control-group` plus CPU, memory, and task-count limits so one profile cannot starve SSH or the core Docker services.
+Gateway services should be operated through the systemd units managed by this repo, not by long-running ad hoc foreground shells. For the default profile, Hermes now generates the base `hermes-gateway.service` unit and hermes-stack layers stack-specific behavior through `/etc/systemd/system/hermes-gateway.service.d/override.conf`. The unit entrypoint remains the stock Hermes command `hermes gateway run --replace`; hermes-stack adds a host-side `ExecStartPre=/usr/bin/python3 /opt/hermes/scripts/cleanup-hermes-gateway-state.py` so each start clears only stale gateway PID/lock records first. Gateway units set `HERMES_KANBAN_DISPATCH_IN_GATEWAY=false`, and the rendered config also sets `kanban.dispatch_in_gateway: false`, so chat/API gateways do not automatically spawn kanban workers. If kanban dispatch is deliberately re-enabled later, the base config keeps it capped (`max_spawn: 1`, no auto-decompose) until the board queue and host capacity are reviewed. Gateway and cron ticker units also set `KillMode=control-group` plus CPU, memory, and task-count limits so one profile cannot starve SSH or the core Docker services.
 
 That means the steady-state pattern is:
 
