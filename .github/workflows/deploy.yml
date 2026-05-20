@@ -23,7 +23,7 @@ jobs:
       PUBLIC_FALLBACK_DEPLOY_TARGET: 46.225.128.232
       TAILNET_FALLBACK_DEPLOY_TARGET: 100.121.250.82
       EXPECTED_REMOTE_HOSTNAME: ${{ vars.VPS_EXPECTED_HOSTNAME || 'vps' }}
-      REMOTE_DEPLOY_LOG_PATH: /opt/hermes-backups/deploy-logs/github-run-${{ github.run_id }}.log
+      REMOTE_DEPLOY_LOG_PATH: /var/log/hermes-deploy/github-run-${{ github.run_id }}.log
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ vars.TELEGRAM_HOME_CHANNEL || secrets.TELEGRAM_HOME_CHANNEL }}
       TELEGRAM_HOME_CHANNEL: ${{ vars.TELEGRAM_HOME_CHANNEL || secrets.TELEGRAM_HOME_CHANNEL }}
