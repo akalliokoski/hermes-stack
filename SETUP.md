@@ -215,6 +215,37 @@ make deploy          # rsync repo, refresh systemd units/profile config, restart
 make update-agent    # bumps hermes to latest (runs `hermes update` on VPS)
 ```
 
+The GitHub deploy workflow resolves a trusted SSH target with
+[scripts/resolve-deploy-target.sh](scripts/resolve-deploy-target.sh). It tries the configured
+`VPS_HOST` first, then pinned public-IP and tailnet fallbacks, and reports
+whether the failure happened before TCP connect, during SSH banner exchange, at
+host-key verification, at authentication, or at Tailscale SSH policy. Once SSH is reachable, deploy also runs
+[scripts/repair-remote-access.sh](scripts/repair-remote-access.sh) before changing the stack so
+inactive/failed `ssh`/`sshd` or `tailscaled` units are restarted early.
+
+If both public SSH and tailnet SSH time out before a shell starts, GitHub
+Actions cannot apply repo scripts yet because SSH is the deployment transport.
+Use the VPS provider console/rescue shell to restore `sshd` or networking, then
+rerun the deploy workflow.
+
+From the MacBook, run the same deploy-target probe with:
+
+```bash
+make check-vps-access
+```
+
+After the May 2026 recovery, VPS deploys default to
+`HERMES_COMPOSE_SERVICE_SET=core`. That starts only the Docker services Hermes
+needs directly for agent operation:
+
+- Hindsight: `hindsight`
+- Firecrawl and its dependencies: `firecrawl-api`, `firecrawl-worker`,
+  `playwright`, `redis`, `db`, `rabbitmq`, `nuq-migrate`
+
+The deploy script stops/removes optional compose services in core mode:
+`ui-landing`, `syncthing`, `litestream`, and `backup`. To restore the full auxiliary stack later, run deploy with
+`HERMES_COMPOSE_SERVICE_SET=full` and review memory headroom first.
+
 Gateway services should be operated through the systemd units managed by this repo, not by long-running ad hoc foreground shells. For the default profile, Hermes now generates the base `hermes-gateway.service` unit and hermes-stack layers stack-specific behavior through `/etc/systemd/system/hermes-gateway.service.d/override.conf`. The unit entrypoint remains the stock Hermes command `hermes gateway run --replace`; hermes-stack adds a host-side `ExecStartPre=/usr/bin/python3 /opt/hermes/scripts/cleanup-hermes-gateway-state.py` so each start clears only stale gateway PID/lock records first.
 
 That means the steady-state pattern is:

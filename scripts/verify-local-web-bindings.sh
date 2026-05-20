@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-EXPECTED_PORTS=(8081 8787 9119 9120 8384 8888 9999 3002)
+if [[ -n "${EXPECTED_PORTS:-}" ]]; then
+  read -r -a EXPECTED_PORTS <<< "${EXPECTED_PORTS}"
+else
+  EXPECTED_PORTS=(8081 8787 9119 9120 8384 8888 9999 3002)
+fi
 WAIT_SECONDS="${WAIT_SECONDS:-60}"
 START_TS="$(date +%s)"
 

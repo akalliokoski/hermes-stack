@@ -30,9 +30,9 @@ import json, os, ssl, sys, urllib.request
 domain = os.environ['CURRENT_TAILNET_DOMAIN']
 status = json.loads(os.environ['SERVE_STATUS_JSON'])
 web = status.get('Web') or {}
+mode = os.environ.get('HERMES_COMPOSE_SERVICE_SET', 'core')
 expected = {
     f'{domain}:443': {
-        '/': 'http://127.0.0.1:8081',
         '/memory/': 'http://127.0.0.1:8888',
         '/firecrawl/': 'http://127.0.0.1:3002',
     },
@@ -45,10 +45,10 @@ expected = {
     f'{domain}:9444': {
         '/': 'http://127.0.0.1:9120',
     },
-    f'{domain}:9445': {
-        '/': 'http://127.0.0.1:8384',
-    },
 }
+if mode == 'full':
+    expected[f'{domain}:443']['/'] = 'http://127.0.0.1:8081'
+    expected[f'{domain}:9445'] = {'/': 'http://127.0.0.1:8384'}
 
 for listener, paths in expected.items():
     actual_listener = web.get(listener)
@@ -66,14 +66,15 @@ if unexpected:
 
 ctx = ssl._create_unverified_context()
 checks = [
-    (f'https://{domain}/', '<title>Hermes Stack</title>'),
     (f'https://{domain}/memory/openapi.json', '"title":"Hindsight HTTP API"'),
     (f'https://{domain}/firecrawl/', 'Firecrawl API'),
     (f'https://{domain}:9443/', '<!DOCTYPE html>'),
     (f'https://{domain}:9444/', 'Hermes Agent - Dashboard'),
-    (f'https://{domain}:9445/', '<!DOCTYPE html>'),
     (f'https://{domain}:9446/', '<!doctype html>'),
 ]
+if mode == 'full':
+    checks.append((f'https://{domain}/', '<title>Hermes Stack</title>'))
+    checks.append((f'https://{domain}:9445/', '<!DOCTYPE html>'))
 
 for url, needle in checks:
     req = urllib.request.Request(url, headers={'User-Agent': 'hermes-stack-tailnet-verifier/1.0'})

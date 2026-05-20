@@ -21,6 +21,11 @@ cd "${REPO_ROOT}"
 
 echo "[remote-deploy] log_path=${DEPLOY_LOG}"
 
+COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.vps.yml)
+HERMES_COMPOSE_SERVICE_SET="${HERMES_COMPOSE_SERVICE_SET:-core}"
+CORE_COMPOSE_SERVICES=(hindsight firecrawl-api firecrawl-worker playwright redis db rabbitmq nuq-migrate)
+OPTIONAL_COMPOSE_SERVICES=(ui-landing syncthing litestream backup)
+
 load_repo_env() {
   if [[ -f .env ]]; then
     set -a
@@ -262,6 +267,12 @@ DEFAULT_GATEWAY_UNIT_DIGEST_BEFORE="$(file_digest "${DEFAULT_GATEWAY_UNIT_PATH}"
 DEFAULT_GATEWAY_OVERRIDE_DIGEST_BEFORE="$(file_digest "${DEFAULT_GATEWAY_OVERRIDE_PATH}")"
 capture_named_profile_state_before
 
+log_step "repair remote access services"
+bash scripts/repair-remote-access.sh
+
+log_step "ensure container runtime"
+sudo systemctl enable --now containerd docker
+
 log_step "prepare directories and ids"
 mkdir -p /opt/hermes-backups
 HERMES_UID="$(id -u hermes)"
@@ -295,7 +306,7 @@ if [[ -n "${HELPER_DST}" && "${HELPER_SRC}" == "${HELPER_DST}" ]]; then
 else
   sudo install -m 755 scripts/run-profile-cron-tick.sh /opt/hermes/scripts/run-profile-cron-tick.sh
 fi
-sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/run-profile-cron-tick.sh scripts/run-hermes-dashboard-proxy.py scripts/backup-hindsight-host.sh scripts/setup-backup-cron.sh scripts/backup-hindsight-watchdog.sh scripts/verify-web-research.sh
+sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/repair-remote-access.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/run-profile-cron-tick.sh scripts/run-hermes-dashboard-proxy.py scripts/backup-hindsight-host.sh scripts/setup-backup-cron.sh scripts/backup-hindsight-watchdog.sh scripts/verify-web-research.sh
 sudo systemctl daemon-reload
 sudo systemctl enable hermes-gateway hermes-dashboard hermes-dashboard-proxy hermes-webui
 
@@ -308,24 +319,46 @@ DEFAULT_GATEWAY_UNIT_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_UNIT_PATH}")
 DEFAULT_GATEWAY_OVERRIDE_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_OVERRIDE_PATH}")"
 capture_named_profile_state_after
 
-log_step "install video pipeline system packages"
-sudo apt-get update -qq
-sudo apt-get install -y -qq ffmpeg
+if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
+  log_step "install video pipeline system packages"
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq ffmpeg
+else
+  log_step "skip video pipeline system packages (${HERMES_COMPOSE_SERVICE_SET})"
+fi
 
-log_step "refresh hermes python deps and media tooling"
-sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 "$(command -v hermes)" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"; cd /opt/hermes && bash scripts/setup-podcast-pipeline.sh && bash scripts/setup-video-pipeline.sh'
+log_step "refresh hermes python deps"
+sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 "$(command -v hermes)" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"'
+
+if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
+  log_step "refresh media tooling"
+  sudo -iu hermes bash -lc 'cd /opt/hermes && bash scripts/setup-podcast-pipeline.sh && bash scripts/setup-video-pipeline.sh'
+else
+  log_step "skip media tooling (${HERMES_COMPOSE_SERVICE_SET})"
+fi
 
 log_step "refresh Hermes WebUI checkout"
 sudo bash scripts/setup-hermes-webui.sh
 
 log_step "repair persisted service state"
-HERMES_UID="$HERMES_UID" HERMES_GID="$HERMES_GID" bash scripts/repair-syncthing-volume.sh
-bash scripts/repair-backup-volume.sh
+if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
+  HERMES_UID="$HERMES_UID" HERMES_GID="$HERMES_GID" bash scripts/repair-syncthing-volume.sh
+  bash scripts/repair-backup-volume.sh
+else
+  echo "Skipping Syncthing/backup volume repair for compose service set: ${HERMES_COMPOSE_SERVICE_SET}"
+fi
 
 log_step "refresh containers"
 docker system prune -af
-docker compose pull --quiet --ignore-buildable
-HERMES_UID="$HERMES_UID" HERMES_GID="$HERMES_GID" docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --remove-orphans
+if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
+  docker compose "${COMPOSE_FILES[@]}" pull --quiet --ignore-buildable
+  HERMES_UID="$HERMES_UID" HERMES_GID="$HERMES_GID" docker compose "${COMPOSE_FILES[@]}" up -d --remove-orphans
+else
+  docker compose "${COMPOSE_FILES[@]}" stop "${OPTIONAL_COMPOSE_SERVICES[@]}" >/dev/null 2>&1 || true
+  docker compose "${COMPOSE_FILES[@]}" rm -f "${OPTIONAL_COMPOSE_SERVICES[@]}" >/dev/null 2>&1 || true
+  docker compose "${COMPOSE_FILES[@]}" pull --quiet --ignore-buildable "${CORE_COMPOSE_SERVICES[@]}"
+  HERMES_UID="$HERMES_UID" HERMES_GID="$HERMES_GID" docker compose "${COMPOSE_FILES[@]}" up -d --remove-orphans "${CORE_COMPOSE_SERVICES[@]}"
+fi
 
 log_step "refresh host services"
 sudo systemctl restart hermes-webui
@@ -334,7 +367,7 @@ sudo systemctl restart hermes-dashboard-proxy
 restart_default_gateway_if_needed
 restart_named_profile_gateways
 reconcile_profile_cron_tickers
-sudo bash scripts/configure-tailscale-serve.sh
+sudo HERMES_COMPOSE_SERVICE_SET="${HERMES_COMPOSE_SERVICE_SET}" bash scripts/configure-tailscale-serve.sh
 
 log_step "validate live services"
 if [[ "${API_SERVER_ENABLED:-}" =~ ^(true|TRUE|1|yes|YES)$ || -n "${API_SERVER_KEY:-}" ]]; then
@@ -346,7 +379,12 @@ systemctl is-active hermes-dashboard-proxy
 systemctl is-active hermes-gateway
 verify_profile_cron_tickers
 grep -F '/opt/hermes/scripts/backup-hindsight-host.sh' /etc/cron.d/hermes-hindsight-backup
-docker compose -f docker-compose.yml -f docker-compose.vps.yml ps
-bash scripts/verify-local-web-bindings.sh
-bash scripts/verify-tailnet-web-routes.sh
+docker compose "${COMPOSE_FILES[@]}" ps
+if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
+  bash scripts/verify-local-web-bindings.sh
+  bash scripts/verify-tailnet-web-routes.sh
+else
+  EXPECTED_PORTS="8787 9119 9120 8888 9999 3002" bash scripts/verify-local-web-bindings.sh
+  HERMES_COMPOSE_SERVICE_SET="${HERMES_COMPOSE_SERVICE_SET}" bash scripts/verify-tailnet-web-routes.sh
+fi
 tailscale serve status --json

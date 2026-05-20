@@ -46,11 +46,12 @@
 #   make clone-profile-from-vps PROFILE=<n>   one-command full clone from VPS over SSH/SCP, including workspace and profile-local files
 #   make backup-hindsight             trigger a logical Hindsight SQL dump on the VPS
 #   make restore-hindsight ARGS="..." restore or validate Hindsight dumps on the VPS
+#   make check-vps-access             diagnose the pinned VPS SSH deploy targets
 
 .PHONY: up down deploy status logs logs-all restart restart-gemma restart-both chat shell hermes \
         update-agent refresh-runtime backup-now snapshots restore clean add-profile sync-souls sync-profiles setup-hindsight \
         detect-env sync-env sync-profiles-local machine-bootstrap verify-env verify-env-local local-up local-down local-chat local-status local-logs \
-        local-backup-now local-snapshots local-update-agent local-setup-hindsight export-profile import-profile clone-profile-from-vps backup-hindsight restore-hindsight portability-smoke
+        local-backup-now local-snapshots local-update-agent local-setup-hindsight export-profile import-profile clone-profile-from-vps backup-hindsight restore-hindsight portability-smoke check-vps-access
 
 COMPOSE       = docker compose -f docker-compose.yml -f docker-compose.vps.yml
 LOCAL_COMPOSE = docker compose                          # auto-merges docker-compose.override.yml
@@ -70,6 +71,13 @@ down:
 
 deploy:
 	bash deploy.sh
+
+check-vps-access:
+	@DEPLOY_SSH_USER="$${VPS_SSH_USER:-root}" \
+	  DEPLOY_SSH_KEY="$${VPS_SSH_KEY:-$$HOME/.ssh/vps_ed25519}" \
+	  DEPLOY_KNOWN_HOSTS="$${VPS_SSH_KNOWN_HOSTS_FILE:-.github/ssh_known_hosts}" \
+	  EXPECTED_REMOTE_HOSTNAME="$${VPS_EXPECTED_HOSTNAME:-vps}" \
+	  scripts/resolve-deploy-target.sh "$(VPS_HOST)" 46.225.128.232 vps.taild96651.ts.net 100.121.250.82
 
 # ── Observability ──────────────────────────────────────────────────────────────
 
