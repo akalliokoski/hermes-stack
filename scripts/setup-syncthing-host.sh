@@ -89,7 +89,7 @@ After=network.target
 [Service]
 User=%i
 Environment=STGUIADDRESS=127.0.0.1:8384
-ExecStart=${SYNCTHING_BIN} -home=${CONFIG_DIR} -no-browser -no-restart -logflags=0
+ExecStart=${SYNCTHING_BIN} -home=${CONFIG_DIR} -allow-newer-config -no-browser -no-restart -logflags=0
 Restart=on-failure
 RestartSec=5
 SuccessExitStatus=3 4
