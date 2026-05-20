@@ -25,6 +25,14 @@ COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.vps.yml)
 HERMES_COMPOSE_SERVICE_SET="${HERMES_COMPOSE_SERVICE_SET:-core}"
 CORE_COMPOSE_SERVICES=(hindsight firecrawl-api firecrawl-worker playwright redis db rabbitmq nuq-migrate)
 OPTIONAL_COMPOSE_SERVICES=(ui-landing syncthing litestream backup)
+if [[ -z "${HERMES_PROFILE_GATEWAY_MODE:-}" ]]; then
+  if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
+    HERMES_PROFILE_GATEWAY_MODE="existing"
+  else
+    HERMES_PROFILE_GATEWAY_MODE="skip"
+  fi
+fi
+HERMES_DEFAULT_GATEWAY_MODE="${HERMES_DEFAULT_GATEWAY_MODE:-if-active}"
 
 load_repo_env() {
   if [[ -f .env ]]; then
@@ -42,6 +50,17 @@ load_repo_env
 log_step() {
   CURRENT_STEP="$1"
   printf '\n==> %s\n' "$1"
+}
+
+disable_existing_container_restarts() {
+  local -a container_ids=()
+  mapfile -t container_ids < <(docker ps -aq)
+  if ((${#container_ids[@]} == 0)); then
+    echo "No existing Docker containers found."
+    return 0
+  fi
+
+  docker update --restart=no "${container_ids[@]}"
 }
 
 file_digest() {
@@ -182,10 +201,16 @@ capture_named_profile_state_after() {
 }
 
 restart_default_gateway_if_needed() {
+  if [[ "${HERMES_DEFAULT_GATEWAY_MODE}" == "skip" ]]; then
+    log_step "skip hermes-gateway (${HERMES_DEFAULT_GATEWAY_MODE})"
+    return 0
+  fi
+
   local config_changed=0
   local unit_changed=0
   local env_changed=0
   local override_changed=0
+  local gateway_active=0
   local reasons=()
 
   [[ "${DEFAULT_GATEWAY_CONFIG_DIGEST_BEFORE}" == "${DEFAULT_GATEWAY_CONFIG_DIGEST_AFTER}" ]] || config_changed=1
@@ -198,13 +223,22 @@ restart_default_gateway_if_needed() {
   (( env_changed )) && reasons+=("env changed")
   (( override_changed )) && reasons+=("override changed")
 
+  if unit_is_active hermes-gateway; then
+    gateway_active=1
+  fi
+
+  if (( gateway_active == 0 )) && [[ "${HERMES_DEFAULT_GATEWAY_MODE}" == "if-active" ]]; then
+    log_step "skip hermes-gateway (inactive, ${HERMES_DEFAULT_GATEWAY_MODE})"
+    return 0
+  fi
+
   if (( ${#reasons[@]} > 0 )); then
     log_step "restart hermes-gateway (${reasons[*]})"
     sudo systemctl restart hermes-gateway
     return 0
   fi
 
-  if unit_is_active hermes-gateway; then
+  if (( gateway_active == 1 )); then
     log_step "restart hermes-gateway (deploy refresh)"
     sudo systemctl restart hermes-gateway
     return 0
@@ -215,6 +249,11 @@ restart_default_gateway_if_needed() {
 }
 
 restart_named_profile_gateways() {
+  if [[ "${HERMES_PROFILE_GATEWAY_MODE}" == "skip" ]]; then
+    log_step "skip named profile gateways (${HERMES_PROFILE_GATEWAY_MODE})"
+    return 0
+  fi
+
   local profiles_root="/home/hermes/.hermes/profiles"
   local profile unit_name before_config before_env before_unit after_config after_env after_unit config_changed env_changed unit_changed
 
@@ -273,6 +312,9 @@ bash scripts/repair-remote-access.sh
 log_step "ensure container runtime"
 sudo systemctl enable --now containerd docker
 
+log_step "disable stale container autostart"
+disable_existing_container_restarts
+
 log_step "prepare directories and ids"
 mkdir -p /opt/hermes-backups
 HERMES_UID="$(id -u hermes)"
@@ -289,7 +331,7 @@ python3 -c 'import yaml' 2>/dev/null || { sudo apt-get update -qq && sudo apt-ge
 
 log_step "render hermes config and sync profiles"
 sudo -u hermes python3 scripts/render-config.py --env-id vps --target-home /home/hermes --profile default --output /home/hermes/.hermes/config.yaml
-sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles --gateway existing
+sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles --gateway "${HERMES_PROFILE_GATEWAY_MODE}"
 
 log_step "install systemd units and helper executables"
 sudo env PATH="/home/hermes/.hermes/node/bin:/home/hermes/.local/bin:${PATH}" HERMES_HOME=/home/hermes/.hermes /home/hermes/.local/bin/hermes gateway install --system --run-as-user hermes --force
@@ -328,7 +370,7 @@ else
 fi
 
 log_step "refresh hermes python deps"
-sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 "$(command -v hermes)" | sed "s/^#!//")"; uv pip install --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"'
+sudo -iu hermes bash -lc 'export PATH="$HOME/.local/bin:$PATH"; HERMES_PY="$(head -n 1 "$(command -v hermes)" | sed "s/^#!//")"; uv pip install --system --python "$HERMES_PY" --quiet --upgrade "hindsight-client>=0.4.22"'
 
 if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
   log_step "refresh media tooling"
@@ -376,7 +418,11 @@ fi
 systemctl is-active hermes-webui
 systemctl is-active hermes-dashboard
 systemctl is-active hermes-dashboard-proxy
-systemctl is-active hermes-gateway
+if [[ "${HERMES_DEFAULT_GATEWAY_MODE}" == "start" ]] || unit_is_active hermes-gateway; then
+  systemctl is-active hermes-gateway
+else
+  echo "Skipping hermes-gateway active check (${HERMES_DEFAULT_GATEWAY_MODE}, inactive)."
+fi
 verify_profile_cron_tickers
 grep -F '/opt/hermes/scripts/backup-hindsight-host.sh' /etc/cron.d/hermes-hindsight-backup
 docker compose "${COMPOSE_FILES[@]}" ps

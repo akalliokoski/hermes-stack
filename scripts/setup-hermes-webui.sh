@@ -71,7 +71,7 @@ run_as_hermes bash -lc '
   export PATH="$HOME/.local/bin:$PATH"
   HERMES_BIN="$(command -v hermes)"
   HERMES_PY="$(head -n 1 "$HERMES_BIN" | sed "s/^#!//")"
-  uv pip install --python "$HERMES_PY" --quiet --upgrade -r "'"${HERMES_WEBUI_INSTALL_DIR}"'"/requirements.txt
+  uv pip install --system --python "$HERMES_PY" --quiet --upgrade -r "'"${HERMES_WEBUI_INSTALL_DIR}"'"/requirements.txt
 '
 
 log "✓ Hermes WebUI Python dependencies installed into the Hermes runtime"

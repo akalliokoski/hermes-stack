@@ -246,6 +246,14 @@ The deploy script stops/removes optional compose services in core mode:
 `ui-landing`, `syncthing`, `litestream`, and `backup`. To restore the full auxiliary stack later, run deploy with
 `HERMES_COMPOSE_SERVICE_SET=full` and review memory headroom first.
 
+Core deploys also keep gateway services conservative during recovery: named
+profile gateways are rendered but not started
+(`HERMES_PROFILE_GATEWAY_MODE=skip`), and the default gateway is restarted only
+if it was already active (`HERMES_DEFAULT_GATEWAY_MODE=if-active`). Use
+`HERMES_COMPOSE_SERVICE_SET=full`, or explicitly set
+`HERMES_PROFILE_GATEWAY_MODE=existing HERMES_DEFAULT_GATEWAY_MODE=start`, when
+the host has enough headroom to run the always-on gateway workers again.
+
 Gateway services should be operated through the systemd units managed by this repo, not by long-running ad hoc foreground shells. For the default profile, Hermes now generates the base `hermes-gateway.service` unit and hermes-stack layers stack-specific behavior through `/etc/systemd/system/hermes-gateway.service.d/override.conf`. The unit entrypoint remains the stock Hermes command `hermes gateway run --replace`; hermes-stack adds a host-side `ExecStartPre=/usr/bin/python3 /opt/hermes/scripts/cleanup-hermes-gateway-state.py` so each start clears only stale gateway PID/lock records first.
 
 That means the steady-state pattern is:
@@ -843,7 +851,7 @@ If you want the whole layout under a different base path, pass `TARGET_HOME=/som
 
 ## CI/CD (GitHub Actions)
 
-`.github/workflows/deploy.yml` still runs on push to `main`: joins tailnet → rsync → `docker compose up -d` → `scripts/remote-deploy.sh`. The deploy script now restarts `hermes-gateway` (and named profile gateways) only when their rendered config or installed systemd unit changed; otherwise it leaves running gateways alone. Secrets unchanged (`VPS_HOST`, `VPS_SSH_*`, `TAILSCALE_OAUTH_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_HOME_CHANNEL`). The old "build hermes-agent image" step is gone.
+`.github/workflows/deploy.yml` still runs on push to `main`: joins tailnet → rsync → `docker compose up -d` → `scripts/remote-deploy.sh`. The deploy script defaults to the core compose set, disables stale Docker container autostarts before refreshing the stack, and leaves inactive gateway services stopped unless explicitly told to start them. Secrets unchanged (`VPS_HOST`, `VPS_SSH_*`, `TAILSCALE_OAUTH_*`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_HOME_CHANNEL`). The old "build hermes-agent image" step is gone.
 
 ---
 
