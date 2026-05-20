@@ -29,7 +29,7 @@ if [[ -z "${HERMES_PROFILE_GATEWAY_MODE:-}" ]]; then
   if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
     HERMES_PROFILE_GATEWAY_MODE="existing"
   else
-    HERMES_PROFILE_GATEWAY_MODE="skip"
+    HERMES_PROFILE_GATEWAY_MODE="harden"
   fi
 fi
 HERMES_DEFAULT_GATEWAY_MODE="${HERMES_DEFAULT_GATEWAY_MODE:-if-active}"
@@ -249,7 +249,7 @@ restart_default_gateway_if_needed() {
 }
 
 restart_named_profile_gateways() {
-  if [[ "${HERMES_PROFILE_GATEWAY_MODE}" == "skip" ]]; then
+  if [[ "${HERMES_PROFILE_GATEWAY_MODE}" == "skip" || "${HERMES_PROFILE_GATEWAY_MODE}" == "harden" ]]; then
     log_step "skip named profile gateways (${HERMES_PROFILE_GATEWAY_MODE})"
     return 0
   fi

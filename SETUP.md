@@ -246,10 +246,10 @@ The deploy script stops/removes optional compose services in core mode:
 `ui-landing`, `syncthing`, `litestream`, and `backup`. To restore the full auxiliary stack later, run deploy with
 `HERMES_COMPOSE_SERVICE_SET=full` and review memory headroom first.
 
-Core deploys also keep gateway services conservative during recovery: named
-profile gateways are rendered but not started
-(`HERMES_PROFILE_GATEWAY_MODE=skip`), and the default gateway is restarted only
-if it was already active (`HERMES_DEFAULT_GATEWAY_MODE=if-active`). Use
+Core deploys also keep gateway services conservative during recovery: existing
+named profile gateways get their systemd hardening refreshed but are not started
+(`HERMES_PROFILE_GATEWAY_MODE=harden`), and the default gateway is restarted
+only if it was already active (`HERMES_DEFAULT_GATEWAY_MODE=if-active`). Use
 `HERMES_COMPOSE_SERVICE_SET=full`, or explicitly set
 `HERMES_PROFILE_GATEWAY_MODE=existing HERMES_DEFAULT_GATEWAY_MODE=start`, when
 the host has enough headroom to run the always-on gateway workers again.
@@ -306,6 +306,7 @@ cd /opt/hermes
 sudo bash scripts/provision-profile.sh --profile <name>
 sudo bash scripts/provision-profile.sh --profile <name> --telegram-bot-token ***
 sudo bash scripts/provision-profile.sh --sync-all-profiles --gateway skip      # config-only normalization
+sudo bash scripts/provision-profile.sh --sync-all-profiles --gateway harden    # refresh existing profile gateway guardrails, do not start
 sudo bash scripts/provision-profile.sh --sync-all-profiles --gateway existing  # refresh existing named-profile gateways too
 
 # Short helper command installed by vps-setup.sh:
@@ -344,7 +345,7 @@ make sync-profiles
 sudo bash /opt/hermes/scripts/provision-profile.sh --sync-all-profiles --gateway skip
 ```
 
-Use `--gateway skip` for pure config normalization. Use `--gateway existing` when you also want deploy-time refresh of already-installed named-profile gateway units and their drop-in overrides without creating brand new gateways.
+Use `--gateway skip` for pure config normalization. Use `--gateway harden` to refresh already-installed named-profile gateway drop-ins without starting them. Use `--gateway existing` when you also want deploy-time refresh of already-installed named-profile gateway units and their drop-in overrides without creating brand new gateways.
 
 ### Shared instructions across profiles
 
@@ -424,7 +425,7 @@ sudo env HERMES_ENV_ID=vps HERMES_SERVICE_MODE=auto bash scripts/provision-profi
 sudo -iu hermes HERMES_HOME=/home/hermes/.hermes bash scripts/verify-environment.sh --all-profiles --check-services
 ```
 
-`make deploy` / `scripts/remote-deploy.sh` go one step further than the manual config-only command above: deploy uses `--sync-all-profiles --gateway existing`, refreshes existing named-profile gateway drop-ins, restarts `hermes-gateway`, restarts any existing `hermes-gateway-<profile>` units (such as `hermes-gateway-gemma`), and then re-applies Tailscale Serve plus web-binding verification.
+`make deploy` / `scripts/remote-deploy.sh` go one step further than the manual config-only command above: core deploys use `--sync-all-profiles --gateway harden`, refresh existing named-profile gateway drop-ins without starting them, leave an inactive `hermes-gateway` stopped, and then re-apply Tailscale Serve plus web-binding verification. Full deploys can opt back into `--gateway existing` behavior after reviewing host capacity.
 
 `scripts/remote-deploy.sh` now also writes a timestamped log under `/opt/hermes-backups/deploy-logs/` by default and includes the failing `step=...`, `command=...`, `exit=...`, and `log=...` path in its error trap output. The GitHub deploy workflow pins a per-run log path (for example `/opt/hermes-backups/deploy-logs/github-run-<run-id>.log`) and, on failure, appends the tail of that remote log to the Actions step summary so the last failing command is visible without manually SSHing into the VPS.
 

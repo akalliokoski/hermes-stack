@@ -42,9 +42,9 @@ GATEWAY_MODE_SET=0
 usage() {
   cat <<'EOF'
 Usage:
-  scripts/provision-profile.sh --profile <name> [--telegram-bot-token <token>] [--gateway auto|skip|required|existing]
+  scripts/provision-profile.sh --profile <name> [--telegram-bot-token <token>] [--gateway auto|skip|required|existing|harden]
   scripts/provision-profile.sh --sync-all-souls
-  scripts/provision-profile.sh --sync-all-profiles [--gateway auto|skip|required|existing]
+  scripts/provision-profile.sh --sync-all-profiles [--gateway auto|skip|required|existing|harden]
 
 What it does:
   - creates or updates a Hermes profile on the VPS
@@ -563,6 +563,21 @@ configure_gateway() {
         log "• No existing system gateway for profile '${profile}'; skipping gateway refresh"
         return 0
       fi
+      ;;
+    harden)
+      if ! system_gateway_exists "${profile}"; then
+        log "• No existing system gateway for profile '${profile}'; skipping gateway hardening"
+        return 0
+      fi
+      log "→ Refreshing gateway hardening for profile '${profile}'"
+      write_gateway_override "${profile}"
+      if [[ ${EUID} -eq 0 ]]; then
+        systemctl daemon-reload
+      elif have_passwordless_sudo; then
+        sudo systemctl daemon-reload
+      fi
+      log "✓ Gateway hardening refreshed for profile '${profile}'"
+      return 0
       ;;
     auto|required)
       ;;
