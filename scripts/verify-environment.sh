@@ -250,7 +250,7 @@ for profile in profiles:
 if not sync_root.exists():
     failures.append(f"sync_root missing: {sync_root}")
 else:
-    for rel in ('backups', 'backups/hindsight', 'exports', 'envs'):
+    for rel in ('exports', 'envs'):
         path = sync_root / rel
         if not path.exists():
             failures.append(f"sync_root subdir missing: {path}")

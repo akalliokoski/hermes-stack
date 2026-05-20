@@ -53,8 +53,7 @@ echo "✓ hermes user in docker group"
 
 install -d -o hermes -g hermes -m 700 "${HERMES_DATA}"
 install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/sync"
-install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/sync/wiki"
-install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/sync/backups"
+install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/codeo-sync"
 # Each profile gets its own workspace subdirectory mounted as /workspace in Docker.
 # default profile workspace (add more with: make add-profile PROFILE=<name>)
 install -d -o hermes -g hermes -m 755 "${HERMES_HOME}/work/default"

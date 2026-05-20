@@ -9,7 +9,7 @@ Use Hermes as the main operator for:
 - devops
 - devsecops
 - monitoring
-- backups
+- recovery checks around provider-managed VPS backups
 - automation
 
 The design goal is simple and elegant, not over-engineered.
@@ -19,7 +19,7 @@ Preferred tools:
 - systemd
 - Docker Compose
 - Tailscale
-- Syncthing
+- Syncthing for optional machine-to-machine file sync
 - small shell/Python scripts
 
 Rule of thumb: if Hermes plus a repo script can do it, prefer that over inventing another service or control plane.
@@ -68,8 +68,8 @@ These are living documents. Keep `AGENTS.md` and `SETUP.md` actively updated whe
   - `hermes-gateway-<profile>`
 - auxiliary services run via Docker Compose
 - Tailscale publishes internal web UIs to the tailnet
-- Syncthing syncs the shared root (`/home/hermes/sync`)
-- shared soul/skills live under `~/.hermes/shared/`
+- Syncthing runs host-native on the VPS when enabled and syncs optional operator files under `/home/hermes/sync`
+- canonical wiki, shared soul, and shared skills live in this repo under `wiki/`, `soul/`, and `skills/`
 
 ## Community extensions we actively support
 
@@ -80,7 +80,7 @@ Approved additions:
 - Hermes WebUI as a tailnet-only chat UI backed by the stock host-native Hermes runtime and shared profile root
 - Hermes Workspace V2 as a tailnet-only operator UI backed by Hermes's built-in API server
 - Ollama Cloud or a local/OpenAI-compatible Ollama endpoint for delegation/fallback economics
-- shared cross-profile skills under `~/.hermes/shared/skills/`, including house orchestration protocols
+- shared cross-profile skills under repo `skills/`, exposed to Hermes through `~/.hermes/shared/skills`
 - experimental plugins only when they are isolated behind a dedicated profile or documented pilot flow
 
 Not adopted by default:

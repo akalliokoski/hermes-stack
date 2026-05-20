@@ -1,0 +1,299 @@
+{
+  "duration_hint": "medium",
+  "episode_slug": "profile-routing-smoke-test",
+  "generation_mode": "podcastfy_compat",
+  "hosts": {
+    "HOST_A": {
+      "default_emotion": 0.8,
+      "podcastfy_speaker": "Person1",
+      "role": "connector"
+    },
+    "HOST_B": {
+      "default_emotion": 0.75,
+      "podcastfy_speaker": "Person2",
+      "role": "interrogator"
+    }
+  },
+  "provenance": {
+    "artifact_label": "transcript-structured",
+    "captured_on": "2026-04-21",
+    "pipeline_name": "podcast-pipeline",
+    "purpose": "Archive canonical structured podcast transcript JSON.",
+    "title": "Profile Routing Smoke Test"
+  },
+  "show_slug": "profile-routing-smoke-test",
+  "title": "Profile Routing Smoke Test",
+  "turns": [
+    {
+      "emotion": 0.8,
+      "notes": [
+        "cold_open"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "A profile routing smoke test sounds almost trivial at first, but it opens a bigger design question. If profiles are meant to mean different things, why would their episodes all land in the same library?",
+      "turn_id": "t01"
+    },
+    {
+      "emotion": 0.75,
+      "notes": [
+        "cold_open"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Then the profile boundary is cosmetic.",
+      "turn_id": "t02"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "context_frame"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "That is the pressure point, yes. And because the only source here is the topic hint, we should stay disciplined and talk about design logic, not pretend we have proof from a specific implementation.",
+      "turn_id": "t03"
+    },
+    {
+      "emotion": 0.74,
+      "notes": [
+        "context_frame"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Good. So no fake certainty. Just the claim the topic supports.",
+      "turn_id": "t04"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "context_frame"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Right. The safe claim is that per-profile podcast libraries matter when separation is part of the product, because routing is one of the clearest ways a system expresses what a profile actually is.",
+      "turn_id": "t05"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Start with clarity. A profile-specific destination tells you, immediately, this episode came from this lane, this persona, this workflow. The library is not just storage at that point; it is a visible label.",
+      "turn_id": "t06"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Clarity sounds nice. Why isn't naming alone enough?",
+      "turn_id": "t07"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Because names can travel without structure. Or, let me say that more precisely, a filename can suggest origin, but routing shows whether the system understood origin. Those are different signals.",
+      "turn_id": "t08"
+    },
+    {
+      "emotion": 0.75,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So the destination becomes evidence.",
+      "turn_id": "t09"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Exactly, and that is why the smoke test matters. A smoke test is supposed to confirm the obvious path first, and here the obvious path is not merely that audio exists, but that it appears in the profile's own lane.",
+      "turn_id": "t10"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Otherwise a routing bug can hide inside a successful generation.",
+      "turn_id": "t11"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Yes. Separate libraries turn placement into something visible, which means the test is checking two things at once: did the system produce output, and did it preserve meaning all the way to delivery?",
+      "turn_id": "t12"
+    },
+    {
+      "emotion": 0.77,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "That's observability, not just organization.",
+      "turn_id": "t13"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "pivot"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Right, and from there the conversation shifts. It is not only about seeing where things went; it is also about containing different intentions so they do not blur together.",
+      "turn_id": "t14"
+    },
+    {
+      "emotion": 0.74,
+      "notes": [
+        "pivot"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Containment meaning different profiles should not feel interchangeable.",
+      "turn_id": "t15"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Exactly. With only the topic hint, we can still say this much safely: profiles exist to preserve differences. If all podcast output collapses into one library, one of the clearest external signs of those differences disappears.",
+      "turn_id": "t16"
+    },
+    {
+      "emotion": 0.75,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So the system says two conflicting things. Inside: profiles are distinct. Outside: everything goes in one pile.",
+      "turn_id": "t17"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "And that conflict matters early, before habits form around it. A smoke test is small by design, but it is valuable precisely because it catches these contradictions before people start compensating for them.",
+      "turn_id": "t18"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Compensating how?",
+      "turn_id": "t19"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "By adding human patches: manual sorting, renaming, second-guessing, little verification steps that should not be necessary. Once that starts, trust shifts away from routing and back onto the operator.",
+      "turn_id": "t20"
+    },
+    {
+      "emotion": 0.77,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So inconsistent routing doesn't just confuse. It trains people not to rely on the feature.",
+      "turn_id": "t21"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "That is the core synthesis. Per-profile libraries make identity legible, routing testable, and separation durable. Or maybe better put, they make the profile boundary observable where users actually encounter the result.",
+      "turn_id": "t22"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "And if the boundary is not observable, it is easier to break and harder to trust.",
+      "turn_id": "t23"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Which means the smoke test is not merely asking, did an episode get generated. It is asking whether the system carried the meaning of the profile through the final routing decision.",
+      "turn_id": "t24"
+    },
+    {
+      "emotion": 0.75,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Wrong destination, wrong outcome. Even if the MP3 is perfect.",
+      "turn_id": "t25"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "close"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "So the short version is simple, though the implication is not. If profiles matter, their libraries matter too, because routing is part of the feature and not just the plumbing behind it.",
+      "turn_id": "t26"
+    },
+    {
+      "emotion": 0.77,
+      "notes": [
+        "close"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Small test. Clear verdict. Route by profile, or admit the profile boundary means less than it claims.",
+      "turn_id": "t27"
+    }
+  ],
+  "version": 1
+}

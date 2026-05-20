@@ -10,18 +10,20 @@ from typing import Any
 import yaml
 
 
-def expand(value: Any, *, target_home: str | None = None) -> Any:
+def expand(value: Any, *, target_home: str | None = None, repo_root: str | None = None) -> Any:
     if isinstance(value, str):
         expanded = os.path.expandvars(value)
+        if repo_root:
+            expanded = expanded.replace('{repo_root}', repo_root)
         if expanded == '~' and target_home:
             return target_home
         if expanded.startswith('~/') and target_home:
             return str(Path(target_home) / expanded[2:])
         return expanded
     if isinstance(value, list):
-        return [expand(item, target_home=target_home) for item in value]
+        return [expand(item, target_home=target_home, repo_root=repo_root) for item in value]
     if isinstance(value, dict):
-        return {key: expand(val, target_home=target_home) for key, val in value.items()}
+        return {key: expand(val, target_home=target_home, repo_root=repo_root) for key, val in value.items()}
     return value
 
 
@@ -37,11 +39,11 @@ def deep_merge(base: Any, overlay: Any) -> Any:
     return copy.deepcopy(overlay)
 
 
-def load_yaml(path: Path, *, target_home: str | None = None) -> dict[str, Any]:
+def load_yaml(path: Path, *, target_home: str | None = None, repo_root: str | None = None) -> dict[str, Any]:
     data = yaml.safe_load(path.read_text()) or {}
     if not isinstance(data, dict):
         raise SystemExit(f"Expected mapping in {path}")
-    return expand(data, target_home=target_home)
+    return expand(data, target_home=target_home, repo_root=repo_root)
 
 
 def get_path(data: dict[str, Any], dotted: str) -> Any:
@@ -196,8 +198,8 @@ def main() -> None:
     base_path = Path(args.base) if args.base else repo_root / 'config' / 'base.yaml'
     env_path = repo_root / 'config' / 'env' / f'{args.env_id}.yaml'
 
-    base = load_yaml(base_path, target_home=args.target_home)
-    manifest = load_yaml(env_path, target_home=args.target_home)
+    base = load_yaml(base_path, target_home=args.target_home, repo_root=str(repo_root))
+    manifest = load_yaml(env_path, target_home=args.target_home, repo_root=str(repo_root))
 
     if args.print_meta:
         value = get_path(manifest, args.print_meta)

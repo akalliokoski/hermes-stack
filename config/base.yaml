@@ -224,7 +224,7 @@ skills:
   creation_nudge_interval: 15
   config:
     wiki:
-      path: ~/sync/wiki   # synced to MacBook via Syncthing
+      path: "{repo_root}/wiki"
 honcho: {}
 timezone: ''
 discord:

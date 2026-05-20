@@ -16,7 +16,7 @@ hermes update
 log_step "refresh compose images"
 "${COMPOSE[@]}" pull --quiet --ignore-buildable
 
-log_step "ensure syncthing bind mounts exist"
+log_step "ensure sync roots exist"
 mkdir -p /home/hermes/sync /home/hermes/codeo-sync
 chown "$(id -u)":"$(id -g)" /home/hermes/sync /home/hermes/codeo-sync
 

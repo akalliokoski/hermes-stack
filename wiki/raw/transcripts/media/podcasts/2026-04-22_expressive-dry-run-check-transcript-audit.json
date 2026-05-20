@@ -1,0 +1,49 @@
+{
+  "issues": [
+    {
+      "code": "muted_emotion_arc",
+      "message": "emotion arc has limited contrast and may sound too plain in TTS",
+      "severity": "warning"
+    },
+    {
+      "code": "missing_emotion_release",
+      "message": "emotion arc never settles into a calmer beat, which can make delivery feel uniformly emphatic or plain",
+      "severity": "warning"
+    }
+  ],
+  "ok": true,
+  "provenance": {
+    "artifact_label": "transcript-audit",
+    "captured_on": "2026-04-22",
+    "pipeline_name": "podcast-pipeline",
+    "purpose": "Archive transcript audit results.",
+    "title": "Expressive Dry Run Check"
+  },
+  "summaries": {
+    "emotion_arc": {
+      "flat": false,
+      "low_floor_missing": true,
+      "max_emotion": 0.87,
+      "min_emotion": 0.77,
+      "missing_peak": false,
+      "muted": true,
+      "peak_too_early": false,
+      "peak_turn_index": 15,
+      "peak_value": 0.87,
+      "spread": 0.09999999999999998,
+      "turn_count": 21
+    },
+    "gasp_count": 0,
+    "speaker_balance": {
+      "counts": {
+        "HOST_A": 11,
+        "HOST_B": 10
+      },
+      "dominant_share": 0.5238095238095238,
+      "dominant_speaker": "HOST_A",
+      "imbalanced": false,
+      "total_turns": 21
+    },
+    "tag_count": 1
+  }
+}

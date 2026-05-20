@@ -32,8 +32,8 @@ Profiles are used to isolate behavior while sharing common instructions.
 Current model:
 - default profile home: `~/.hermes`
 - named profile homes: `~/.hermes/profiles/<name>/`
-- shared SOUL sources: `~/.hermes/shared/soul/base.md` and `~/.hermes/shared/soul/profiles/<name>.md`
-- shared skills root: `~/.hermes/shared/skills/`
+- shared SOUL sources: repo `soul/base.md` and `soul/profiles/<name>.md`
+- shared skills root: repo `skills/`, exposed through `~/.hermes/shared/skills/`
 - profile workspaces: `/home/hermes/work/<profile>`
 - profile-isolated Hindsight banks: `hermes-<profile>`
 
@@ -49,9 +49,7 @@ Docker Compose runs the surrounding services Hermes uses:
 | Hermes Dashboard | Built-in Hermes web UI | `127.0.0.1:9120` proxy → `127.0.0.1:9119` via Tailscale `:9444` |
 | Firecrawl | Web crawling / scraping backend | `127.0.0.1:3002` |
 | Hindsight | Long-term semantic memory service | `127.0.0.1:8888` API, `127.0.0.1:9999` UI |
-| Litestream | Continuous SQLite WAL replication for Hermes state | internal |
-| Backup | Daily `.hermes` snapshots + compressed Hindsight SQL dumps | internal |
-| Syncthing | Syncs `/home/hermes/sync` to other machines | `127.0.0.1:8384` via Tailscale `:9445` |
+| Syncthing | Optional host-native sync for non-canonical operator files | `127.0.0.1:8384` via Tailscale `:9445` |
 | Tailscale Serve | Tailnet-only publication layer | `https://vps.taild96651.ts.net/` |
 
 ## Live VPS shape
@@ -95,8 +93,6 @@ Host-native Hermes Agent
 Docker Compose support stack
   ├─ Firecrawl + worker + playwright + redis + postgres + rabbitmq
   ├─ Hindsight
-  ├─ Litestream
-  ├─ Backup
   └─ Syncthing
            │
            ▼
@@ -118,7 +114,7 @@ Benefits:
 ### Support services stay in Compose
 Benefits:
 - easier service restarts and inspection
-- clear data mounts and backup paths
+- clear data mounts for support services
 - straightforward layering for VPS-only services
 - simpler Tailscale publication model
 
@@ -171,16 +167,14 @@ What provisioning does:
 - optionally manages the profile gateway service
 
 ### Memory and durability
-The stack uses multiple layers of persistence:
+The stack now keeps application durability boring and provider-native:
 - Hermes local state in `/home/hermes/.hermes`
-- Litestream WAL replication for SQLite state
-- daily `.hermes` archive backups
-- compressed logical Hindsight SQL dumps
-- optional S3-compatible object storage for archive backups
-- Syncthing replication of `/home/hermes/sync`
-- shared wiki under `/home/hermes/sync/wiki`
+- Hindsight/Postgres data in Docker volumes
+- Hetzner VPS backups enabled in the Hetzner console
+- canonical wiki in repo `wiki/`
+- canonical shared SOUL/skills in repo `soul/` and `skills/`
 
-This follows a defense-in-depth durability model rather than relying on one backup path.
+There are no repo-managed `.hermes` tarball, Litestream, or Hindsight SQL dump jobs.
 
 ## Related docs
 

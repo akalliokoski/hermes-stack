@@ -19,7 +19,7 @@ Usage:
 
 Creates a portable tar.gz bundle under <sync_root>/exports/profiles/<name>/ by default.
 The bundle contains profile metadata, shared SOUL sources, rendered profile context,
-non-secret env templates, and references to the latest synced backups.
+and non-secret env templates.
 EOF
 }
 
@@ -86,7 +86,7 @@ fi
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 BUNDLE_DIR="${TMP_DIR}/bundle"
-mkdir -p "${BUNDLE_DIR}/profile" "${BUNDLE_DIR}/shared/soul/profiles" "${BUNDLE_DIR}/references"
+mkdir -p "${BUNDLE_DIR}/profile" "${BUNDLE_DIR}/shared/soul/profiles"
 
 copy_if_exists() {
   local source="$1"
@@ -132,10 +132,7 @@ generate_env_template "${PROFILE_HOME}/.env" "${BUNDLE_DIR}/profile/.env.templat
 copy_if_exists "${HERMES_HOME}/shared/soul/base.md" "${BUNDLE_DIR}/shared/soul/base.md"
 copy_if_exists "${HERMES_HOME}/shared/soul/profiles/${PROFILE}.md" "${BUNDLE_DIR}/shared/soul/profiles/${PROFILE}.md"
 
-LATEST_TARBALL="$(find "${SYNC_ROOT}/backups" -maxdepth 1 -type f -name '*.tar.gz' | sort | tail -n1 || true)"
-LATEST_HINDSIGHT_DUMP="$(find "${SYNC_ROOT}/backups/hindsight" -maxdepth 1 -type f \( -name '*.sql' -o -name '*.sql.gz' \) | sort | tail -n1 || true)"
-
-python3 - <<'PY' "${BUNDLE_DIR}/manifest.json" "${PROFILE}" "${ENV_ID}" "${SERVICE_MODE}" "${PROFILE_HOME}" "${ARCHIVE_PATH}" "${LATEST_TARBALL}" "${LATEST_HINDSIGHT_DUMP}" "${SYNC_ROOT}"
+python3 - <<'PY' "${BUNDLE_DIR}/manifest.json" "${PROFILE}" "${ENV_ID}" "${SERVICE_MODE}" "${PROFILE_HOME}" "${ARCHIVE_PATH}" "${SYNC_ROOT}"
 from pathlib import Path
 import json
 import os
@@ -149,17 +146,12 @@ payload = {
     'service_mode': sys.argv[4],
     'profile_home': sys.argv[5],
     'archive_path': sys.argv[6],
-    'latest_state_snapshot': sys.argv[7] or None,
-    'latest_hindsight_dump': sys.argv[8] or None,
-    'sync_root': sys.argv[9],
+    'sync_root': sys.argv[7],
     'exported_at': datetime.now(timezone.utc).isoformat(),
     'exported_by_user': os.environ.get('USER') or os.environ.get('USERNAME') or 'unknown',
 }
 manifest_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + '\n')
 PY
-
-printf '%s\n' "${LATEST_TARBALL}" > "${BUNDLE_DIR}/references/latest-state-snapshot.txt"
-printf '%s\n' "${LATEST_HINDSIGHT_DUMP}" > "${BUNDLE_DIR}/references/latest-hindsight-dump.txt"
 
 mkdir -p "$(dirname "${ARCHIVE_PATH}")"
 tar -C "${BUNDLE_DIR}" -czf "${ARCHIVE_PATH}" .

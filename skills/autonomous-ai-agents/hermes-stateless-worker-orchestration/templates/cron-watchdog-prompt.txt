@@ -1,0 +1,23 @@
+Use this when a cron run should re-enter an overnight mission in a bounded, stateless way.
+
+Prompt template:
+
+Read the mission handoff file first, then continue the highest-priority next action.
+Work on one meaningful chunk only.
+Before ending, update the handoff with:
+- current status
+- artifacts changed
+- blockers
+- next exact action
+- recommended next mode: continue | replan | decompose | stop
+
+Rules:
+- Preserve state in files, not only in chat context.
+- Retry once only for transient failures.
+- Otherwise replan or decompose.
+- If you hit primary-model 429 rate limiting and this mission is configured for wait-429 mode, do not switch to a secondary fallback model; update the handoff with the cooldown/blocker and stop this pass cleanly.
+- For billing/auth/model-not-found failures, normal fallback behavior is still acceptable even when the mission prefers wait-429 for transient rate limits.
+
+Cron caveat:
+- Use only when the cron runtime can access the same project paths as the interactive environment.
+- If cron runtime paths differ, prefer tmux + run-overnight-loop.sh instead.

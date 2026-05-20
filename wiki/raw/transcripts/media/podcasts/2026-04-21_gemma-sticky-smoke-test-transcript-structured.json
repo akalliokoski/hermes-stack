@@ -1,0 +1,259 @@
+{
+  "duration_hint": "short",
+  "episode_slug": "gemma-sticky-smoke-test",
+  "generation_mode": "podcastfy_compat",
+  "hosts": {
+    "HOST_A": {
+      "default_emotion": 0.8,
+      "podcastfy_speaker": "Person1",
+      "role": "connector"
+    },
+    "HOST_B": {
+      "default_emotion": 0.75,
+      "podcastfy_speaker": "Person2",
+      "role": "interrogator"
+    }
+  },
+  "provenance": {
+    "artifact_label": "transcript-structured",
+    "captured_on": "2026-04-21",
+    "pipeline_name": "podcast-pipeline",
+    "purpose": "Archive canonical structured podcast transcript JSON.",
+    "title": "gemma sticky smoke test"
+  },
+  "show_slug": "ai-generated",
+  "title": "gemma sticky smoke test",
+  "turns": [
+    {
+      "emotion": 0.79,
+      "notes": [
+        "cold_open"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "We are working from almost nothing, and that is the point of the exercise: one local line, \"Gemma sticky shared skill smoke test.\", and an episode title, \"gemma sticky smoke test.\"",
+      "turn_id": "t01"
+    },
+    {
+      "emotion": 0.74,
+      "notes": [
+        "cold_open"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So if we drift, we fail.",
+      "turn_id": "t02"
+    },
+    {
+      "emotion": 0.78,
+      "notes": [
+        "context_frame"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Exactly. The safest reading is simple: both artifacts point to a smoke test tied to Gemma and to the word sticky; only the source line also includes \"shared skill.\"",
+      "turn_id": "t03"
+    },
+    {
+      "emotion": 0.75,
+      "notes": [
+        "context_frame"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Good. Name the gap before you interpret it.",
+      "turn_id": "t04"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "context_frame"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Right, because the wording difference is not incidental here, or rather we cannot prove that it is incidental. It is one of the few concrete things the source packet gives us.",
+      "turn_id": "t05"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Take the source phrase on its own: \"Gemma sticky shared skill smoke test.\" It behaves like a compressed label, with Gemma as the anchor and the rest stacked after it in a tight sequence.",
+      "turn_id": "t06"
+    },
+    {
+      "emotion": 0.73,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Stacked how? Stay literal.",
+      "turn_id": "t07"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Literally, the line presents four meaningful chunks together: Gemma, sticky, shared skill, and smoke test. That lets us say the label foregrounds those concepts together, but not how any test is implemented.",
+      "turn_id": "t08"
+    },
+    {
+      "emotion": 0.74,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So it groups them. It does not explain them.",
+      "turn_id": "t09"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Exactly, and that distinction does real work for the episode: we can analyze emphasis and compression, while refusing to invent mechanism or backstory.",
+      "turn_id": "t10"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "pivot"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Now the title. It drops \"shared skill.\" Why does that matter?",
+      "turn_id": "t11"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "pivot"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Because the title, \"gemma sticky smoke test,\" keeps the outer frame but trims the middle. The result is shorter and cleaner, while the fuller source line remains the more specific wording we actually have.",
+      "turn_id": "t12"
+    },
+    {
+      "emotion": 0.75,
+      "notes": [
+        "pivot"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Cleaner, yes. But do not smuggle in motive.",
+      "turn_id": "t13"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "pivot"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Fair correction. We cannot say why the phrase was shortened. We can only say the omission exists, and that it changes what is explicit in the title versus the source.",
+      "turn_id": "t14"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "That gives the transcript its central tension: one artifact names a \"shared skill\" directly, the other does not. So the episode becomes about both the phrase itself and the discipline required to read small differences carefully.",
+      "turn_id": "t15"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "In other words, the smoke test is partly about restraint.",
+      "turn_id": "t16"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Yes, restraint and structure. With such a tiny source packet, rigor becomes the content; the exchange has to stay useful without adding unsupported facts.",
+      "turn_id": "t17"
+    },
+    {
+      "emotion": 0.77,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "And that makes the wording do double duty: it is both the subject and the boundary.",
+      "turn_id": "t18"
+    },
+    {
+      "emotion": 0.82,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "That is the clean synthesis. The source gives us a fuller label, the title gives us a trimmed version, and the grounded interpretation lives in that overlap and that omission: Gemma, sticky, smoke test in both places, \"shared skill\" only in the source line.",
+      "turn_id": "t19"
+    },
+    {
+      "emotion": 0.78,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Small corpus, sharp constraint.",
+      "turn_id": "t20"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Exactly. This episode does not uncover hidden detail; it shows that even a one-line source can support a precise conversation if every claim stays attached to the exact words on the page.",
+      "turn_id": "t21"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "close"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Then the test passes only if the transcript stays honest.",
+      "turn_id": "t22"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "close"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "And that is \"gemma sticky smoke test\": a brief, source-bound reading of a compact label whose shortest difference turns out to be the most informative part.",
+      "turn_id": "t23"
+    }
+  ],
+  "version": 1
+}

@@ -32,10 +32,10 @@ echo "→ Configuring Tailscale Serve for ${CURRENT_TAILNET_DOMAIN}"
 "${TAILSCALE_CMD[@]}" serve --bg --https=9446 http://127.0.0.1:8787
 "${TAILSCALE_CMD[@]}" serve --bg --https=9444 http://127.0.0.1:9120
 "${TAILSCALE_CMD[@]}" serve --bg --https=9443 http://127.0.0.1:9999
+"${TAILSCALE_CMD[@]}" serve --bg --https=9445 http://127.0.0.1:8384
 
 if [[ "${HERMES_COMPOSE_SERVICE_SET:-core}" == "full" ]]; then
   "${TAILSCALE_CMD[@]}" serve --bg --https=443 http://127.0.0.1:8081
-  "${TAILSCALE_CMD[@]}" serve --bg --https=9445 http://127.0.0.1:8384
 fi
 
 "${TAILSCALE_CMD[@]}" serve --bg --https=443 --set-path /memory/ http://127.0.0.1:8888
@@ -52,9 +52,7 @@ domain = os.environ["CURRENT_TAILNET_DOMAIN"]
 status = json.loads(os.environ["SERVE_STATUS_JSON"])
 web = status.get("Web") or {}
 mode = os.environ.get("HERMES_COMPOSE_SERVICE_SET", "core")
-expected = {f"{domain}:443", f"{domain}:9443", f"{domain}:9444", f"{domain}:9446"}
-if mode == "full":
-    expected |= {f"{domain}:9445"}
+expected = {f"{domain}:443", f"{domain}:9443", f"{domain}:9444", f"{domain}:9445", f"{domain}:9446"}
 missing = sorted(expected - set(web))
 unexpected = sorted(k for k in web if k not in expected)
 if missing or unexpected:
@@ -68,10 +66,10 @@ if missing or unexpected:
 echo "✓ Tailscale Serve now published at:"
 echo "  https://${CURRENT_TAILNET_DOMAIN}:9446/"
 echo "  https://${CURRENT_TAILNET_DOMAIN}:9444/"
+echo "  https://${CURRENT_TAILNET_DOMAIN}:9445/"
 echo "  https://${CURRENT_TAILNET_DOMAIN}/memory/"
 echo "  https://${CURRENT_TAILNET_DOMAIN}/firecrawl/"
 echo "  https://${CURRENT_TAILNET_DOMAIN}:9443/"
 if [[ "${HERMES_COMPOSE_SERVICE_SET:-core}" == "full" ]]; then
   echo "  https://${CURRENT_TAILNET_DOMAIN}/"
-  echo "  https://${CURRENT_TAILNET_DOMAIN}:9445/"
 fi

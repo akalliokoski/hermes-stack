@@ -1,0 +1,42 @@
+{
+  "issues": [
+    {
+      "code": "missing_emotion_peak",
+      "message": "episode never reaches a clear emotional peak",
+      "severity": "warning"
+    }
+  ],
+  "ok": true,
+  "provenance": {
+    "artifact_label": "transcript-audit",
+    "captured_on": "2026-04-21",
+    "pipeline_name": "podcast-pipeline",
+    "purpose": "Archive transcript audit results.",
+    "title": "Transcript Upgrade Smoke Test"
+  },
+  "summaries": {
+    "emotion_arc": {
+      "flat": false,
+      "max_emotion": 0.82,
+      "min_emotion": 0.75,
+      "missing_peak": true,
+      "peak_too_early": false,
+      "peak_turn_index": null,
+      "peak_value": null,
+      "spread": 0.06999999999999995,
+      "turn_count": 27
+    },
+    "gasp_count": 0,
+    "speaker_balance": {
+      "counts": {
+        "HOST_A": 14,
+        "HOST_B": 13
+      },
+      "dominant_share": 0.5185185185185185,
+      "dominant_speaker": "HOST_A",
+      "imbalanced": false,
+      "total_turns": 27
+    },
+    "tag_count": 0
+  }
+}

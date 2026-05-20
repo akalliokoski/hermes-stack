@@ -1,0 +1,319 @@
+{
+  "duration_hint": "medium",
+  "episode_slug": "transcript-upgrade-smoke-test",
+  "generation_mode": "podcastfy_compat",
+  "hosts": {
+    "HOST_A": {
+      "default_emotion": 0.8,
+      "podcastfy_speaker": "Person1",
+      "role": "connector"
+    },
+    "HOST_B": {
+      "default_emotion": 0.75,
+      "podcastfy_speaker": "Person2",
+      "role": "interrogator"
+    }
+  },
+  "provenance": {
+    "artifact_label": "transcript-structured",
+    "captured_on": "2026-04-21",
+    "pipeline_name": "podcast-pipeline",
+    "purpose": "Archive canonical structured podcast transcript JSON.",
+    "title": "Transcript Upgrade Smoke Test"
+  },
+  "show_slug": "smoke-test-show",
+  "title": "Transcript Upgrade Smoke Test",
+  "turns": [
+    {
+      "emotion": 0.8,
+      "notes": [
+        "cold_open",
+        "topic_intro"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Agent memory gets most visible at the moment it fails. An agent can sound sharp, even confident, and still make you restate the same preferences, the same constraints, the same already-made decisions. So the real test is not whether the reply sounds intelligent in one turn. It is whether the work carries forward.",
+      "turn_id": "t01"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "cold_open",
+        "stakes"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Exactly. No memory, no accumulation. Just a convincing reset button.",
+      "turn_id": "t02"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "context_frame"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "And we should be careful here, because the only source we have is the topic itself: why agent memory matters. So we cannot lean on outside examples as facts. But we can reason from the premise. If an agent is meant to help over time, not just answer isolated prompts, then memory stops being decorative and starts becoming structural.",
+      "turn_id": "t03"
+    },
+    {
+      "emotion": 0.75,
+      "notes": [
+        "context_frame",
+        "pressure_test"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Wait. Structural? Plenty of useful tools are stateless. Search works. Calculators work. Basic chat can work. Why treat memory like a hinge instead of a bonus?",
+      "turn_id": "t04"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "context_frame",
+        "answer"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Because the promise of an agent is different. The standard is not just local correctness. It is adaptation. If the system can retain what the user values, what environment it is operating in, and what choices have already been settled, then later responses can start closer to the truth. Memory is what turns repeated contact into accumulated understanding rather than repeated onboarding.",
+      "turn_id": "t05"
+    },
+    {
+      "emotion": 0.78,
+      "notes": [
+        "topic_1",
+        "efficiency"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So, yes, less repetition. Useful. But still a little small. Is the whole pitch really just saving reminders?",
+      "turn_id": "t06"
+    },
+    {
+      "emotion": 0.82,
+      "notes": [
+        "topic_1",
+        "user_experience"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "It looks small at first, then it compounds. If an agent remembers that you prefer concise answers, that your project has a specific layout, or that a previous workaround caused trouble, it can choose better defaults on the first pass. That saves corrections, but more than that, it preserves attention. The user spends less energy re-establishing context and more energy moving the work forward.",
+      "turn_id": "t07"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "topic_1",
+        "challenge"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Still sounds like polish. Push harder. When does memory stop being nice and start being necessary?",
+      "turn_id": "t08"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "topic_1",
+        "structural_importance"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "When the work has dependencies across time. A long-running build, a research thread, a content pipeline\u2014well, even without naming any one case, the pattern is clear. There are prior assumptions, tool choices, rejected options, conventions, risks. If those do not persist, each session quietly reopens settled ground. The output may still sound plausible, but the process starts wasting prior effort.",
+      "turn_id": "t09"
+    },
+    {
+      "emotion": 0.78,
+      "notes": [
+        "topic_1",
+        "tension"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "And that is where trust breaks. Fast. The user hears, in effect: tell me again.",
+      "turn_id": "t10"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "topic_1",
+        "trust"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Yes, and trust is the deeper layer. Memory is not just fact retrieval. It is evidence of continuity. If an agent carries forward clarified constraints or stable preferences, it shows that the user's time counts. Without that continuity, even good answers can feel careless, because the agent keeps imposing the same setup cost.",
+      "turn_id": "t11"
+    },
+    {
+      "emotion": 0.75,
+      "notes": [
+        "topic_1",
+        "reframe"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So memory is competence with manners.",
+      "turn_id": "t12"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "topic_1",
+        "reframe_answer"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Close. I would tighten it a little. It is competence expressed through continuity. The more the agent is supposed to help with real work, the less acceptable it becomes for every exchange to behave like a fresh demo.",
+      "turn_id": "t13"
+    },
+    {
+      "emotion": 0.77,
+      "notes": [
+        "pivot"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Fine. But memory can also misfire. Stale assumptions. Bad recall. Personalization that overshoots. Why is more memory not just more ways to be wrong?",
+      "turn_id": "t14"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "pivot",
+        "qualification"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "That is the real complication, and it matters. Memory helps only when it is selective, inspectable, and revisable. An agent should not retain every passing detail. It should keep the durable facts that improve future performance and remain open to correction. Otherwise memory curdles into drift, where an old assumption keeps steering new behavior after it has stopped being true.",
+      "turn_id": "t15"
+    },
+    {
+      "emotion": 0.78,
+      "notes": [
+        "topic_2",
+        "failure_modes"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So the argument is not memory versus no memory. It is disciplined memory versus sloppy memory.",
+      "turn_id": "t16"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "topic_2",
+        "quality_bar"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Right. And the discipline has a few parts. Relevance: save what reduces future friction. Durability: prefer facts likely to stay useful. Corrigibility: let newer evidence replace older notes. And scope discipline\u2014because not every detail belongs in persistent memory. Some facts describe the user, some describe a project, and some are only temporary session state.",
+      "turn_id": "t17"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "topic_2",
+        "pressure_test"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Nice framework. But what is the field test? How do you tell whether memory is actually helping instead of just making the system feel elaborate?",
+      "turn_id": "t18"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "topic_2",
+        "practical_test"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "The practical test is simple, even if the implementation is not. Does the user have to repeat themselves less while outcomes improve? If the agent retrieves relevant prior context before asking for it again, anticipates stable preferences correctly, and avoids known pitfalls, then memory is doing useful work. If it stores a lot yet keeps re-asking the same questions or acting on stale assumptions, the memory layer is not serving the task.",
+      "turn_id": "t19"
+    },
+    {
+      "emotion": 0.77,
+      "notes": [
+        "topic_2",
+        "accountability"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So fewer repetitions, better defaults, fewer repeat mistakes. Otherwise it is baggage.",
+      "turn_id": "t20"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "topic_2",
+        "accountability_answer"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Yes, and there is another layer. Memory should improve handoffs across time. A good agent can return to an unfinished line of work, recover the stable facts, and continue without acting as if the world began five seconds ago. That matters especially when people use agents intermittently, across devices, or in short bursts between other obligations.",
+      "turn_id": "t21"
+    },
+    {
+      "emotion": 0.78,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Let me compress it. Without memory, intelligence stays thin in time. You might get a smart answer now, but you do not get momentum.",
+      "turn_id": "t22"
+    },
+    {
+      "emotion": 0.82,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "That is the heart of it. And I would add one small clarification: momentum is not just a side effect. It is often the thing people actually want from an agent. Not merely fluent output, but progress. Memory is the mechanism that lets prior instructions, preferences, corrections, and context keep paying off instead of evaporating at the end of each turn.",
+      "turn_id": "t23"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Which creates the irony. The better an agent seems in the moment, the more maddening statelessness feels later.",
+      "turn_id": "t24"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "synthesis",
+        "qualification"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Exactly, because capability raises expectation. Once an agent can reason, plan, and take action, users naturally expect it to remember what matters. So memory is not some optional flourish attached afterward. It is part of what makes agency usable over time, provided that memory stays scoped, correctable, and tied to the user's ongoing work.",
+      "turn_id": "t25"
+    },
+    {
+      "emotion": 0.78,
+      "notes": [
+        "close"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Final verdict: for one-off answers, memory can be optional. For an actual working relationship, it is the hinge.",
+      "turn_id": "t26"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "close"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "That is the frame. Memory matters because continuity matters, and continuity is what turns isolated competence into sustained help.",
+      "turn_id": "t27"
+    }
+  ],
+  "version": 1
+}

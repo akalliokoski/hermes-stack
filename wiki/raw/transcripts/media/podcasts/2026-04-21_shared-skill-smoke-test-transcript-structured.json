@@ -1,0 +1,249 @@
+{
+  "duration_hint": "short",
+  "episode_slug": "shared-skill-smoke-test",
+  "generation_mode": "podcastfy_compat",
+  "hosts": {
+    "HOST_A": {
+      "default_emotion": 0.8,
+      "podcastfy_speaker": "Person1",
+      "role": "connector"
+    },
+    "HOST_B": {
+      "default_emotion": 0.75,
+      "podcastfy_speaker": "Person2",
+      "role": "interrogator"
+    }
+  },
+  "provenance": {
+    "artifact_label": "transcript-structured",
+    "captured_on": "2026-04-21",
+    "pipeline_name": "podcast-pipeline",
+    "purpose": "Archive canonical structured podcast transcript JSON.",
+    "title": "shared skill smoke test"
+  },
+  "show_slug": "source-grounded-tests",
+  "title": "shared skill smoke test",
+  "turns": [
+    {
+      "emotion": 0.79,
+      "notes": [
+        "cold_open"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "We are working from a single line: \"Hermes profile shared skill smoke test.\" That is almost nothing, but it does give us a clear cluster of terms and a clear limit.",
+      "turn_id": "t01"
+    },
+    {
+      "emotion": 0.74,
+      "notes": [
+        "cold_open"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Right. Four anchors. No extra story.",
+      "turn_id": "t02"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "context_frame"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "So the safest opening read is not a full narrative but a label, maybe a descriptor, tying together Hermes, profile, shared skill, and smoke test.",
+      "turn_id": "t03"
+    },
+    {
+      "emotion": 0.75,
+      "notes": [
+        "context_frame"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Maybe a label, yes. But not a system diagram.",
+      "turn_id": "t04"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "context_frame"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Exactly, and that distinction matters because the phrase gives association without explaining structure. It places those terms together, but it does not tell us how they are implemented.",
+      "turn_id": "t05"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Let us hit the sharpest term first: smoke test. That names a kind of check, not an outcome.",
+      "turn_id": "t06"
+    },
+    {
+      "emotion": 0.82,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Yes, or rather, it names the posture of the check. The wording points to something lightweight or initial, while staying silent on whether anything passed, failed, or changed.",
+      "turn_id": "t07"
+    },
+    {
+      "emotion": 0.74,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So no success story. No failure story.",
+      "turn_id": "t08"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Then there is \"shared skill,\" which is useful precisely because it is narrow. We can say the skill is described as shared; we cannot say shared across what.",
+      "turn_id": "t09"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Good. Shared is explicit. Scope is not.",
+      "turn_id": "t10"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "And that leaves \"Hermes profile,\" which feels like the contextual half of the phrase. I should be careful there: not proof of architecture, just part of the named context sitting next to the test description.",
+      "turn_id": "t11"
+    },
+    {
+      "emotion": 0.75,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Context, maybe. Architecture, no.",
+      "turn_id": "t12"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "pivot"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Put together, the line works like a compact identifier. Hermes profile frames where or around what the phrase applies, and shared skill smoke test frames what kind of check is being named.",
+      "turn_id": "t13"
+    },
+    {
+      "emotion": 0.77,
+      "notes": [
+        "pivot"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Named, yes. Explained, no.",
+      "turn_id": "t14"
+    },
+    {
+      "emotion": 0.82,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Which is why the real discipline here is interpretive restraint. The source is short, but it still supports a precise reading: a smoke test concerning a shared skill, expressed in relation to a Hermes profile.",
+      "turn_id": "t15"
+    },
+    {
+      "emotion": 0.76,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "And even that is close to the edge. Keep it tight.",
+      "turn_id": "t16"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Fair correction. Then tighter: the phrase names those elements together and presents smoke test as the kind of activity involved. Anything beyond that would be invention.",
+      "turn_id": "t17"
+    },
+    {
+      "emotion": 0.77,
+      "notes": [
+        "topic_2"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "That lands. It stays grounded and still says something useful.",
+      "turn_id": "t18"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "So the episode's strongest factual takeaway is modest by design. \"Hermes profile\" is part of the label, \"shared skill\" is part of the label, and \"smoke test\" identifies the check being referenced.",
+      "turn_id": "t19"
+    },
+    {
+      "emotion": 0.78,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Minimal source. Clean constraints.",
+      "turn_id": "t20"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "close"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "And maybe that is the value of a line this small: it forces precision. We can describe the wording faithfully without pretending the wording gave us more than it did.",
+      "turn_id": "t21"
+    },
+    {
+      "emotion": 0.75,
+      "notes": [
+        "close"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Exactly. Shared skill smoke test. Hermes profile. Nothing extra. Done.",
+      "turn_id": "t22"
+    }
+  ],
+  "version": 1
+}

@@ -4,7 +4,7 @@ env:
   hostname: vps
   profile_root: /home/hermes/.hermes
   work_root: /home/hermes/work
-  wiki_path: /home/hermes/sync/wiki
+  wiki_path: "{repo_root}/wiki"
   sync_root: /home/hermes/sync
   services:
     hermes_webui:
@@ -26,7 +26,7 @@ env:
       api_url: http://127.0.0.1:3002
       ui_url: https://vps.taild96651.ts.net/firecrawl/
     syncthing:
-      mode: local_docker
+      mode: host_native
       local_gui_url: http://127.0.0.1:8384/
       remote_gui_url: https://vps.taild96651.ts.net:9445/
       gui_url: https://vps.taild96651.ts.net:9445/
@@ -45,4 +45,4 @@ config:
   skills:
     config:
       wiki:
-        path: /home/hermes/sync/wiki
+        path: "{repo_root}/wiki"

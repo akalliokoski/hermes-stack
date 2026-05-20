@@ -16,7 +16,6 @@ bash -n scripts/verify-environment.sh
 bash -n scripts/export-profile.sh
 bash -n scripts/import-profile.sh
 bash -n scripts/clone-profile-from-vps.sh
-bash -n scripts/restore-hindsight.sh
 bash -n scripts/setup-podcast-pipeline.sh
 
 printf '\n== Python dependency/bootstrap checks ==\n'

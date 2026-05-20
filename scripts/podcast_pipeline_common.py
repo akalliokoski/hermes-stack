@@ -37,7 +37,7 @@ DEFAULT_OUTPUT_DIR = os.environ.get("PODCAST_OUTPUT_DIR", "/data/audiobookshelf/
 DEFAULT_PODCAST_LIBRARY_ROOT = os.environ.get("PODCAST_LIBRARY_ROOT", "/data/audiobookshelf/podcasts/profiles")
 DEFAULT_PODCAST_PROJECTS_DIR = os.environ.get("PODCAST_PROJECTS_DIR", "/data/audiobookshelf/projects")
 DEFAULT_AUDIOBOOKSHELF_BASE_URL = os.environ.get("AUDIOBOOKSHELF_BASE_URL", "http://127.0.0.1:13378")
-DEFAULT_WIKI_PATH = os.environ.get("WIKI_PATH", "~/sync/wiki")
+DEFAULT_WIKI_PATH = os.environ.get("WIKI_PATH", "/opt/hermes/wiki")
 
 
 def current_profile_slug() -> str:

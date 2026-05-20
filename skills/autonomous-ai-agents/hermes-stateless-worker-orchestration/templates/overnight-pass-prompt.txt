@@ -1,0 +1,34 @@
+Read the current mission state before doing anything else.
+
+Required inputs to inspect first:
+- the local handoff file
+- the local todo/worklog files if they exist
+- any artifacts explicitly referenced by the handoff
+
+Operating mode:
+- You are one bounded overnight pass, not an immortal session.
+- Preserve state in files, not only in chat context.
+- Follow the retry -> replan -> decompose ladder.
+- Retry once only for clearly transient failures.
+- If the current approach is wrong, replan.
+- If the task is too broad or coupled, decompose.
+
+Execution target:
+- Choose the single highest-priority next action that moves the mission forward.
+- Work until that action is completed, blocked, or you are near the turn budget.
+- Prefer concrete verified progress over broad speculative work.
+
+Before ending, you must update the handoff with:
+- current status
+- artifacts changed
+- blockers
+- next exact action
+- recommended next mode: continue | replan | decompose | stop
+
+Return a concise final report with:
+- status:
+- result_summary:
+- artifacts:
+- failure_reason:
+- tool_trace_summary:
+- recommended_next_action:

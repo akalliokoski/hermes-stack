@@ -1,0 +1,256 @@
+{
+  "duration_hint": "short",
+  "episode_slug": "expressive-dry-run-check",
+  "generation_mode": "podcastfy_compat",
+  "hosts": {
+    "HOST_A": {
+      "default_emotion": 0.8,
+      "podcastfy_speaker": "Person1",
+      "role": "connector"
+    },
+    "HOST_B": {
+      "default_emotion": 0.75,
+      "podcastfy_speaker": "Person2",
+      "role": "interrogator"
+    }
+  },
+  "provenance": {
+    "artifact_label": "transcript-structured",
+    "captured_on": "2026-04-22",
+    "pipeline_name": "podcast-pipeline",
+    "purpose": "Archive canonical structured podcast transcript JSON.",
+    "title": "Expressive Dry Run Check"
+  },
+  "show_slug": "ai-generated",
+  "title": "Expressive Dry Run Check",
+  "turns": [
+    {
+      "emotion": 0.85,
+      "notes": [
+        "cold_open",
+        "topic_intro"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "A single weird dot can look dramatic fast, but that is not really the lesson here. Trajectory anomaly detection is about unusual movement patterns across ordered sequences, not isolated points.",
+      "turn_id": "t01"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "cold_open",
+        "skeptical_hook"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Right, because one odd point alone? That could mean almost nothing.",
+      "turn_id": "t02"
+    },
+    {
+      "emotion": 0.82,
+      "notes": [
+        "context_frame"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Exactly. The source keeps pulling us back to sequence, and that's the real shift. You're not judging a lone mark on a chart. You're judging motion as it unfolds.",
+      "turn_id": "t03"
+    },
+    {
+      "emotion": 0.78,
+      "notes": [
+        "context_frame",
+        "pressure_test"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Okay, but why does ordering matter that much? Why isn't location enough?",
+      "turn_id": "t04"
+    },
+    {
+      "emotion": 0.83,
+      "notes": [
+        "topic_1",
+        "ordering_matters"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Because ordering is what turns points into movement. Without it, you lose the pattern, and with it, you can start asking whether you're seeing normal drift, sensor noise, or something genuinely suspicious.",
+      "turn_id": "t05"
+    },
+    {
+      "emotion": 0.82,
+      "notes": [
+        "topic_1",
+        "reframe"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So the order is not decoration. It's the whole basis for the explanation.",
+      "turn_id": "t06"
+    },
+    {
+      "emotion": 0.84,
+      "notes": [
+        "topic_1",
+        "grounded_example"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Yes, and I like that the source doesn't just say unusual. It says useful explanations should contrast normal drift, sensor noise, and genuinely suspicious behavior. That's doing two jobs at once: describing the pattern and disciplining the interpretation.",
+      "turn_id": "t07"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "topic_1",
+        "skepticism"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Which matters, because if you skip that contrast, every wobble starts looking sinister.",
+      "turn_id": "t08"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "topic_1"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Right, and then the explanation gets sloppy. Normal drift is one thing. Sensor noise is another. Genuinely suspicious behavior is another again. If those blur together, the whole lesson falls apart.",
+      "turn_id": "t09"
+    },
+    {
+      "emotion": 0.81,
+      "notes": [
+        "topic_1",
+        "emphasis"
+      ],
+      "speaker": "HOST_B",
+      "tags": [
+        "chuckle"
+      ],
+      "text": "So the system isn't supposed to be jumpy. It's supposed to be precise. [chuckle]",
+      "turn_id": "t10"
+    },
+    {
+      "emotion": 0.77,
+      "notes": [
+        "pivot"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Precise, yes, and that leads straight into the next point. The source says a good lesson should explain why taxonomy matters too.",
+      "turn_id": "t11"
+    },
+    {
+      "emotion": 0.83,
+      "notes": [
+        "pivot",
+        "challenge"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Taxonomy can sound a little too neat, though. Why should anyone care?",
+      "turn_id": "t12"
+    },
+    {
+      "emotion": 0.84,
+      "notes": [
+        "topic_2",
+        "taxonomy"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Because once you admit there are different kinds of unusual movement, you stop treating anomaly as one big dramatic bucket. Taxonomy matters because it forces you to separate what kind of thing you're actually looking at.",
+      "turn_id": "t13"
+    },
+    {
+      "emotion": 0.8,
+      "notes": [
+        "topic_2",
+        "pressure_test"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "And that changes the read immediately, doesn't it? Noise is not the same as suspicious behavior.",
+      "turn_id": "t14"
+    },
+    {
+      "emotion": 0.82,
+      "notes": [
+        "topic_2",
+        "grounded_claim"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Exactly. The source is spare, but the point is firm: if a lesson can't distinguish those categories, it can't explain the anomaly well.",
+      "turn_id": "t15"
+    },
+    {
+      "emotion": 0.87,
+      "notes": [
+        "topic_2",
+        "stakes"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "And then comes the expensive part. False positives.",
+      "turn_id": "t16"
+    },
+    {
+      "emotion": 0.85,
+      "notes": [
+        "topic_2",
+        "stakes"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Yeah, and that's where the source gets very concrete. False positives can waste operator attention, so the cost is not just technical. It's attentional. It drains time and focus.",
+      "turn_id": "t17"
+    },
+    {
+      "emotion": 0.79,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "Which is brutal, honestly. If normal drift or sensor noise keeps setting things off, people burn energy on the wrong alerts.",
+      "turn_id": "t18"
+    },
+    {
+      "emotion": 0.83,
+      "notes": [
+        "synthesis"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Right, so the three ideas lock together. Ordering matters because movement has to be read as a sequence. Taxonomy matters because unusual patterns are not all the same. And false positives matter because bad distinctions waste operator attention.",
+      "turn_id": "t19"
+    },
+    {
+      "emotion": 0.82,
+      "notes": [
+        "synthesis",
+        "callback"
+      ],
+      "speaker": "HOST_B",
+      "tags": [],
+      "text": "So, no, don't worship the weird point. Read the sequence, sort the kind of anomaly, then decide whether it's actually suspicious.",
+      "turn_id": "t20"
+    },
+    {
+      "emotion": 0.78,
+      "notes": [
+        "close"
+      ],
+      "speaker": "HOST_A",
+      "tags": [],
+      "text": "Yeah. That's the calmer read, but it's the sharper one too. Less panic over isolated points, more grounded judgment about movement patterns and the attention they really deserve.",
+      "turn_id": "t21"
+    }
+  ],
+  "version": 1
+}

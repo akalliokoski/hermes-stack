@@ -2,9 +2,9 @@
 # scripts/vps-reset.sh – wipe the previous hermes-agent-in-docker setup.
 #
 # Run ONCE on the existing VPS before vps-setup.sh. Tears down the old
-# compose stack, removes its named volumes (hermes_data, hermes_backups,
-# syncthing_config, redis/postgres/hindsight data), and clears
-# /opt/hermes-backups. The project is rebuilt from scratch after this.
+# compose stack, removes its named volumes (syncthing_config,
+# redis/postgres/hindsight data), and clears legacy backup state. The project
+# is rebuilt from scratch after this.
 #
 # Usage:  ssh <vps> 'sudo bash -s' < scripts/vps-reset.sh
 set -euo pipefail
@@ -45,7 +45,6 @@ docker ps -aq --filter 'name=hermes' | xargs -r docker rm -f
 echo "→ Removing old named volumes"
 for vol in \
   hermes_hermes_data \
-  hermes_hermes_backups \
   hermes_syncthing_config \
   hermes_redis_data \
   hermes_postgres_data \

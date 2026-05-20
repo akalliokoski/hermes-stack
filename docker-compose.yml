@@ -3,12 +3,10 @@
 # hermes-agent itself runs natively on the host (via install.sh + systemd) and
 # uses its Docker terminal backend to sandbox each shell command. This compose
 # file only manages the auxiliary services hermes talks to: firecrawl (web
-# scraping), hindsight (vector memory), litestream (SQLite WAL replication),
-# and the daily backup job. On VPS, docker-compose.vps.yml additionally starts
-# syncthing. See SETUP.md for the full topology.
+# scraping) and hindsight (vector memory). See SETUP.md for the full topology.
 #
 # Hermes state lives at /home/hermes/.hermes on VPS (or ~/.hermes locally) and
-# is bind-mounted into the litestream/backup/syncthing containers.
+# is managed by the host-native Hermes runtime.
 
 services:
   # ---------------------------------------------------------------------------
@@ -136,58 +134,6 @@ services:
       - hindsight_data:/home/hindsight/.pg0
     networks: [hermes]
 
-  # ---------------------------------------------------------------------------
-  # Litestream – continuous SQLite replication for state.db
-  # Source: /home/hermes/.hermes (host) → /opt/data (container)
-  # Replica: hermes_backups volume → /opt/hermes-backups/litestream/ on VPS
-  # ---------------------------------------------------------------------------
-  litestream:
-    image: litestream/litestream:latest
-    restart: unless-stopped
-    command: replicate
-    volumes:
-      - ./litestream.yml:/etc/litestream.yml:ro
-      - ${HERMES_DATA_DIR:-/home/hermes/.hermes}:/opt/data
-      - hermes_backups:/opt/backups
-    networks: [hermes]
-
-  # ---------------------------------------------------------------------------
-  # Backup – daily tarball snapshots of /home/hermes/.hermes
-  # Trigger manually: make backup-now
-  # Hindsight logical SQL dumps are produced separately by the host-side
-  # backup-hindsight-host.sh flow, not from inside this minimal container.
-  # ---------------------------------------------------------------------------
-  backup:
-    image: offen/docker-volume-backup:v2
-    restart: unless-stopped
-    environment:
-      BACKUP_CRON_EXPRESSION: "0 3 * * *"
-      # docker-volume-backup uses BACKUP_FILENAME (not BACKUP_FILENAME_FORMAT).
-      # Keep the default backup-* prefix so old oversized backup-* archives are pruned.
-      BACKUP_FILENAME: "backup-%Y-%m-%dT%H-%M-%S.{{ .Extension }}"
-      BACKUP_PRUNING_PREFIX: "backup-"
-      # Keep local Syncthing backups short-lived; Litestream and Hindsight dumps
-      # are the durable restore paths, and large .hermes tarballs can fill the VPS.
-      BACKUP_RETENTION_DAYS: "3"
-      # Exclude rebuildable/heavy runtime state from the .hermes tarball.
-      BACKUP_EXCLUDE_REGEXP: '(^|/)(checkpoints|state-snapshots|sandboxes|logs|sessions|node_modules|\.venv|venv|\.cache|__pycache__)(/|$)'
-      EXEC_FORWARD_OUTPUT: "true"
-      # Optional S3-compatible remote target (R2, Backblaze B2, MinIO, AWS S3, etc.).
-      # When AWS_S3_BUCKET_NAME is unset the backup stays local-only.
-      AWS_S3_BUCKET_NAME: "${AWS_S3_BUCKET_NAME:-}"
-      AWS_S3_PATH: "${AWS_S3_PATH:-}"
-      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
-      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
-      AWS_ENDPOINT: "${AWS_ENDPOINT:-}"
-      AWS_ENDPOINT_PROTO: "${AWS_ENDPOINT_PROTO:-https}"
-      AWS_ENDPOINT_INSECURE: "${AWS_ENDPOINT_INSECURE:-false}"
-      AWS_STORAGE_CLASS: "${AWS_STORAGE_CLASS:-}"
-      # state.db consistency: litestream replicates WAL pages continuously, so
-      # the tarball is a secondary restore path — no pre-archive checkpoint.
-    volumes:
-      - ${HERMES_DATA_DIR:-/home/hermes/.hermes}:/backup/hermes_data:ro
-      - hermes_backups:/archive
-
 networks:
   hermes:
     driver: bridge
@@ -196,4 +142,3 @@ volumes:
   redis_data:
   postgres_data:
   hindsight_data:
-  hermes_backups:    # backup destination for .hermes tarballs — overridden to host bind-mount in vps/override files

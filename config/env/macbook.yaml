@@ -4,7 +4,7 @@ env:
   hostname: codeos-macbook-pro
   profile_root: ~/.hermes
   work_root: ~/hermes-work
-  wiki_path: ~/Sync/hermes/wiki
+  wiki_path: "{repo_root}/wiki"
   sync_root: ~/Sync/hermes
   services:
     hermes_webui:
@@ -42,7 +42,7 @@ config:
   skills:
     config:
       wiki:
-        path: ~/Sync/hermes/wiki
+        path: "{repo_root}/wiki"
 profile_overrides:
   ai-lab:
     terminal:

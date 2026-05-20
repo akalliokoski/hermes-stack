@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LOG_DIR="${REMOTE_DEPLOY_LOG_DIR:-/opt/hermes-backups/deploy-logs}"
+LOG_DIR="${REMOTE_DEPLOY_LOG_DIR:-/var/log/hermes-deploy}"
 DEPLOY_LOG="${REMOTE_DEPLOY_LOG:-${LOG_DIR}/remote-deploy-$(date +%Y%m%d-%H%M%S).log}"
 LOG_PARENT="$(dirname "${DEPLOY_LOG}")"
 sudo install -d -o "$(id -un)" -g "$(id -gn)" -m 755 "${LOG_PARENT}"
@@ -24,7 +24,7 @@ echo "[remote-deploy] log_path=${DEPLOY_LOG}"
 COMPOSE_FILES=(-f docker-compose.yml -f docker-compose.vps.yml)
 HERMES_COMPOSE_SERVICE_SET="${HERMES_COMPOSE_SERVICE_SET:-core}"
 CORE_COMPOSE_SERVICES=(hindsight firecrawl-api firecrawl-worker playwright redis db rabbitmq nuq-migrate)
-OPTIONAL_COMPOSE_SERVICES=(ui-landing syncthing litestream backup)
+OPTIONAL_COMPOSE_SERVICES=(ui-landing)
 if [[ -z "${HERMES_PROFILE_GATEWAY_MODE:-}" ]]; then
   if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
     HERMES_PROFILE_GATEWAY_MODE="existing"
@@ -61,6 +61,25 @@ disable_existing_container_restarts() {
   fi
 
   docker update --restart=no "${container_ids[@]}"
+}
+
+remove_legacy_backup_state() {
+  sudo rm -f /etc/cron.d/hermes-hindsight-backup
+  sudo rm -rf /opt/hermes-backups /home/hermes/sync/backups
+  docker compose "${COMPOSE_FILES[@]}" stop backup litestream >/dev/null 2>&1 || true
+  docker compose "${COMPOSE_FILES[@]}" rm -f backup litestream >/dev/null 2>&1 || true
+  docker volume rm -f hermes_hermes_backups >/dev/null 2>&1 || true
+}
+
+remove_legacy_syncthing_container() {
+  docker compose "${COMPOSE_FILES[@]}" stop syncthing >/dev/null 2>&1 || true
+  docker compose "${COMPOSE_FILES[@]}" rm -f syncthing >/dev/null 2>&1 || true
+  mapfile -t syncthing_container_ids < <(docker ps -aq \
+    --filter label=com.docker.compose.project=hermes \
+    --filter label=com.docker.compose.service=syncthing)
+  if ((${#syncthing_container_ids[@]} > 0)); then
+    docker rm -f "${syncthing_container_ids[@]}" >/dev/null 2>&1 || true
+  fi
 }
 
 file_digest() {
@@ -315,11 +334,16 @@ sudo systemctl enable --now containerd docker
 log_step "disable stale container autostart"
 disable_existing_container_restarts
 
+log_step "remove legacy stack-managed backups"
+remove_legacy_backup_state
+
+log_step "remove legacy Syncthing container"
+remove_legacy_syncthing_container
+
 log_step "prepare directories and ids"
-mkdir -p /opt/hermes-backups
 HERMES_UID="$(id -u hermes)"
 HERMES_GID="$(id -g hermes)"
-sudo install -d -o hermes -g hermes -m 755 /home/hermes/sync /home/hermes/sync/wiki /home/hermes/sync/backups /home/hermes/sync/backups/hindsight
+sudo install -d -o hermes -g hermes -m 755 /home/hermes/sync /home/hermes/codeo-sync
 sudo chown -R hermes:hermes /home/hermes/sync
 sudo install -d -m 755 /data /data/audiobookshelf
 sudo install -d -o hermes -g hermes -m 755 /data/audiobookshelf/config /data/audiobookshelf/metadata /data/audiobookshelf/audiobooks /data/audiobookshelf/podcasts /data/audiobookshelf/podcasts/ai-generated /data/audiobookshelf/podcasts/profiles /data/audiobookshelf/projects
@@ -328,6 +352,9 @@ sudo install -d -o hermes -g hermes -m 755 /data/jellyfin/config /data/jellyfin/
 
 log_step "ensure python yaml"
 python3 -c 'import yaml' 2>/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq python3-yaml; }
+
+log_step "install repo-managed Hermes assets"
+sudo env HERMES_HOME=/home/hermes/.hermes HERMES_USER=hermes PRUNE_SYNC_COPIES=1 bash scripts/install-repo-assets.sh
 
 log_step "render hermes config and sync profiles"
 sudo -u hermes python3 scripts/render-config.py --env-id vps --target-home /home/hermes --profile default --output /home/hermes/.hermes/config.yaml
@@ -348,12 +375,9 @@ if [[ -n "${HELPER_DST}" && "${HELPER_SRC}" == "${HELPER_DST}" ]]; then
 else
   sudo install -m 755 scripts/run-profile-cron-tick.sh /opt/hermes/scripts/run-profile-cron-tick.sh
 fi
-sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-syncthing-volume.sh scripts/repair-backup-volume.sh scripts/repair-remote-access.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/run-profile-cron-tick.sh scripts/run-hermes-dashboard-proxy.py scripts/backup-hindsight-host.sh scripts/setup-backup-cron.sh scripts/backup-hindsight-watchdog.sh scripts/verify-web-research.sh
+sudo chmod +x scripts/configure-tailscale-serve.sh scripts/repair-remote-access.sh scripts/verify-local-web-bindings.sh scripts/verify-tailnet-web-routes.sh scripts/setup-podcast-pipeline.sh scripts/setup-video-pipeline.sh scripts/setup-hermes-webui.sh scripts/run-hermes-webui.sh scripts/make-podcast.py scripts/make-manim-video.py scripts/run_podcastfy_pipeline.py scripts/audiobookshelf_api.py scripts/bootstrap-jellyfin.py scripts/sync-modal-hf-secret.py scripts/detect-env.sh scripts/render-config.py scripts/render-environment-context.py scripts/ensure-python-yaml.sh scripts/remote-deploy.sh scripts/apply-model-strategy.py scripts/cleanup-hermes-gateway-state.py scripts/run-profile-cron-tick.sh scripts/run-hermes-dashboard-proxy.py scripts/verify-web-research.sh scripts/install-repo-assets.sh scripts/setup-syncthing-host.sh
 sudo systemctl daemon-reload
 sudo systemctl enable hermes-gateway hermes-dashboard hermes-dashboard-proxy hermes-webui
-
-log_step "install hindsight backup cron"
-sudo bash scripts/setup-backup-cron.sh
 
 DEFAULT_GATEWAY_CONFIG_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_CONFIG_PATH}")"
 DEFAULT_GATEWAY_ENV_DIGEST_AFTER="$(file_digest "${DEFAULT_GATEWAY_ENV_PATH}")"
@@ -382,13 +406,8 @@ fi
 log_step "refresh Hermes WebUI checkout"
 sudo bash scripts/setup-hermes-webui.sh
 
-log_step "repair persisted service state"
-if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
-  HERMES_UID="$HERMES_UID" HERMES_GID="$HERMES_GID" bash scripts/repair-syncthing-volume.sh
-  bash scripts/repair-backup-volume.sh
-else
-  echo "Skipping Syncthing/backup volume repair for compose service set: ${HERMES_COMPOSE_SERVICE_SET}"
-fi
+log_step "refresh host-native Syncthing"
+sudo env HERMES_USER=hermes bash scripts/setup-syncthing-host.sh
 
 log_step "refresh containers"
 docker system prune -af
@@ -424,13 +443,12 @@ else
   echo "Skipping hermes-gateway active check (${HERMES_DEFAULT_GATEWAY_MODE}, inactive)."
 fi
 verify_profile_cron_tickers
-grep -F '/opt/hermes/scripts/backup-hindsight-host.sh' /etc/cron.d/hermes-hindsight-backup
 docker compose "${COMPOSE_FILES[@]}" ps
 if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
   bash scripts/verify-local-web-bindings.sh
   bash scripts/verify-tailnet-web-routes.sh
 else
-  EXPECTED_PORTS="8787 9119 9120 8888 9999 3002" bash scripts/verify-local-web-bindings.sh
+  EXPECTED_PORTS="8787 9119 9120 8384 8888 9999 3002" bash scripts/verify-local-web-bindings.sh
   HERMES_COMPOSE_SERVICE_SET="${HERMES_COMPOSE_SERVICE_SET}" bash scripts/verify-tailnet-web-routes.sh
 fi
 tailscale serve status --json

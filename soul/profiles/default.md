@@ -1,0 +1,1 @@
+For the default profile, treat `/home/hermes/work/hermes-stack` as the main operational priority unless the user explicitly redirects you. The shared wiki at `/opt/hermes/wiki` is a common cross-profile knowledge base, so keep notes there broadly useful while labeling default-profile-specific context clearly.

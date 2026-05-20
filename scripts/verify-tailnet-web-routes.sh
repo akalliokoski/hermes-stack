@@ -45,10 +45,12 @@ expected = {
     f'{domain}:9444': {
         '/': 'http://127.0.0.1:9120',
     },
+    f'{domain}:9445': {
+        '/': 'http://127.0.0.1:8384',
+    },
 }
 if mode == 'full':
     expected[f'{domain}:443']['/'] = 'http://127.0.0.1:8081'
-    expected[f'{domain}:9445'] = {'/': 'http://127.0.0.1:8384'}
 
 for listener, paths in expected.items():
     actual_listener = web.get(listener)
@@ -70,11 +72,11 @@ checks = [
     (f'https://{domain}/firecrawl/', 'Firecrawl API'),
     (f'https://{domain}:9443/', '<!DOCTYPE html>'),
     (f'https://{domain}:9444/', 'Hermes Agent - Dashboard'),
+    (f'https://{domain}:9445/', '<!DOCTYPE html>'),
     (f'https://{domain}:9446/', '<!doctype html>'),
 ]
 if mode == 'full':
     checks.append((f'https://{domain}/', '<title>Hermes Stack</title>'))
-    checks.append((f'https://{domain}:9445/', '<!DOCTYPE html>'))
 
 for url, needle in checks:
     req = urllib.request.Request(url, headers={'User-Agent': 'hermes-stack-tailnet-verifier/1.0'})

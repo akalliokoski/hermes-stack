@@ -1,8 +1,8 @@
 # Makefile – common operations for the Hermes stack.
 #
 # hermes-agent runs natively on the VPS under systemd (user: hermes).
-# Docker Compose only runs the auxiliary services (firecrawl, hindsight,
-# litestream, backup, syncthing). See SETUP.md for the full topology.
+# Docker Compose only runs the auxiliary services (firecrawl, hindsight, and
+# the VPS landing page). See SETUP.md for the full topology.
 #
 # VPS:
 #   make up                           start support services
@@ -24,11 +24,7 @@
 #   make setup-hindsight              write hindsight/config.json for default profile
 #   make setup-hindsight PROFILE=<n>  write hindsight/config.json for a named profile
 #
-# Backup & restore (VPS):
-#   make backup-now                   trigger immediate .hermes tarball
 #   make refresh-runtime              refresh Hermes + compose services in-place without a full deploy
-#   make snapshots                    list available restore points
-#   make restore ARGS="..."           see scripts/restore.sh
 #
 # Local dev (MacBook, docker-compose.override.yml auto-applied):
 #   make local-up                     start local support services
@@ -44,14 +40,12 @@
 #   make export-profile PROFILE=<n>   create a portable profile bundle under the synced exports root
 #   make import-profile PROFILE=<n> ARCHIVE=/path/to/bundle.tar.gz   import a portable profile bundle locally
 #   make clone-profile-from-vps PROFILE=<n>   one-command full clone from VPS over SSH/SCP, including workspace and profile-local files
-#   make backup-hindsight             trigger a logical Hindsight SQL dump on the VPS
-#   make restore-hindsight ARGS="..." restore or validate Hindsight dumps on the VPS
 #   make check-vps-access             diagnose the pinned VPS SSH deploy targets
 
 .PHONY: up down deploy status logs logs-all restart restart-gemma restart-both chat shell hermes \
-        update-agent refresh-runtime backup-now snapshots restore clean add-profile sync-souls sync-profiles setup-hindsight \
+        update-agent refresh-runtime clean add-profile sync-souls sync-profiles setup-hindsight \
         detect-env sync-env sync-profiles-local machine-bootstrap verify-env verify-env-local local-up local-down local-chat local-status local-logs \
-        local-backup-now local-snapshots local-update-agent local-setup-hindsight export-profile import-profile clone-profile-from-vps backup-hindsight restore-hindsight portability-smoke check-vps-access
+        local-update-agent local-setup-hindsight export-profile import-profile clone-profile-from-vps portability-smoke check-vps-access
 
 COMPOSE       = docker compose -f docker-compose.yml -f docker-compose.vps.yml
 LOCAL_COMPOSE = docker compose                          # auto-merges docker-compose.override.yml
@@ -128,22 +122,6 @@ setup-hindsight:
 
 refresh-runtime:
 	bash scripts/refresh-runtime-services.sh
-
-backup-now:
-	ssh $(VPS_HOST) 'cd /opt/hermes && docker exec $$(docker compose -f docker-compose.yml -f docker-compose.vps.yml ps -q backup) backup'
-
-snapshots:
-	bash scripts/restore.sh list
-
-backup-hindsight:
-	@echo "→ Triggering Hindsight SQL backup on $(VPS_HOST)"
-	ssh $(VPS_HOST) 'cd /opt/hermes && sudo bash scripts/backup-hindsight-host.sh'
-
-restore-hindsight:
-	ssh $(VPS_HOST) 'cd /opt/hermes && sudo bash scripts/restore-hindsight.sh $(ARGS)'
-
-restore:
-	bash scripts/restore.sh $(ARGS)
 
 clean:
 	docker container prune -f
@@ -234,7 +212,6 @@ portability-smoke:
 # hermes runs natively via `hermes chat` against ~/.hermes.
 
 local-up:
-	@mkdir -p backups
 	$(LOCAL_COMPOSE) up -d --remove-orphans
 
 local-down:
@@ -251,12 +228,6 @@ local-chat:
 
 local-update-agent:
 	hermes update
-
-local-backup-now:
-	docker exec $$($(LOCAL_COMPOSE) ps -q backup) backup
-
-local-snapshots:
-	bash scripts/restore.sh list
 
 local-setup-hindsight:
 	@ENV_ID="$$(bash scripts/detect-env.sh)"; \

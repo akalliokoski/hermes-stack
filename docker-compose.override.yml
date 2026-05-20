@@ -1,27 +1,2 @@
 # Local development overrides – applied automatically by Docker Compose.
 # Do not deploy this file to the VPS.
-#
-# Locally, HERMES_DATA_DIR defaults to ~/.hermes (the MacBook's hermes install).
-# Set it explicitly in .env if your local hermes lives elsewhere.
-services:
-  litestream:
-    volumes:
-      - ./litestream.local.yml:/etc/litestream.yml:ro
-      - ${HERMES_DATA_DIR:-${HOME}/.hermes}:/opt/data
-      - hermes_backups:/opt/backups
-
-  backup:
-    environment:
-      BACKUP_CRON_EXPRESSION: "0 3 * * 0"   # weekly (not daily) for local dev
-      BACKUP_RETENTION_DAYS: "14"
-    volumes:
-      - ${HERMES_DATA_DIR:-${HOME}/.hermes}:/backup/hermes_data:ro
-      - hermes_backups:/archive
-
-volumes:
-  hermes_backups:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${PWD}/backups

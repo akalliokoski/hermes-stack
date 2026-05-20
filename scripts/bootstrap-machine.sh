@@ -20,9 +20,9 @@ Usage:
 
 What it does:
   - detects/renders the current machine's Hermes config + ENVIRONMENT.md
-  - creates the Syncthing-friendly shared asset layout under env.sync_root
+  - creates the local runtime/export layout under env.sync_root
   - mirrors env manifests into <sync_root>/envs for cross-machine discovery
-  - links ~/.hermes/shared/{soul,skills} to the synced folders when safe
+  - links ~/.hermes/shared/{soul,skills} to repo-managed folders when safe
   - optionally normalizes the default + named local profiles for this machine
 EOF
 }
@@ -117,17 +117,14 @@ mkdir -p "${HERMES_HOME}" \
          "${WORK_ROOT}" \
          "${SYNC_ROOT}" \
          "${WIKI_PATH}" \
-         "${SYNC_ROOT}/backups/hindsight" \
          "${SYNC_ROOT}/exports" \
-         "${SYNC_ROOT}/envs" \
-         "${SYNC_ROOT}/soul/profiles" \
-         "${SYNC_ROOT}/skills"
+         "${SYNC_ROOT}/envs"
 
 cp -f "${REPO_ROOT}"/config/env/*.yaml "${SYNC_ROOT}/envs/"
 log "✓ Mirrored environment manifests into ${SYNC_ROOT}/envs"
 
-link_shared_dir "${HERMES_HOME}/shared/soul" "${SYNC_ROOT}/soul"
-link_shared_dir "${HERMES_HOME}/shared/skills" "${SYNC_ROOT}/skills"
+link_shared_dir "${HERMES_HOME}/shared/soul" "${REPO_ROOT}/soul"
+link_shared_dir "${HERMES_HOME}/shared/skills" "${REPO_ROOT}/skills"
 
 python3 "${CONFIG_RENDERER}" \
   --repo-root "${REPO_ROOT}" \

@@ -1,10 +1,10 @@
 # Hermes — Setup & Operations
 
-This document covers the deployment layer: local dev, VPS setup, configuration, day-to-day ops, state, and backup/restore.
+This document covers the deployment layer: local dev, VPS setup, configuration, day-to-day ops, state, and recovery.
 
 This is a living document. Keep it actively updated when deploy flow, runtime architecture, profile behavior, verification steps, or recovery procedures change.
 
-**Topology.** `hermes-agent` runs natively on the VPS under systemd (user: `hermes`), installed via the upstream [install.sh](https://hermes-agent.nousresearch.com/docs/getting-started/installation). On the VPS, the default and always-on gateway profiles use Hermes's local terminal backend so CLI and mobile/gateway sessions share the same profile behavior and workspaces. Docker Compose runs the auxiliary services: firecrawl, hindsight, litestream, backup, and on the VPS the tailnet-facing support apps such as Syncthing, Audiobookshelf, and Jellyfin. Hermes's built-in dashboard/API remain the canonical web control surfaces; third-party UIs like Hermes Workspace should be treated as optional experiments until their packaging is stable.
+**Topology.** `hermes-agent` runs natively on the VPS under systemd (user: `hermes`), installed via the upstream [install.sh](https://hermes-agent.nousresearch.com/docs/getting-started/installation). On the VPS, the default and always-on gateway profiles use Hermes's local terminal backend so CLI and mobile/gateway sessions share the same profile behavior and workspaces. Docker Compose runs the auxiliary services: firecrawl, hindsight, and the static landing page. Syncthing, when enabled, runs host-native under systemd. Hermes's built-in dashboard/API remain the canonical web control surfaces; third-party UIs like Hermes Workspace should be treated as optional experiments until their packaging is stable.
 
 ---
 
@@ -16,16 +16,14 @@ VPS host
 │     └── hermes gateway run                 (state in /home/hermes/.hermes)
 │           └── local terminal backend in /home/hermes/work/<profile>
 │
+├── systemd: syncthing@hermes.service        (host-native optional sync)
+│     └── sync /home/hermes/sync plus dedicated roots like /home/hermes/codeo-sync
+│
 └── docker compose
       ├── firecrawl-api  + firecrawl-worker  127.0.0.1:3002 (web scraping)
       ├── playwright, redis, db, rabbitmq, nuq-migrate
       ├── hindsight                          127.0.0.1:8888 / 9999 (vector memory)
-      ├── litestream                         continuous state.db WAL replication
-      ├── backup                             daily /home/hermes/.hermes tarball
-      ├── syncthing (VPS only)               sync /home/hermes/sync plus dedicated
-      │                                      roots like /home/hermes/codeo-sync → MacBook
-      │                                      over Tailscale
-      └── host runtime helpers               tailnet-only operator support
+      └── ui-landing                         tailnet landing page in full mode
 ```
 
 **Compose files:**
@@ -34,18 +32,11 @@ VPS host
 |---|---|
 | `docker-compose.yml` | Base — auxiliary services only |
 | `docker-compose.override.yml` | Local dev overrides (auto-applied) |
-| `docker-compose.vps.yml` | VPS additions: syncthing and host data bind-mounts |
+| `docker-compose.vps.yml` | VPS additions for the tailnet landing page |
 
-The VPS Syncthing service runs inside Docker, so folder paths entered in the
-Syncthing web UI must use container-visible mount points, not raw host paths.
-Current dedicated mounts include:
-
-- `/sync` → host `/home/hermes/sync`
-- `/codeo-sync` → host `/home/hermes/codeo-sync`
-
-For a separate per-user parent sync root for the macOS `codeo` user, accept or
-create the folder in the Syncthing UI with the container path `/codeo-sync`,
-then use `/codeo-sync/notebooklm-auth` as the NotebookLM auth-bundle subfolder.
+The VPS Syncthing service is host-native, not a Docker container. Folder paths
+entered in the Syncthing UI are real host paths such as `/home/hermes/sync` and
+`/home/hermes/codeo-sync`.
 
 ---
 
@@ -75,7 +66,7 @@ cp .env        ~/.hermes/.env
 # 3. Bootstrap the machine-specific shared/synced layout + render config
 make machine-bootstrap
 
-# 4. Optional: start the local support stack (firecrawl, hindsight, litestream, backup)
+# 4. Optional: start the local support stack (firecrawl, hindsight)
 make local-up SERVICE_MODE=local
 
 # 5. Verify what Hermes believes is available here
@@ -110,8 +101,6 @@ make export-profile PROFILE=default           # create portable profile bundle u
 make import-profile ARCHIVE=/path/to/bundle.tar.gz PROFILE=default
 make clone-profile-from-vps PROFILE=ai-lab    # export on VPS over SSH/SCP, import locally, and copy the workspace
 make local-chat                    # hermes chat
-make local-backup-now              # trigger immediate backup
-make local-snapshots               # list available backups
 ```
 
 ### Config
@@ -188,8 +177,8 @@ The strategy is explicit on purpose: it changes `delegation` and `fallback_model
 Run [scripts/vps-bootstrap.sh](scripts/vps-bootstrap.sh) from the MacBook. It reads `VPS_HOST` from `.env`, prompts for confirmation (the step is destructive on an existing VPS), and then:
 
 1. Stages `vps-reset.sh`, `vps-setup.sh`, `hermes-gateway.override.conf`, repo config overlays, and `.env` into `/tmp/hermes-bootstrap/` on the VPS.
-2. Runs [scripts/vps-reset.sh](scripts/vps-reset.sh) — stops the hermes-gateway unit, `docker compose down --volumes` on the old stack, removes the `hermes_*` named volumes, wipes `/opt/hermes-backups` and `/home/hermes/{.hermes,work}`. Safe no-op on a clean VPS.
-3. Runs [scripts/vps-setup.sh](scripts/vps-setup.sh) — installs Docker (if missing), creates the `hermes` system user, adds it to the `docker` group, installs hermes-agent via the upstream install.sh, seeds `/home/hermes/.hermes/.env`, renders `/home/hermes/.hermes/config.yaml` from the `vps` environment overlay, creates `/opt/hermes-backups` + `/opt/hermes`, asks Hermes to generate the stock `hermes-gateway` systemd unit, then installs the repo-managed drop-in and enables the service (but does not start it).
+2. Runs [scripts/vps-reset.sh](scripts/vps-reset.sh) — stops the hermes-gateway unit, `docker compose down --volumes` on the old stack, removes the `hermes_*` named volumes, wipes legacy backup state and `/home/hermes/{.hermes,work}`. Safe no-op on a clean VPS.
+3. Runs [scripts/vps-setup.sh](scripts/vps-setup.sh) — installs Docker (if missing), creates the `hermes` system user, adds it to the `docker` group, installs hermes-agent via the upstream install.sh, seeds `/home/hermes/.hermes/.env`, renders `/home/hermes/.hermes/config.yaml` from the `vps` environment overlay, creates `/opt/hermes`, asks Hermes to generate the stock `hermes-gateway` systemd unit, then installs the repo-managed drop-in and enables the service (but does not start it).
 4. Cleans up the staged files.
 
 ```bash
@@ -243,7 +232,7 @@ needs directly for agent operation:
   `playwright`, `redis`, `db`, `rabbitmq`, `nuq-migrate`
 
 The deploy script stops/removes optional compose services in core mode:
-`ui-landing`, `syncthing`, `litestream`, and `backup`. To restore the full auxiliary stack later, run deploy with
+`ui-landing` and `syncthing`. To restore the full auxiliary stack later, run deploy with
 `HERMES_COMPOSE_SERVICE_SET=full` and review memory headroom first.
 
 Core deploys also keep gateway services conservative during recovery: existing
@@ -349,17 +338,17 @@ Use `--gateway skip` for pure config normalization. Use `--gateway harden` to re
 
 ### Shared instructions across profiles
 
-Common instructions still render through `~/.hermes/shared/soul/`, but `make machine-bootstrap` now links that directory to the Syncthing-backed shared root when possible:
+Common instructions still render through `~/.hermes/shared/soul/`, but that path now points back into this repo:
 
 ```text
-~/.hermes/shared/soul -> <sync_root>/soul
-~/.hermes/shared/skills -> <sync_root>/skills
+~/.hermes/shared/soul -> <repo>/soul
+~/.hermes/shared/skills -> <repo>/skills
 ```
 
-Within the synced root, the contract is:
+Within the repo, the canonical shared asset contract is:
 
 ```text
-<sync_root>/
+hermes-stack/
 ├── wiki/
 ├── soul/
 │   ├── base.md
@@ -368,8 +357,6 @@ Within the synced root, the contract is:
 │       └── <name>.md
 ├── skills/
 ├── exports/
-├── backups/
-│   └── hindsight/
 └── envs/
 ```
 
@@ -400,7 +387,7 @@ The operating flow is:
 - `scripts/render-environment-context.py` generates `ENVIRONMENT.md`, including the preferred service URLs for the chosen `SERVICE_MODE`.
 - `scripts/provision-profile.sh` regenerates profile `config.yaml`, `ENVIRONMENT.md`, and `SOUL.md` together.
 - `scripts/verify-environment.sh` validates that rendered profiles match the declared environment contract, including terminal backend/workspace wiring drift against the canonical rendered config.
-- `scripts/bootstrap-machine.sh` creates the synced/shared directory layout, mirrors env manifests into `<sync_root>/envs`, links shared soul/skills, and rerenders local profiles.
+- `scripts/bootstrap-machine.sh` creates the local runtime/export layout, mirrors env manifests into `<sync_root>/envs`, links shared soul/skills to the repo, and rerenders local profiles.
 
 On a local machine, run:
 
@@ -427,13 +414,14 @@ sudo -iu hermes HERMES_HOME=/home/hermes/.hermes bash scripts/verify-environment
 
 `make deploy` / `scripts/remote-deploy.sh` go one step further than the manual config-only command above: core deploys use `--sync-all-profiles --gateway harden`, refresh existing named-profile gateway drop-ins without starting them, leave an inactive `hermes-gateway` stopped, and then re-apply Tailscale Serve plus web-binding verification. Full deploys can opt back into `--gateway existing` behavior after reviewing host capacity.
 
-`scripts/remote-deploy.sh` now also writes a timestamped log under `/opt/hermes-backups/deploy-logs/` by default and includes the failing `step=...`, `command=...`, `exit=...`, and `log=...` path in its error trap output. The GitHub deploy workflow pins a per-run log path (for example `/opt/hermes-backups/deploy-logs/github-run-<run-id>.log`) and, on failure, appends the tail of that remote log to the Actions step summary so the last failing command is visible without manually SSHing into the VPS.
+`scripts/remote-deploy.sh` now also writes a timestamped log under `/var/log/hermes-deploy/` by default and includes the failing `step=...`, `command=...`, `exit=...`, and `log=...` path in its error trap output. The GitHub deploy workflow pins a per-run log path (for example `/var/log/hermes-deploy/github-run-<run-id>.log`) and, on failure, appends the tail of that remote log to the Actions step summary so the last failing command is visible without manually SSHing into the VPS.
 
 ### VPS-specific services
 
-**Syncthing** now synchronizes the machine-agnostic shared root at `/home/hermes/sync`, not the entire live `~/.hermes` runtime directory. The important split is:
+**Syncthing** runs host-native as `syncthing@hermes.service`. It is no longer the source of truth for wiki, soul, or shared skills. The important split is:
 
-- synced: `wiki/`, shared `soul/`, shared `skills/`, `exports/`, backup archives, copied env manifests
+- repo-managed: `wiki/`, shared `soul/`, shared `skills/`
+- optionally synced: `exports/`, copied env manifests, and other non-canonical operator files under `/home/hermes/sync`
 - not blindly synced: `~/.hermes/.env`, live `state.db*`, sessions/logs/cron caches, platform auth, host-specific runtime config
 
 Open the Hermes stack landing page from any tailnet device:
@@ -453,21 +441,20 @@ That landing page links to Hermes WebUI, the Hermes dashboard, Syncthing UI, Hin
 
 All of these stay bound to `127.0.0.1` on the VPS and are published externally only through the host Tailscale daemon. Hermes WebUI runs against the shared `/home/hermes/.hermes` root so its built-in profile switcher can see the default profile plus every named profile under `~/.hermes/profiles/`. The Hermes Dashboard path now goes through a tiny localhost reverse proxy on `127.0.0.1:9120` before reaching the upstream dashboard on `127.0.0.1:9119`, which preserves the dashboard's new Host-header protection while keeping tailnet access working. The deploy flow reapplies `scripts/configure-tailscale-serve.sh` and verifies both the live Serve listeners and real HTTP responses against the node's current MagicDNS/cert domain so hostname drift or dashboard Host-header regressions fail deployment instead of leaving stale URLs behind.
 
-Point the MacBook side at `~/Sync/hermes` (or wherever). Obsidian → **Open folder as vault** → `~/Sync/hermes/wiki`.
+Open the repo `wiki/` directory as the canonical Obsidian vault for Hermes Stack notes.
 
 #### Syncthing settings to change after first deploy (one-time)
 
-Because the shared root now lives directly at `/home/hermes/sync`, do the following in the Syncthing UI after first start or after migrating from the old layout:
+Because Syncthing is host-native, do the following in the Syncthing UI after first start or after migrating from the old Docker container:
 
-1. **Remove** the old `hermes-data` and `shared` folders (Edit → Remove; keep files on disk).
+1. **Remove** old Docker-era `hermes-data`, `shared`, or `/sync` folders (Edit → Remove; keep files on disk).
 2. **Add** a new folder:
-   - Folder Path (in container): `/sync`
+   - Folder Path: `/home/hermes/sync`
    - Folder ID: `hermes`
    - Share with the MacBook device.
 3. On the **MacBook**: accept the share, point it at `~/Sync/hermes` (or your chosen path).
 4. Enable **Staggered File Versioning** (30 days, 1 h interval) on the new folder.
-5. Once initial sync is done, reopen Obsidian at the synced vault path (`~/Sync/hermes/wiki`).
-6. Run `make machine-bootstrap` on the MacBook so `~/.hermes/shared/{soul,skills}` link into the synced tree and local config is rerendered.
+5. Run `make machine-bootstrap` on the MacBook so `~/.hermes/shared/{soul,skills}` link into this repo and local config is rerendered.
 
 **Tailscale** exposes the landing page and all internal web UIs on your tailnet via the host Tailscale daemon (not a container). Deploy applies this automatically with:
 
@@ -490,7 +477,7 @@ Current shape:
 Important behavior:
 - the UI points at the shared Hermes home, not a single profile subdirectory
 - the Hermes WebUI profile picker can switch across the default profile and named profiles in `~/.hermes/profiles/`
-- because it runs on the host with the Hermes user's real filesystem, it sees `/home/hermes/work/<profile>` and `/home/hermes/sync/wiki` directly instead of requiring container bind-mount tricks
+- because it runs on the host with the Hermes user's real filesystem, it sees `/home/hermes/work/<profile>` and repo wiki path `/opt/hermes/wiki` directly instead of requiring container bind-mount tricks
 
 Optional env overrides in `/home/hermes/.hermes/.env`:
 
@@ -635,7 +622,7 @@ Required env/config for a real run:
 - `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`, `PODCASTFY_PYTHON=/home/hermes/.venvs/podcast-pipeline/bin/python`, `PODCAST_LIBRARY_ROOT=/data/audiobookshelf/podcasts/profiles`, `PODCAST_PROJECTS_DIR=/data/audiobookshelf/projects`.
 - `VIDEO_LIBRARY_ROOT=/data/jellyfin/videos/profiles`, `VIDEO_PROJECTS_DIR=/data/jellyfin/projects`, `VIDEO_SERIES=notebooklm-style-explainers`, `VIDEO_PIPELINE_VENV=/home/hermes/.venvs/video-pipeline` for the Jellyfin explainer workflow. The pipeline now keeps project artifacts out of the served library tree and publishes only clean final MP4/SRT outputs into profile-specific Jellyfin library roots.
 - `scripts/remote-deploy.sh` now installs the required Ubuntu packages for local Manim rendering (`build-essential`, `python3-dev`, `pkg-config`, `libcairo2-dev`, `libpango1.0-dev`, `ffmpeg`) and bootstraps the dedicated venv via `/opt/hermes/scripts/setup-video-pipeline.sh`.
-- `WIKI_PATH=/home/hermes/sync/wiki` if you want transcript/brief archives written somewhere other than the shared synced wiki default.
+- `WIKI_PATH=/opt/hermes/wiki` if you want transcript/brief archives written somewhere other than the repo-managed wiki default.
 - `HF_TOKEN` if your Modal Chatterbox deploy needs Hugging Face auth (sync it into Modal with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py`)
 - `PODCASTFY_VENV` optional when bootstrapping the podcast helper venv somewhere else
 - optional `TELEGRAM_BOT_TOKEN` + `TELEGRAM_HOME_CHANNEL` for ready notifications
@@ -681,40 +668,39 @@ See [.env.example](.env.example) for the authoritative, commented list. Highligh
 - optional narrated-explainer overrides: `VIDEO_NARRATION_VOICE=Lucy`, `TTS_BASE_URL=https://<workspace>--hermes-chatterbox-openai.modal.run` or `CHATTERBOX_BASE_URL=...`.
 - narrated explainer scaffolds now create `scene_manifest.json` + `narration-script.md`; `render.sh` can synthesize per-scene clips, assemble a normalized master narration track, render infographic scene clips, and emit `captions/final.srt` when a TTS base URL is configured.
 - To bootstrap or repair the infographic video runtime manually, run `bash /opt/hermes/scripts/setup-video-pipeline.sh` on the VPS; it provisions the dedicated video venv and verifies the ffmpeg-backed renderer path. The script expects `uv` on your `PATH` (for Hermes that is typically `~/.local/bin/uv`).
-- `WIKI_PATH=/home/hermes/sync/wiki` to override where podcast transcripts and explainer briefs are archived.
+- `WIKI_PATH=/opt/hermes/wiki` to override where podcast transcripts and explainer briefs are archived.
 - `HF_TOKEN` as the local source of truth for Modal's `hf-token` secret; sync it with `python3 /opt/hermes/scripts/sync-modal-hf-secret.py` before deploys that need Hugging Face auth.
 - optional setup override: `PODCASTFY_VENV=/home/hermes/.venvs/podcast-pipeline` when bootstrapping the podcast venv somewhere else.
 - optional legacy/local fallback: `KOKORO_BASE_URL=http://<mac-tailnet-name>.ts.net:8880/v1`.
 - `VPS_HOST`, `VPS_DIR` (deploy).
-- `HERMES_DATA_DIR` — overrides the bind-mount source for litestream/backup (default `/home/hermes/.hermes`; use `~/.hermes` locally).
 - optional deploy diagnostics overrides for `scripts/remote-deploy.sh`: `REMOTE_DEPLOY_LOG_DIR`, `REMOTE_DEPLOY_LOG`.
 
 ---
 
 ## Agent state & persistence
 
-Everything live/runtime-specific stays under `/home/hermes/.hermes` (VPS) / `~/.hermes` (MacBook), while the machine-agnostic shared root lives under `/home/hermes/sync` (VPS) / `~/Sync/hermes` (MacBook).
+Everything live/runtime-specific stays under `/home/hermes/.hermes` (VPS) / `~/.hermes` (MacBook). Canonical operator knowledge lives in this repo under `wiki/`, `soul/`, and `skills/`; optional cross-machine files can still use `/home/hermes/sync` (VPS) / `~/Sync/hermes` (MacBook).
 
 ```text
 .hermes/
 ├── config.yaml               ← rendered from config/base.yaml + config/env/<env>.yaml
 ├── ENVIRONMENT.md            ← generated machine/runtime capability summary
 ├── .env                      ← secrets (NOT synced)
-├── state.db + wal            ← replicated by Litestream (NOT synced)
+├── state.db + wal            ← local runtime state (NOT synced)
 ├── memories/                 local runtime state
 ├── SOUL.md                   rendered from shared soul + ENVIRONMENT.md
 ├── shared/
-│   ├── soul -> <sync_root>/soul
-│   └── skills -> <sync_root>/skills
+│   ├── soul -> <repo>/soul
+│   └── skills -> <repo>/skills
 ├── sessions/ logs/ cron/     runtime-only, not synced
 └── platforms/                platform auth (WhatsApp/Signal), not synced
 
-<sync_root>/
-├── wiki/                     synced Obsidian vault
+<repo>/
+├── wiki/                     canonical Hermes Stack wiki
 ├── soul/                     shared profile instructions
 ├── skills/                   shared cross-profile skills
+<sync_root>/
 ├── exports/                  portable profile bundles
-├── backups/                  tarballs + hindsight SQL dumps
 └── envs/                     mirrored environment manifests
 ```
 
@@ -722,56 +708,11 @@ Each profile has its own subdirectory under `/home/hermes/work/` or `~/hermes-wo
 
 ---
 
-## Backup & Restore
+## Backup & Recovery
 
-Three complementary layers protect portability and recovery:
+VPS-level recovery is handled by Hetzner backups enabled in the Hetzner console. The Hermes stack no longer runs its own `.hermes` tarball sidecar, Litestream replica, or scheduled Hindsight SQL dump job, and Syncthing is not used as a backup transport.
 
-### 1. Litestream (continuous SQLite replication)
-
-`state.db` is a live WAL-mode SQLite DB — it cannot be safely `tar`'d while running. Litestream streams WAL pages to the backup archive every 10–30 s and writes full snapshots every 6–12 h.
-
-```bash
-make snapshots                                  # list restore points
-make restore ARGS="db latest"                   # roll state.db back
-make restore ARGS="db 2026-04-05T21:00:00"      # point-in-time restore
-```
-
-### 2. docker-volume-backup tarballs (`.hermes` runtime state)
-
-Every day at 3am on VPS (weekly locally), the runtime `.hermes` dir is tarballed into the synced backup root.
-
-```bash
-make backup-now
-make local-backup-now
-make restore ARGS="volume hermes_data_2026-04-05T03-00-00.tar.gz"
-make restore ARGS="file memories/MEMORY.md hermes_data_2026-04-05T03-00-00.tar.gz"
-```
-
-### 3. Hindsight logical SQL dumps
-
-The VPS backup flow also writes a compressed logical `pg_dump` snapshot of Hindsight into `backups/hindsight/`, keeping Hindsight protected independently of live Docker volumes. The canonical host-side script prunes old local dumps by count and age so one-off/manual retries do not accumulate forever on the root disk.
-
-```bash
-make backup-hindsight
-make restore-hindsight ARGS="list"
-make restore-hindsight ARGS="validate-bank hermes-default"
-make restore-hindsight ARGS="restore-db /home/hermes/sync/backups/hindsight/hindsight_dump_....sql.gz"
-```
-
-### Optional object storage for archive backups
-
-The backup sidecar (`offen/docker-volume-backup`) can mirror `.hermes` tarballs to any S3-compatible backend such as Cloudflare R2, Backblaze B2, MinIO, or AWS S3. Keep local retention short for fast restore, and use the remote bucket for longer retention/lifecycle rules.
-
-Configure these in `.env` on the VPS when you want remote copies:
-
-```bash
-AWS_S3_BUCKET_NAME=...
-AWS_S3_PATH=hermes/vps
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-AWS_ENDPOINT=...
-AWS_ENDPOINT_PROTO=https
-```
+Syncthing remains for optional portable material such as profile exports and copied environment manifests. Live runtime state stays local to the machine and is recovered from the provider snapshot when needed.
 
 ### Portable profile export/import
 
@@ -835,23 +776,14 @@ By default on the Mac, the files land under your home directory, not under the r
 - Shared skills: `~/.hermes/shared/skills`
 - Shared soul: `~/.hermes/shared/soul`
 - Workspace: `~/hermes-work/<name>`
-- Synced/shared root: `~/Sync/hermes`
-- Wiki: `~/Sync/hermes/wiki`
+- Optional sync root: `~/Sync/hermes`
+- Wiki: repo `wiki/`
 
 If you want the whole layout under a different base path, pass `TARGET_HOME=/some/path` to `make clone-profile-from-vps ...` or use `./clone-profile <name> /some/path`. That makes the layout:
 
 - Hermes files: `/some/path/.hermes`
 - Workspace: `/some/path/hermes-work/<name>`
 - Sync root: `/some/path/Sync/hermes`
-
-**Backup locations:**
-
-| Env | Sync root | Tarballs | Hindsight SQL dumps |
-|---|---|---|---|
-| Local | `~/Sync/hermes` (recommended) | `<sync_root>/backups/*.tar.gz` | `<sync_root>/backups/hindsight/*.sql.gz` |
-| VPS | `/home/hermes/sync` | `/home/hermes/sync/backups/*.tar.gz` | `/home/hermes/sync/backups/hindsight/*.sql.gz` |
-
----
 
 ## CI/CD (GitHub Actions)
 
@@ -876,11 +808,6 @@ If you want the whole layout under a different base path, pass `TARGET_HOME=/som
 | `make shell` | Bash shell as the hermes user |
 | `make hermes ARGS="skills"` | Arbitrary hermes subcommand |
 | `make update-agent` | `hermes update` + restart |
-| `make backup-now` | Immediate tarball |
-| `make backup-hindsight` | Trigger a logical Hindsight SQL dump on the VPS |
-| `make snapshots` | List restore points |
-| `make restore ARGS="..."` | See Backup & Restore |
-| `make restore-hindsight ARGS="..."` | Validate or restore Hindsight SQL dumps on the VPS |
 | `make verify-env` | Verify rendered VPS profile/environment wiring and service reachability |
 | `make clean` | Prune stopped containers + dangling images |
 | `make add-profile PROFILE=name` or `make add-profile PROFILE=name TELEGRAM_BOT_TOKEN=***` | Create/update a profile with its own workspace, SOUL override, Hindsight bank, and optional Telegram bot |
@@ -899,7 +826,6 @@ If you want the whole layout under a different base path, pass `TARGET_HOME=/som
 | `make export-profile PROFILE=name` | Create a portable profile bundle |
 | `make import-profile PROFILE=name ARCHIVE=/path/to/bundle.tar.gz` | Import a portable profile bundle locally |
 | `make clone-profile-from-vps PROFILE=name` | Export on the VPS over SSH/SCP, import locally, and optionally copy the workspace/secrets/profile-local skills |
-| `make local-backup-now` / `local-snapshots` | Backups |
 | `make portability-smoke` | Run local regression/smoke checks for portability scripts |
 | `bash scripts/verify-web-research.sh --all-profiles` | Run profile-scoped web_search + Firecrawl extract checks for current-fact research |
 

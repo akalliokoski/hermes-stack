@@ -327,8 +327,8 @@
           <text x="698" y="575" fill="#b8c3ef" font-size="18">semantic memory service</text>
 
           <rect x="918" y="506" width="268" height="78" rx="18" fill="rgba(247,199,108,0.12)" stroke="rgba(247,199,108,0.28)" />
-          <text x="942" y="552" fill="#eef2ff" font-size="24" font-weight="700">Litestream + Backup</text>
-          <text x="942" y="575" fill="#b8c3ef" font-size="18">durability and daily snapshots</text>
+          <text x="942" y="552" fill="#eef2ff" font-size="24" font-weight="700">Syncthing</text>
+          <text x="942" y="575" fill="#b8c3ef" font-size="18">shared root sync</text>
 
           <rect x="430" y="616" width="220" height="78" rx="18" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.14)" />
           <text x="454" y="662" fill="#eef2ff" font-size="24" font-weight="700">Syncthing</text>
@@ -383,13 +383,8 @@
             <div class="port">127.0.0.1:8888 API, 127.0.0.1:9999 UI, tailnet :9443</div>
           </div>
           <div class="service-card">
-            <h3>Litestream + backups</h3>
-            <p>Protects Hermes state with continuous SQLite WAL replication plus scheduled snapshot archives and logical Hindsight SQL dumps.</p>
-            <div class="port">internal durability layer</div>
-          </div>
-          <div class="service-card">
             <h3>Syncthing + shared wiki</h3>
-            <p>Syncs <code>/home/hermes/sync</code> across devices, including the shared wiki and synchronized backup destinations.</p>
+            <p>Syncs <code>/home/hermes/sync</code> across devices for shared wiki, soul, skills, exports, and environment manifests.</p>
             <div class="port">local 127.0.0.1:8384 → tailnet :9445</div>
           </div>
           <div class="service-card">
