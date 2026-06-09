@@ -398,6 +398,10 @@ else
 fi
 
 log_step "refresh hermes python deps"
+# Ensure the Hermes venv is writable by the service user before uv mutates it.
+# Previous sudo/root maintenance can leave root-owned __pycache__ entries, which
+# makes the deploy fail with permission errors while upgrading dependencies.
+sudo chown -R hermes:hermes /home/hermes/.hermes/hermes-agent/venv
 sudo -iu hermes env PATH="/home/hermes/.local/bin:/usr/local/bin:/usr/bin:/bin" uv pip install --python /home/hermes/.hermes/hermes-agent/venv/bin/python --quiet --upgrade "hindsight-client>=0.4.22"
 
 if [[ "${HERMES_COMPOSE_SERVICE_SET}" == "full" ]]; then
