@@ -19,6 +19,7 @@ import http.client
 import os
 import selectors
 import socket
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import cast
 
@@ -97,6 +98,17 @@ class ProxyHandler(BaseHTTPRequestHandler):
             # Preserve the browser/client WebSocket upgrade headers exactly.
             headers["Connection"] = self.headers.get("Connection", "Upgrade")
             headers["Upgrade"] = self.headers.get("Upgrade", "websocket")
+            origin = headers.get("Origin") or headers.get("origin")
+            if origin:
+                parsed_origin = urllib.parse.urlparse(origin)
+                if parsed_origin.scheme in {"http", "https"}:
+                    # The upstream dashboard is loopback-bound and validates
+                    # WebSocket Origin against its bound Host to defend against
+                    # DNS rebinding. Remote tailnet browsers/Desktop reach this
+                    # host-native proxy with a non-loopback Origin, so present
+                    # the upstream leg as a same-origin loopback connection.
+                    headers.pop("origin", None)
+                    headers["Origin"] = f"http://{UPSTREAM_HOST_HEADER}"
             for key, value in headers.items():
                 request_lines.append(f"{key}: {value}\r\n")
             request_lines.append("\r\n")
