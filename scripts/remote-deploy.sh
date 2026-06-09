@@ -362,11 +362,10 @@ sudo -u hermes python3 scripts/render-config.py --env-id vps --target-home /home
 sudo env HERMES_ENV_ID=vps bash scripts/provision-profile.sh --sync-all-profiles --gateway "${HERMES_PROFILE_GATEWAY_MODE}"
 
 log_step "install systemd units and helper executables"
-# Upstream Hermes prompts whether to start the gateway after install. Deploy
-# handles start/restart explicitly after installing repo-managed drop-ins, so
-# answer "no" here to keep CI non-interactive and avoid starting a unit before
-# hardening overrides are in place.
-printf 'n\n' | sudo env PATH="/home/hermes/.hermes/node/bin:/home/hermes/.local/bin:${PATH}" HERMES_HOME=/home/hermes/.hermes /home/hermes/.local/bin/hermes gateway install --system --run-as-user hermes --force
+# Upstream Hermes prompts whether to start the gateway now and whether to
+# enable it at boot. Deploy handles start/restart explicitly after installing
+# repo-managed drop-ins, but the system service should remain enabled.
+printf 'n\ny\n' | sudo env PATH="/home/hermes/.hermes/node/bin:/home/hermes/.local/bin:${PATH}" HERMES_HOME=/home/hermes/.hermes /home/hermes/.local/bin/hermes gateway install --system --run-as-user hermes --force
 sudo install -d -m 755 /etc/systemd/system/hermes-gateway.service.d
 sudo install -m 644 scripts/hermes-gateway.override.conf /etc/systemd/system/hermes-gateway.service.d/override.conf
 sudo install -m 644 scripts/hermes-dashboard.service /etc/systemd/system/hermes-dashboard.service
