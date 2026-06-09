@@ -25,7 +25,7 @@ while true; do
   SERVE_STATUS_JSON="$(${TAILSCALE_BIN} serve status --json)"
 
   if CURRENT_TAILNET_DOMAIN="${CURRENT_TAILNET_DOMAIN}" SERVE_STATUS_JSON="${SERVE_STATUS_JSON}" python3 - <<'PY'
-import json, os, ssl, sys, urllib.request
+import base64, json, os, socket, ssl, sys, urllib.parse, urllib.request
 
 domain = os.environ['CURRENT_TAILNET_DOMAIN']
 status = json.loads(os.environ['SERVE_STATUS_JSON'])
@@ -78,17 +78,50 @@ checks = [
 if mode == 'full':
     checks.append((f'https://{domain}/', '<title>Hermes Stack</title>'))
 
+dashboard_html = ''
 for url, needle in checks:
     req = urllib.request.Request(url, headers={'User-Agent': 'hermes-stack-tailnet-verifier/1.0'})
     with urllib.request.urlopen(req, context=ctx, timeout=20) as response:
-        body = response.read(4096).decode('utf-8', 'replace')
+        body = response.read(8192).decode('utf-8', 'replace')
         if response.status < 200 or response.status >= 400:
             raise SystemExit(f'{url} returned HTTP {response.status}')
         if needle not in body:
             raise SystemExit(f'{url} missing expected marker: {needle}')
+        if url == f'https://{domain}:9444/':
+            dashboard_html = body
+
+marker = 'window.__HERMES_SESSION_TOKEN__="'
+try:
+    token = dashboard_html.split(marker, 1)[1].split('"', 1)[0]
+except IndexError as exc:
+    raise SystemExit('Hermes dashboard did not expose a session token for WebSocket verification') from exc
+
+# Verify the WebSocket upgrade used by Hermes Desktop. A plain HTTP fetch can
+# pass even when the proxy drops Upgrade/Connection and Desktop later reports
+# "Could not connect to Hermes gateway".
+ws_path = '/api/ws?token=' + urllib.parse.quote(token, safe='')
+ws_key = base64.b64encode(os.urandom(16)).decode('ascii')
+request = (
+    f'GET {ws_path} HTTP/1.1\r\n'
+    f'Host: {domain}:9444\r\n'
+    'Upgrade: websocket\r\n'
+    'Connection: Upgrade\r\n'
+    f'Sec-WebSocket-Key: {ws_key}\r\n'
+    'Sec-WebSocket-Version: 13\r\n'
+    'Origin: https://hermes-stack-tailnet-verifier.invalid\r\n'
+    'User-Agent: hermes-stack-tailnet-verifier/1.0\r\n'
+    '\r\n'
+).encode('ascii')
+with socket.create_connection((domain, 9444), timeout=20) as raw:
+    with ctx.wrap_socket(raw, server_hostname=domain) as sock:
+        sock.sendall(request)
+        response = sock.recv(4096).decode('iso-8859-1', 'replace')
+        if not response.startswith('HTTP/1.1 101') and not response.startswith('HTTP/2 101'):
+            first = response.splitlines()[0] if response else '<empty response>'
+            raise SystemExit(f'Hermes dashboard WebSocket upgrade failed: {first}')
 PY
   then
-    echo "✓ Verified tailnet-served route mappings and live HTTP responses on ${CURRENT_TAILNET_DOMAIN}"
+    echo "✓ Verified tailnet-served route mappings, live HTTP responses, and Hermes dashboard WebSocket on ${CURRENT_TAILNET_DOMAIN}"
     exit 0
   fi
 
